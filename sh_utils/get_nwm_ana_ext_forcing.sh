@@ -218,8 +218,14 @@ while [ $HOURS_BACK -ge 0 ] ; do
             #    MOD_TIME_TOUCH=`date --date="$MOD_TIME" "+%Y%m%d%H%M.%S"`
             #    touch -t $MOD_TIME_TOUCH ${DEST_DIR_CHILD}/${LOCAL_FILE}.part
             #fi
-            mv -v ${DEST_DIR_CHILD}/${LOCAL_FILE}.part \
-                  ${DEST_DIR_CHILD}/${LOCAL_FILE}
+            mv ${DEST_DIR_CHILD}/${LOCAL_FILE}.part \
+               ${DEST_DIR_CHILD}/${LOCAL_FILE}
+            STATUS=$?
+            if [ $STATUS -ne 0 ] ; then
+                err_msg "Error moving ${DEST_DIR_CHILD}/${LOCAL_FILE}.part" \
+                        "to ${DEST_DIR_CHILD}/${LOCAL_FILE}"
+                err_out
+            fi
 
             TIME_MINUS=$((TIME_MINUS-1))
 
