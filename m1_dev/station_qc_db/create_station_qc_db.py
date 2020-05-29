@@ -117,6 +117,12 @@ def main():
     """
     Create a NetCDF database for storing quality control information for
     station observations from the NOHRSC web database.
+
+    Version 0.2 Development started 2020-05-01
+    Changes:
+    2020-05-01, GF - Changed "depth_precip_ratio" to "precip_ratio" in
+                     qc_test_bits (which becomes the qc_test_names" attribute)
+
     """
 
     # Read command line arguments.
@@ -379,7 +385,7 @@ def main():
                           'temperature_consistency': 7,
                           'snowfall_consistency': 8,
                           'precip_consistency': 9,
-                          'depth_precip_ratio': 10,
+                          'precip_ratio': 10,
                           'spatial_temperature_consistency': 11}
 
     # Define QC variables.
@@ -422,6 +428,62 @@ def main():
                                 [np.uint8(i)
                                  for i in
                                  list(snow_depth_qc_bits.values())])
+
+    # Define bits (offsets) for snow water equivalent QC flags.
+
+    swe_qc_bits = {'naught': 0,
+                   'world_record_exceedance': 1,
+                   'world_record_increase_exceedance': 2,
+                   'streak': 3,
+                   'anomaly': 4,
+                   'rate': 5,
+                   'gap': 6,
+                   'temperature_consistency': 7,
+                   'snowfall_consistency': 8,
+                   'precip_consistency': 9,
+                   'precip_ratio': 10,
+                   'spatial_temperature_consistency': 11}
+
+    # Define QC variables.
+
+    dims = ('station', 'time')
+    station_chunk = 1
+    time_chunk = min(1024, num_hours)
+    chunk = (station_chunk, time_chunk)
+
+    var_swe_qc_checked = \
+        nc_out.createVariable('swe_qc_checked',
+                              'u4',
+                              dims,
+                              fill_value=-1,
+                              zlib=True,
+                              chunksizes=chunk)
+
+    var_swe_qc_checked.setncattr_string('wdb0_table_name',
+                                               'point.obs_swe')
+    var_swe_qc_checked.setncattr('qc_test_names',
+                                        list(swe_qc_bits.keys()))
+    var_swe_qc_checked.setncattr('qc_test_bits',
+                                        [np.uint8(i)
+                                         for i in
+                                         list(swe_qc_bits.values())])
+
+    var_swe_qc = \
+        nc_out.createVariable('swe_qc',
+                              'u4',
+                              dims,
+                              fill_value=-1,
+                              zlib=True,
+                              chunksizes=chunk)
+
+    var_swe_qc.setncattr_string('wdb0_table_name',
+                                       'point.obs_swe')
+    var_swe_qc.setncattr('qc_test_names',
+                                list(swe_qc_bits.keys()))
+    var_swe_qc.setncattr('qc_test_bits',
+                                [np.uint8(i)
+                                 for i in
+                                 list(swe_qc_bits.values())])
 
     nc_out.close()
 
