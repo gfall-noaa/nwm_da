@@ -394,11 +394,13 @@ def subset_station_latlon_obj_ids(datetime_ep,
        start and stop'''
     #print(len(db_grid_cols), len(db_grid_rows), len(obj_ids))
 
+    jan_1_1900_epoch = -2208988800
+
     start_filter_list = \
-      [dt[0]==-2208988800 or dt[0] <= datetime_ep \
+      [dt[0] == jan_1_1900_epoch or dt[0] <= datetime_ep \
        for dt in db_start_dates_ep]
     stop_filter_list = \
-      [dt[0]==-2208988800 or dt[0] >= datetime_ep \
+      [dt[0] == jan_1_1900_epoch or dt[0] >= datetime_ep \
        for dt in db_stop_dates_ep]
     filter_com = np.logical_and(stop_filter_list, start_filter_list) 
     # One could also use below to get the combined filter as list:
@@ -485,7 +487,7 @@ def get_data_column_names(conn, land_layer):
         land_snow_layer_col_names = ','.join(column_names)
     else:
         land_snow_layer_col_names = []
-   
+
     return forcing_single_layer_col_names, \
            land_single_layer_col_names, \
            land_snow_layer_col_names
@@ -496,6 +498,11 @@ def get_nwm_files_processed(conn):
     '''
     nwm_files_processed = \
         conn.execute('SELECT files_read from nwm_file_update_info').fetchall()
+    # Convert list of tuples into list.
+    #nwm_files_processed = [''.join(i) for i in nwm_files_processed]
+    #nwm_files_processed = [file[0] for file in nwm_files_processed]
+    #nwm_files_processed = list(sum(nwm_files_processed, ()))
+    nwm_files_processed = list(map(''.join, nwm_files_processed))
     if len(nwm_files_processed) <= 0:
         print('\nINFO: No nwm file has been processed yet.')
     else:
@@ -573,10 +580,14 @@ def get_nwm_files(nwm_archive_dir,
     # to include in this update.
     for root, dirs, files in os.walk(nwm_archive_dir, followlinks=True):
 
-        if len(files) == 0:
+        files_not_processed = list(set(files).difference(nwm_files_processed))
+        #files_not_processed = list(set(files) - set(nwm_files_processed)) # also works 
+        files_not_processed.sort()  # not sure if this still needed
+
+        if len(files_not_processed) == 0 or len(files) == 0:
             continue
 
-        for file_name in files:
+        for file_name in files_not_processed:
 
             if ana_ext_pattern.fullmatch(file_name) is None and \
                ana_pattern.fullmatch(file_name) is None:
@@ -602,9 +613,9 @@ def get_nwm_files(nwm_archive_dir,
             # Check if nwm_file_names are in the nwm_file_processed.
 
             #NOTE: list(sum(nwm_files_processed,())) to convert list of tuples to list
-            if nwm_file_name in list(sum(nwm_files_processed, ())):
-                #print("File {} is in the processed list.".format(nwm_file_name))
-                continue
+            #if nwm_file_name in list(sum(nwm_files_processed, ())):
+            #    #print("File {} is in the processed list.".format(nwm_file_name))
+            #    continue
 
 
             if nwm_file_cycle_type_str == 'analysis_assim_extend':
@@ -627,15 +638,15 @@ def get_nwm_files(nwm_archive_dir,
             # better reference than the NWM file, do not process.
             if oper is False and nwm_file_time_minus_hour != 0:
 
-                nwm_files_read, nwm_cycle_datetime_db_ep, \
-                    time_minus_hours_db, cycle_type_db = \
+                ref_nwm_file_name, ref_nwm_cycle_datetime_db_ep, \
+                    ref_time_minus_hours_db, ref_cycle_type_db = \
                     ref_nwm_file_update_info(conn,
                                              nwm_file_datetime_ep,
                                              nwm_group)
-                if nwm_files_read is not None:
-                    if (nwm_file_cycle_type_val > cycle_type_db) or \
-                       ((nwm_file_cycle_type_val == cycle_type_db) and \
-                        (nwm_file_time_minus_hour < time_minus_hours_db)):
+                if ref_nwm_file_name is not None:
+                    if (nwm_file_cycle_type_val > ref_cycle_type_db) or \
+                       ((nwm_file_cycle_type_val == ref_cycle_type_db) and \
+                        (nwm_file_time_minus_hour < ref_time_minus_hours_db)):
                         # Better is_reference_db = 1 data already exists.
                         continue
 
@@ -1458,8 +1469,8 @@ def update_nwm_file_update_info(conn,
     elif nwm_file_cycle_type_str == 'analysis_assim':
         nwm_file_cycle_type_val = nwm_cycle_type_ana
 
-    nwm_files_read, nwm_cycle_datetime_db_ep, \
-    time_minus_hours_db, cycle_type_db = \
+    ref_nwm_file_name, ref_nwm_cycle_datetime_db_ep, \
+    ref_time_minus_hours_db, ref_cycle_type_db = \
         ref_nwm_file_update_info(conn,
                                  nwm_file_datetime_ep,
                                  nwm_group)
@@ -1468,10 +1479,11 @@ def update_nwm_file_update_info(conn,
     #for the current nwm_file_datetime that have the same 'land' or 'forcing' category
     #and have is_reference = 1
 
-    if nwm_files_read is None:
+    if ref_nwm_file_name is None:
         is_reference = 1
-        print('Initial update for {}'.
-              format(utc_epoch_to_string(nwm_file_datetime_ep)))
+        print('INFO: {} provides initial update for {}'.
+              format(a_nwm_file_name,
+                     utc_epoch_to_string(nwm_file_datetime_ep)))
         try:
             conn.execute(sql_insert, (a_nwm_file_name,
                                       nwm_file_datetime_ep,
@@ -1481,17 +1493,22 @@ def update_nwm_file_update_info(conn,
                                       nwm_group,
                                       is_reference))
         except:
-            print('ERROR: Error in updating nwm_file_update_info table')
+            print('ERROR: Error in updating nwm_file_update_info table',
+                  file=sys.stderr)
             sys.exit(1)
 
     else:
-        print('Further Update for {}'.
-              format(utc_epoch_to_string(nwm_file_datetime_ep)))
-        if (nwm_file_cycle_type_val < cycle_type_db) or \
-           ((nwm_file_cycle_type_val == cycle_type_db) and \
-            (nwm_file_time_minus_hours > time_minus_hours_db)):
+        # print('Further Update for {}'.
+        #       format(utc_epoch_to_string(nwm_file_datetime_ep)))
+        if (nwm_file_cycle_type_val < ref_cycle_type_db) or \
+           ((nwm_file_cycle_type_val == ref_cycle_type_db) and \
+            (nwm_file_time_minus_hours > ref_time_minus_hours_db)):
             # New data is a better reference than existing data.
-            print('Case 1 - inserting')
+            # print('Case 1 - inserting')
+            print('INFO: {} provides improved reference for {}'.
+                  format(a_nwm_file_name,
+                         utc_epoch_to_string(nwm_file_datetime_ep)))
+
             is_reference = 1
             conn.execute(sql_insert, (a_nwm_file_name,
                                       nwm_file_datetime_ep,
@@ -1502,19 +1519,19 @@ def update_nwm_file_update_info(conn,
                                       is_reference))
 
             #Set old to is_reference = 0, execute: (sql_update)
-            print('Case 1 - updating')
+            # print('Case 1 - updating')
             #nwm_cycle_datetime_db_utc = calendar.timegm(
             #                            nwm_cycle_datetime_db.timetuple())
             sql_update = "UPDATE nwm_file_update_info SET is_reference=0 WHERE " + \
                          " cycle_datetime=" + \
-                           str(nwm_cycle_datetime_db_ep) + \
-                         " AND time_minus_hours=" + str(time_minus_hours_db) + \
-                         " AND cycle_type=" + str(cycle_type_db) + \
+                           str(ref_nwm_cycle_datetime_db_ep) + \
+                         " AND time_minus_hours=" + str(ref_time_minus_hours_db) + \
+                         " AND cycle_type=" + str(ref_cycle_type_db) + \
                          " AND is_reference=1"
                          #  nwm_cycle_datetime_db.strftime('%Y-%m-%d %H:%M:%S') + \
             conn.execute(sql_update)
 
-            if oper is False and time_minus_hours_db != 0:
+            if oper is False and ref_time_minus_hours_db != 0:
                 print('Need to delete some old <is_reference = 1> data')
                 if nwm_group == 'forcing':
                     table_name = 'forcing_single.nwm_forcing_single_layer'
@@ -1527,16 +1544,16 @@ def update_nwm_file_update_info(conn,
                 #                            nwm_cycle_datetime_db.timetuple())
                 sql_count = "SELECT COUNT(*) FROM " + table_name + " " + \
                             "WHERE cycle_datetime=" + \
-                            str(nwm_cycle_datetime_db_ep) + \
+                            str(ref_nwm_cycle_datetime_db_ep) + \
                             " AND datetime=" + \
                             str(nwm_file_datetime_ep) + \
-                            " AND cycle_type=" + str(cycle_type_db)
+                            " AND cycle_type=" + str(ref_cycle_type_db)
                 sql_del = "DELETE from " + table_name + " " + \
                           "WHERE cycle_datetime=" + \
-                          str(nwm_cycle_datetime_db_ep) + \
+                          str(ref_nwm_cycle_datetime_db_ep) + \
                           " AND datetime=" + \
                           str(nwm_file_datetime_ep) + \
-                          " AND cycle_type=" + str(cycle_type_db)
+                          " AND cycle_type=" + str(ref_cycle_type_db)
                          #   nwm_cycle_datetime_db.strftime('%Y-%m-%d %H:%M') + \
                 #print(sql_count)
                 db_output = conn.execute(sql_count).fetchone()
@@ -1552,6 +1569,9 @@ def update_nwm_file_update_info(conn,
         else:
             # Existing data is a better reference than new data.
             #if (oper is True) or (nwm_time_minus_hour == 0):
+            print('INFO: {} is non-reference for {} but qualifies for addition'.
+                  format(a_nwm_file_name,
+                         utc_epoch_to_string(nwm_file_datetime_ep)))
             if (oper is True) or (nwm_file_time_minus_hours == 0):
                 is_reference = 0
                 conn.execute(sql_insert, (a_nwm_file_name,
@@ -1562,7 +1582,7 @@ def update_nwm_file_update_info(conn,
                                           nwm_group,
                                           is_reference))
             else:
-                print("WARNING: we should never have processed something that has" +
+                print("WARNING: we should never have processed something that has " +
                       "is_reference = 0 and " +
                       "time_minus_hours = {} ".format(nwm_file_time_minus_hours) +
                       "to an 'archive' type of database",
@@ -1680,21 +1700,21 @@ def rename_temp_databases(db_dir,
     #print('\nINFO: Renaming {} '.format(temp_db_path) +
     #      ' as {}.'.format(base_db_path))
     print('\nINFO: Renaming {} '.format(temp_db_file) +
-          ' as {}.'.format(base_db_file))
+          'as {}.'.format(base_db_file))
     shutil.move(temp_db_path, base_db_path)
 
     temp_forcing_single_db = forcing_single_db + '.' + suffix
     temp_forcing_single_db_path = os.path.join(db_dir, 
                                                temp_forcing_single_db) 
     print('\nINFO: Renaming {} '.format(os.path.split(temp_forcing_single_db)[1]) +
-          ' as {}.'.format(os.path.split(forcing_single_db)[1]))
+          'as {}.'.format(os.path.split(forcing_single_db)[1]))
     shutil.move(temp_forcing_single_db_path, forcing_single_db)
 
     temp_land_single_db = land_single_db + '.' + suffix
     temp_land_single_db_path = os.path.join(db_dir, 
                                             temp_land_single_db)
     print('\nINFO: Renaming {} '.format(os.path.split(temp_land_single_db)[1]) +
-          ' as {}.'.format(os.path.split(land_single_db)[1]))
+          'as {}.'.format(os.path.split(land_single_db)[1]))
     shutil.move(temp_land_single_db_path, land_single_db)
     #if len(land_layer) != 0:
     #    print('\nINFO: Renaming {} '.format(temp_land_soil_db_path) +
@@ -2669,6 +2689,8 @@ def main():
     oper, db_paths = verify_base_database(opt.base_name, opt.db_dir)
 
 
+    num_nwm_files_read = 0
+
     # Loop over database/s (only one if operational, possibly multiple if archive).
     for db_path in db_paths:
 
@@ -2773,8 +2795,8 @@ def main():
         nwm_file_paths, \
         nwm_file_names, \
         nwm_file_time_minus_hours, \
-        nwm_file_datetimes_ep, \
-        nwm_file_cycle_datetimes_ep, \
+        nwm_file_ep_datetimes, \
+        nwm_file_cycle_ep_datetimes, \
         nwm_file_cycle_types = \
             get_nwm_files(nwm_archive_dir,
                           ana_ext_pattern,
@@ -2793,16 +2815,36 @@ def main():
             continue
 
         if opt.max_num_nwm_files > 0:
-            print('INFO: There will be {} new NWM files to be sampled: (out of {})'
-                  .format(opt.max_num_nwm_files, len(nwm_file_names)))
+            print('INFO: {} new NWM files found; {} will be sampled.'
+                  .format(len(nwm_file_names), opt.max_num_nwm_files))
         else:
-            print('INFO: There will be {} new NWM files to be sampled:'
+            print('INFO: {} new NWM files found to be sampled:'
                   .format(len(nwm_file_names)))
         # Files in nwm_file_names will all be sampled/processed below
 
         # Close the database file.
         sqldb_conn.close()
 
+        # Sort files in chronological order, with files having larger values
+        # of nwm_file_time_minus_hours first.
+        nwm_file_names, \
+        nwm_file_paths, \
+        nwm_file_cycle_types, \
+        nwm_file_time_minus_hours, \
+        nwm_file_datetimes_ep, \
+        nwm_file_cycle_datetimes_ep = \
+        zip_and_sort_nwm_files(nwm_file_names,
+                               nwm_file_paths,
+                               nwm_file_cycle_types,
+                               nwm_file_time_minus_hours,
+                               nwm_file_datetimes_ep,
+                               nwm_file_cycle_datetimes_ep)
+
+        # print('--')
+        # for nwm_file_name in nwm_file_names:
+        #     print(nwm_file_name)
+
+        # sys.exit(1)
 
         # Update database file/s with NWM data.
 
@@ -2878,18 +2920,18 @@ def main():
                   'since previous allstation update; skip updating this time.')
 
         station_end = time.time()
-        nwm_file_names, \
-        nwm_file_paths, \
-        nwm_file_cycle_types, \
-        nwm_file_time_minus_hours, \
-        nwm_file_datetimes_ep, \
-        nwm_file_cycle_datetimes_ep = \
-        zip_and_sort_nwm_files(nwm_file_names,
-                               nwm_file_paths,
-                               nwm_file_cycle_types,
-                               nwm_file_time_minus_hours,
-                               nwm_file_datetimes_ep,
-                               nwm_file_cycle_datetimes_ep)
+        # nwm_file_names, \
+        # nwm_file_paths, \
+        # nwm_file_cycle_types, \
+        # nwm_file_time_minus_hours, \
+        # nwm_file_datetimes_ep, \
+        # nwm_file_cycle_datetimes_ep = \
+        # zip_and_sort_nwm_files(nwm_file_names,
+        #                        nwm_file_paths,
+        #                        nwm_file_cycle_types,
+        #                        nwm_file_time_minus_hours,
+        #                        nwm_file_datetimes_ep,
+        #                        nwm_file_cycle_datetimes_ep)
 
         # Read NWM grid row/column of stations.
         # TODO: add start_datetimes, stop_datetimes
@@ -2930,7 +2972,7 @@ def main():
         '''
         # Loop over all NWM files whose data fit into the current
         # databases.
-        num_nwm_files_read = 0
+        # num_nwm_files_read = 0
         for nfi, a_nwm_file_name in enumerate(nwm_file_names):
 
             nwm_file_cycle_type, \
@@ -2999,18 +3041,18 @@ def main():
 
             if oper is False and nwm_file_time_minus_hours != 0:
 
-                nwm_files_read, nwm_cycle_datetime_db_ep, \
-                    time_minus_hours_db, cycle_type_db = \
+                ref_nwm_file_name, ref_nwm_cycle_datetime_db_ep, \
+                    ref_time_minus_hours_db, ref_cycle_type_db = \
                         ref_nwm_file_update_info(temp_db_conn,
                                                  nwm_file_datetime_ep,
                                                  nwm_group)
-                #print(nwm_files_read, nwm_cycle_datetime_db,time_minus_hours_db, cycle_type_db)
-                if nwm_files_read is not None:
-                    if (nwm_cycle_type > cycle_type_db) or \
-                      ((nwm_cycle_type == cycle_type_db) and \
-                       (nwm_file_time_minus_hours < time_minus_hours_db)):
+                #print(ref_nwm_file_name, nwm_cycle_datetime_db,ref_time_minus_hours_db, ref_cycle_type_db)
+                if ref_nwm_file_name is not None:
+                    if (nwm_cycle_type > ref_cycle_type_db) or \
+                      ((nwm_cycle_type == ref_cycle_type_db) and \
+                       (nwm_file_time_minus_hours < ref_time_minus_hours_db)):
                         print('### Existing data from {} is better reference than {}; skipping.'.
-                              format(nwm_files_read, a_nwm_file_name))
+                              format(ref_nwm_file_name, a_nwm_file_name))
                         continue
                 else:
                     print('### No reference data for {} yet, {} will be reference.'.
@@ -3277,7 +3319,10 @@ def main():
             nwm.close()
 
             # Recorded processed nwm file and other info to nwm_file_update_info
-            print('\nINFO: Updating the table nwm_file_update_info with {} '.format(a_nwm_file_name))
+            print('INFO: Updating the table nwm_file_update_info ' +
+                  'with {} for {}.'.
+                  format(a_nwm_file_name,
+                         utc_epoch_to_string(nwm_file_datetime_ep)))
 
             #To update is_reference and delete un-necessary data from archive
 
@@ -3354,11 +3399,17 @@ def main():
                               #land_soil_db,
                               #land_snow_db)
 
-        print('\nALL DONE!\n')
-        time_end = os.times()
-        total_time_spent = (time_end.elapsed - time_beginning.elapsed)/60.0
-        print('Total time spent for this run is {} minutes.\n'.
-               format(round(total_time_spent), 2))
+        print('\nINFO: Completed updates to {}'.format(db_file))
+
+        if (opt.max_num_nwm_files > 0) and \
+           (num_nwm_files_read >= opt.max_num_nwm_files):
+            break
+
+
+    time_end = os.times()
+    total_time_spent = (time_end.elapsed - time_beginning.elapsed)/60.0
+    print('Total time spent for this run is {} minutes.\n'.
+          format(round(total_time_spent), 2))
 
 
     # To get reference values for each variable for a given station
