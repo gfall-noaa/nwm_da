@@ -4,7 +4,7 @@
   The station information within the domain will be retrieved.
   The forcing and land variables and other states (from model) will
   be sampled at all stations and be written to the databases.
- 
+
   There are two basic database options in updating. One is for
   operation and the other is for archiving.
 '''
@@ -82,7 +82,7 @@ def string_to_utc_epoch(date_str, date_format='%Y-%m-%d %H:%M:%S'):
     '''
     date_dt = dt.datetime.strptime(date_str, date_format)
     return calendar.timegm(date_dt.timetuple())
-    
+
 def progress(count, total, status=''):
     """
     Progress bar:
@@ -177,7 +177,7 @@ def get_database_info(conn):
     '''
     #Get the sampling method since now only one sampling method is used at a specific run
     sampling_method = \
-        conn.execute("SELECT method FROM sampling_themes WHERE use='YES'").fetchone()[0]    
+        conn.execute("SELECT method FROM sampling_themes WHERE use='YES'").fetchone()[0]
         #because fetchone() gets a tuple
 
     #Obtain databbase names via databases_info table in the base database
@@ -271,14 +271,14 @@ def database_info_and_checks(conn,
 
     if db_start_datetime_from_db_ep == db_start_datetime_from_name_ep and oper is False:
         print('  db_start_datetime is consistent')
-        db_start_datetime_ep = db_start_datetime_from_name_ep
-    else:
-        db_start_datetime_ep = db_start_datetime_from_db_ep
+        #db_start_datetime_ep = db_start_datetime_from_name_ep
+    #else:
+        #db_start_datetime_ep = db_start_datetime_from_db_ep
     if db_finish_datetime_from_db_ep == db_finish_datetime_from_name_ep and oper is False:
         print('  db_finish_datetime is consistent')
-        db_finish_datetime_ep = db_finish_datetime_from_name_ep
-    else:
-        db_finish_datetime_ep = db_finish_datetime_from_db_ep
+        #db_finish_datetime_ep = db_finish_datetime_from_name_ep
+    #else:
+        #db_finish_datetime_ep = db_finish_datetime_from_db_ep
 
     print('  Number of days to update: ', db_num_days_update)
     print('  Last updated time: ',
@@ -299,7 +299,7 @@ def database_info_and_checks(conn,
         new_db_finish_datetime_ep = this_update_datetime_ep
 
         print('New start date (oper): ', utc_epoch_to_string(new_db_start_datetime_ep))
-        print('New finish date (oper): ', utc_epoch_to_string(new_db_finish_datetime_ep)) 
+        print('New finish date (oper): ', utc_epoch_to_string(new_db_finish_datetime_ep))
 
     return db_start_datetime_from_db_ep, \
            new_db_start_datetime_ep, \
@@ -364,7 +364,7 @@ def form_web_query_string(db_column_names,
                           data_column_types,
                           need_as=False):
     '''Form query string for web data selection'''
-    
+
     wdb_selection_str_lst = list()
     for col_num, col_name in enumerate(db_column_names):
         if need_as:
@@ -402,7 +402,7 @@ def subset_station_latlon_obj_ids(datetime_ep,
     stop_filter_list = \
       [dt[0] == jan_1_1900_epoch or dt[0] >= datetime_ep \
        for dt in db_stop_dates_ep]
-    filter_com = np.logical_and(stop_filter_list, start_filter_list) 
+    filter_com = np.logical_and(stop_filter_list, start_filter_list)
     # One could also use below to get the combined filter as list:
     #filter_com = [a and b for a, b in zip(stop_filter_list, start_filter_list)]
     db_grid_cols = list(itertools.compress(db_grid_cols, filter_com))
@@ -420,10 +420,10 @@ def attach_databases(conn, db_dir, sampling_method, land_layer,
     '''
     Attach companion land and forcing data databases.
     '''
-    start_date_str = \
-        utc_epoch_to_string(start_datetime_ep, '%Y%m%d%H')
-    finish_date_str = \
-        utc_epoch_to_string(finish_datetime_ep, '%Y%m%d%H')
+    # start_date_str = \
+    #     utc_epoch_to_string(start_datetime_ep, '%Y%m%d%H')
+    # finish_date_str = \
+    #     utc_epoch_to_string(finish_datetime_ep, '%Y%m%d%H')
 
     if os.path.isfile(forcing_single_db):
         conn.execute('ATTACH DATABASE "' + forcing_single_db + '" AS forcing_single')
@@ -437,32 +437,32 @@ def attach_databases(conn, db_dir, sampling_method, land_layer,
         print('Database file {} does not exist. Need to create it first'.format(land_single_db))
         sys.exit(1)
 
-    #below layer related databases may no longer need. Should have already 
-    #been decided in creating phase
-    if len(land_layer) != 0:
-        land_soil_db = 'nwm_ana_station_land_soil_' + \
-                        start_date + '_to_' + \
-                        finish_date + '_' + sampling_method + '.db'
-        land_snow_db = 'nwm_ana_station_land_snow_' + \
-                        start_date + '_to_' + \
-                        finish_date + '_' + sampling_method + '.db'
+    # #below layer related databases may no longer need. Should have already
+    # #been decided in creating phase
+    # if len(land_layer) != 0:
+    #     land_soil_db = 'nwm_ana_station_land_soil_' + \
+    #                     start_date + '_to_' + \
+    #                     finish_date + '_' + sampling_method + '.db'
+    #     land_snow_db = 'nwm_ana_station_land_snow_' + \
+    #                     start_date + '_to_' + \
+    #                     finish_date + '_' + sampling_method + '.db'
 
-    if len(land_layer) != 0:
-        land_soil_db_path = os.path.join(db_dir, land_soil_db)
-        if os.path.isfile(land_soil_db_path):
-            conn.execute('ATTACH DATABASE "' + \
-                                land_soil_db_path + '" AS land_soil')
-        else:
-            print('Database file {} does not exist. Need to create it first'.format(land_soil_db))
-            sys.exit(1)
+    # if len(land_layer) != 0:
+    #     land_soil_db_path = os.path.join(db_dir, land_soil_db)
+    #     if os.path.isfile(land_soil_db_path):
+    #         conn.execute('ATTACH DATABASE "' + \
+    #                             land_soil_db_path + '" AS land_soil')
+    #     else:
+    #         print('Database file {} does not exist. Need to create it first'.format(land_soil_db))
+    #         sys.exit(1)
 
-        land_snow_db_path = os.path.join(db_dir, land_snow_db)
-        if os.path.isfile(land_snow_db_path):
-            conn.execute('ATTACH DATABASE "' + \
-                                land_snow_db_path + '" AS land_snow')
-        else:
-            print('Database file {} does not exist. Need to create it first'.format(land_snow_db))
-            sys.exit(1)
+    #     land_snow_db_path = os.path.join(db_dir, land_snow_db)
+    #     if os.path.isfile(land_snow_db_path):
+    #         conn.execute('ATTACH DATABASE "' + \
+    #                             land_snow_db_path + '" AS land_snow')
+    #     else:
+    #         print('Database file {} does not exist. Need to create it first'.format(land_snow_db))
+    #         sys.exit(1)
 
 def get_data_column_names(conn, land_layer):
     '''
@@ -512,7 +512,7 @@ def get_nwm_files_processed(conn):
 
 def get_cycle_theme_info(conn, current_yyyymm):
     '''
-    Get cycle types and file strings etc for regular and 
+    Get cycle types and file strings etc for regular and
     extended analysis from the table: cycle_type_themes.
     '''
     nwm_cycle_type_ext_ana = conn.execute("SELECT value FROM cycle_type_themes " + \
@@ -555,7 +555,7 @@ def get_cycle_theme_info(conn, current_yyyymm):
            regex_str, \
            ana_regex_str
 
-def get_nwm_files(nwm_archive_dir, 
+def get_nwm_files(nwm_archive_dir,
                   ana_ext_pattern,
                   ana_pattern,
                   db_start_datetime_ep,
@@ -581,7 +581,7 @@ def get_nwm_files(nwm_archive_dir,
     for root, dirs, files in os.walk(nwm_archive_dir, followlinks=True):
 
         files_not_processed = list(set(files).difference(nwm_files_processed))
-        #files_not_processed = list(set(files) - set(nwm_files_processed)) # also works 
+        #files_not_processed = list(set(files) - set(nwm_files_processed)) # also works
         files_not_processed.sort()  # not sure if this still needed
 
         if len(files_not_processed) == 0 or len(files) == 0:
@@ -803,7 +803,7 @@ def check_nwm_attributes(nwm, nwm_group, a_nwm_file_name):
               'refers to date/time {}; '.
                format(utc_epoch_to_string(nwm_datetime_ep)) +
               '; filename indicates ' + 'date/time {}.'.
-               format(utc_epoch_to_string(nwm_file_datetime)),
+               format(utc_epoch_to_string(nwm_file_datetime_ep)),
               file=sys.stderr)
         nwm.close()
         return 0
@@ -818,7 +818,7 @@ class File_info:
     def cycle_hh(filename):
         return re.findall('\.t[0-9]{2}z\.', filename)[0][2:-2]
     def time_minus_hours(filename):
-        return int(re.findall('\.tm[0-9]{2}\.', filename)[0][3:-1]) 
+        return int(re.findall('\.tm[0-9]{2}\.', filename)[0][3:-1])
     def datetime_dt(filename):
         cycle_yyyymmdd = File_info.cycle_yyyymmdd(filename)
         cycle_hh = File_info.cycle_hh(filename)
@@ -826,7 +826,7 @@ class File_info:
 
 def create_temp_var_table(conn, nwm_var_col_name):
     '''
-    Create a temproray table to hold data for a variable for one time step for 
+    Create a temproray table to hold data for a variable for one time step for
     all stations.
     '''
     #Create a temp table to hold values for each variable
@@ -882,7 +882,7 @@ def identify_dim_pos_in_var(a_nwm_file_name,
     '''
     Identify positions of dimensions in the database file variable.
     Identify positions of known dimensions in the NWM file variable.
-    
+
     Verify that if the database file variable has a "layer"
     dimension, the NWM variable does as well, and vice
     versa, and that they are the same size.
@@ -897,7 +897,7 @@ def identify_dim_pos_in_var(a_nwm_file_name,
     db_station_dim_loc, \
     db_time_dim_loc = \
        identify_dim_pos_in_db_var(db_var_dims, nwm_var_name)
-    
+
     if db_num_z_dims > 1:
         print('ERROR: Variable "{}" '.format(nwm_var_name) +
               'in database file has too many "layer" dimensions.',
@@ -954,19 +954,20 @@ def identify_dim_pos_in_var(a_nwm_file_name,
               'does not use the "time" dimension.',
               file=sys.stderr)
         return 0
-    
+
     ## Verify that if the database file variable has a "layer"
     ## dimension, the NWM variable does as well, and vice
     ## versa, and that they are the same size.
     if (db_z_dim_loc is not None) and \
        (nwm_z_dim_loc is None):
         print('ERROR: Variable "{}" '.format(nwm_var_name) +
-              'in database file {} '.format(temp_db_file) +
+              'in database ' +
               'has layer dimension "{}" '.format(db_z_dim_name) +
               'with no counterpart for corresponding ' +
               'variable "{}" '.format(nwm_var.name) +
               'in NWM file {}.'.format(a_nwm_file_name),
               file=sys.stderr)
+              #'in database file {} '.format(temp_db_file) +
         return 0
     if (db_z_dim_loc is None) and \
        (nwm_z_dim_loc is not None):
@@ -975,8 +976,9 @@ def identify_dim_pos_in_var(a_nwm_file_name,
               'has layer dimension "{}" '.format(nwm_z_dim_name) +
               'with no counterpart for corresponding ' +
               'variable "{}" '.format(nwm_var_name) +
-              'in database file {} '.format(temp_db_file),
+              'in database',
               file=sys.stderr)
+              #'in database file {} '.format(temp_db_file),
         return 0
 
     nwm_dim_locs = [nwm_y_dim_loc,
@@ -1066,7 +1068,7 @@ def get_nwm_dim_time_loc(nwm_var):
     nwm_dim_time_locs = [nwm_x_dim_loc,
                          nwm_y_dim_loc,
                          nwm_z_dim_loc,
-                         nwm_time_dim_loc]   
+                         nwm_time_dim_loc]
     return nwm_dim_time_locs
 
 def identify_dim_pos_in_nwm_var(nwm,
@@ -1147,10 +1149,9 @@ def identify_dim_pos_in_nwm_var(nwm,
                     if "snow_layer" not in db_var_dims:
                         print('ERROR: Variable "{}" '.
                               format(nwm_var.name) +
-                              'in database file {} '.
-                              format(temp_db_file) +
-                              'has no dimension snow_layer',
+                              'in database has no dimension snow_layer',
                               file=sys.stderr)
+                              #format(temp_db_file) +
                         sys.exit(1)
                 else:
                     print('ERROR: Variable "{}" '.
@@ -1174,7 +1175,7 @@ def identify_dim_pos_in_nwm_var(nwm,
            nwm_x_dim_loc, \
            nwm_time_dim_loc
 
-def new_nwm_grid_for_zc(nwm_dim_time_locs,
+def new_nwm_grid_for_zc(zc, nwm_dim_time_locs,
                         nwm_var):
     '''Modified nwm_grid for each layer zc'''
 
@@ -1208,7 +1209,7 @@ def new_nwm_grid_for_zc(nwm_dim_time_locs,
     # Slice the grid out of the NWM file.
     # Note: 2019-05-09 this is the slowest step
     # by far of the updating process.
-    time_start = time.time()
+    #time_start = time.time()
     nwm_grid = nwm_var[nwm_slice_indices]
     ndv = nwm_var.getncattr('_FillValue')
 
@@ -1236,10 +1237,9 @@ def new_nwm_grid_for_zc(nwm_dim_time_locs,
 
         if len(weird_mask_ind[0]) > 0:
             print('WARNING: unexpected masked data ' +
-                  'in "{}" '.format(nwm_var.name) +
-                  'variable in {}.'.
-                  format(a_nwm_file_name),
+                  'in "{}" '.format(nwm_var.name),
                   file=sys.stderr)
+                  #format(a_nwm_file_name),
 
         nwm_grid.mask[bad_mask_ind] = False
 
@@ -1265,7 +1265,7 @@ def write_each_var_vals_to_temp_table(conn,
                                       land_single_layer_var_counter,
                                       forcing_single_layer_var_counter):
     '''
-    Write each variable's values (plus corresponding obj_identifiers) 
+    Write each variable's values (plus corresponding obj_identifiers)
     to the temp table which then will be attached later to form a temp
     table that contains all variable data for one time step/one nwm file.
     '''
@@ -1374,7 +1374,8 @@ def attach_each_var_vals_to_temp_table(conn,
         print('The group {} has not been implemented yet.'.format(nwm_group))
         sys.exit(1)
 
-def print_sample_station_loc(sample_ind,
+def print_sample_station_loc(nwm_grid,
+                             sample_ind,
                              db_grid_cols,
                              db_grid_rows):
     '''print out location info for a sample station'''
@@ -1608,7 +1609,7 @@ def update_databases_info(conn,
     #    temp_db_conn.execute("UPDATE databases_info SET finish_date=(?)",
     #                         (new_db_finish_datetime_str, ))
 
-    latest_time_ep = time.time() 
+    latest_time_ep = time.time()
     conn.execute("UPDATE databases_info SET last_updated_date=(?)",
                   (latest_time_ep, ))
 
@@ -1621,7 +1622,7 @@ def copy_temporary_databases(db_path,
                              land_single_db,
                              oper):
     '''
-    Make temporary databases by coping original databases 
+    Make temporary databases by coping original databases
     and then open and attach them.
     '''
     # Create a copy of the database file.
@@ -1693,7 +1694,7 @@ def rename_temp_databases(db_dir,
                           #land_soil_db='',
                           #land_snow_db=''):
     '''Rename temp databases to regular database file names'''
-    
+
     temp_db_file = base_db_file + '.' + suffix
     temp_db_path = os.path.join(opt.db_dir, temp_db_file)
     base_db_path = os.path.join(opt.db_dir, base_db_file)
@@ -1704,14 +1705,14 @@ def rename_temp_databases(db_dir,
     shutil.move(temp_db_path, base_db_path)
 
     temp_forcing_single_db = forcing_single_db + '.' + suffix
-    temp_forcing_single_db_path = os.path.join(db_dir, 
-                                               temp_forcing_single_db) 
+    temp_forcing_single_db_path = os.path.join(db_dir,
+                                               temp_forcing_single_db)
     print('\nINFO: Renaming {} '.format(os.path.split(temp_forcing_single_db)[1]) +
           'as {}.'.format(os.path.split(forcing_single_db)[1]))
     shutil.move(temp_forcing_single_db_path, forcing_single_db)
 
     temp_land_single_db = land_single_db + '.' + suffix
-    temp_land_single_db_path = os.path.join(db_dir, 
+    temp_land_single_db_path = os.path.join(db_dir,
                                             temp_land_single_db)
     print('\nINFO: Renaming {} '.format(os.path.split(temp_land_single_db)[1]) +
           'as {}.'.format(os.path.split(land_single_db)[1]))
@@ -1728,7 +1729,7 @@ def rename_temp_databases(db_dir,
 def change_datetime_to_readable_string(datetime_df,
                                        column_name):
     '''
-    Change time column of a dataframe in epoch seconds 
+    Change time column of a dataframe in epoch seconds
     to readable time string in yyyy-mm-dd hh:00
     '''
     str_list = []
@@ -1754,7 +1755,7 @@ def extract_data_for_station(station_obj_id,
         else:
             print('Database file {} does not exist.'.format(base_db))
             sys.exit(1)
-        sqldb_cur = sqldb_conn.cursor()
+        #sqldb_cur = sqldb_conn.cursor()
     except sqlite3.OperationalError:
         print('ERROR: Failed to open database file "{}".'.format(base_db),
               file=sys.stderr)
@@ -1880,7 +1881,7 @@ def get_station_latlon_obj_ids_times(conn, db_file):
         db_grid_rows = conn.execute('SELECT nwm_grid_row FROM stations').fetchall()
     except:
         print('ERROR: Failing to get grid col/row data from ' +
-              temp_db_file + '.', file=sys.stderr)
+              db_file + '.', file=sys.stderr)
 
     # Get obj_identifier of all stations.
     try:
@@ -1899,7 +1900,7 @@ def get_station_latlon_obj_ids_times(conn, db_file):
                                          " FROM stations").fetchall()
     except:
         print('ERROR: Failing to get start/stop dates from ' +
-              temp_db_file + '.', file=sys.stderr)
+              db_file + '.', file=sys.stderr)
 
     return db_grid_cols, db_grid_rows, obj_ids, \
            db_start_dates_ep, db_stop_dates_ep
@@ -2321,7 +2322,7 @@ def update_nwm_db_allstation(db_file,
              "AND tstn.use = TRUE " + \
         "GROUP BY " + group_str + \
         " HAVING COUNT(*) > 0 " + \
-        "ORDER BY tstn.obj_identifier;" 
+        "ORDER BY tstn.obj_identifier;"
 
     print('\nINFO: psql command "{}"'.format(sql_meta_with_snow))
 
@@ -2428,7 +2429,7 @@ def update_nwm_db_allstation(db_file,
     #time_str = this_station_update_datetime.strftime('%s')
     #time_utc = calendar.timegm(this_station_update_datetime.timetuple())
     time_ep = this_station_update_datetime_ep
-    
+
     if num_record == 0:
         sqldb_cur.execute(insert_statement, (time_ep,))
     elif num_record == 1:
@@ -2702,7 +2703,7 @@ def main():
                 sqlite3.connect(db_path,
                                 detect_types=\
                                 sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
-            sqldb_cur = sqldb_conn.cursor()
+            #sqldb_cur = sqldb_conn.cursor()
         except sqlite3.OperationalError:
             print('ERROR: Failed to open database file "{}".'.format(db_path),
                   file=sys.stderr)
@@ -2724,7 +2725,7 @@ def main():
                                      oper)
 
         #Now check if other companion databases are exist and then attach them
-        attach_databases(sqldb_conn, opt.db_dir, 
+        attach_databases(sqldb_conn, opt.db_dir,
                          sampling_method, land_layer,
                          forcing_single_db, land_single_db,
                          new_db_start_datetime_ep,
@@ -2755,14 +2756,14 @@ def main():
             get_data_column_names(sqldb_conn, land_layer)
 
 
-        # A few common used info
-        statement_insert_var_val = "INSERT INTO temp_var_val VALUES (?,?)"
+        ## A few common used info
+        #statement_insert_var_val = "INSERT INTO temp_var_val VALUES (?,?)"
 
 
         # Get cycle type info from the table: cycle_type_themes
         current_yyyymm = \
             dt.datetime.strftime(utc_epoch_to_datetime(new_db_start_datetime_ep),
-                                                       '%Y%m')       
+                                                       '%Y%m')
         # ***** Above will not work for more than a month period *******
 
         current_yyyymm = '[0-9][0-9][0-9][0-9][0-9][0-9]'
@@ -2803,7 +2804,7 @@ def main():
                           ana_pattern,
                           new_db_start_datetime_ep,
                           new_db_finish_datetime_ep,
-                          nwm_cycle_type_ext_ana, 
+                          nwm_cycle_type_ext_ana,
                           nwm_cycle_type_ana,
                           nwm_files_processed,
                           oper, sqldb_conn)
@@ -2837,8 +2838,8 @@ def main():
                                nwm_file_paths,
                                nwm_file_cycle_types,
                                nwm_file_time_minus_hours,
-                               nwm_file_datetimes_ep,
-                               nwm_file_cycle_datetimes_ep)
+                               nwm_file_ep_datetimes,
+                               nwm_file_cycle_ep_datetimes)
 
         # print('--')
         # for nwm_file_name in nwm_file_names:
@@ -3063,7 +3064,7 @@ def main():
 
             # Get some of the colums of dynamic tables ready
             cycle_type_list = [nwm_cycle_type]*num_stations
-            time_minus_hours_list = [nwm_file_time_minus_hours]*num_stations
+            #time_minus_hours_list = [nwm_file_time_minus_hours]*num_stations
             cycle_datetime_list_ep = [nwm_file_cycle_datetime_ep]*num_stations
             time_list_ep = [nwm_file_datetime_ep]*num_stations
             #cycle_datetime_list = [nwm_file_cycle_datetimes[nfi]]*num_stations
@@ -3075,7 +3076,7 @@ def main():
             #time_list = [nwm_file_datetime.strftime('%Y-%m-%d %H:00')]*num_stations
             #See ref: https://www.sqlite.org/lang_datefunc.html for time string formats that sqlite accepts.
 
-            nwm_start = time.time()
+            #nwm_start = time.time()
 
             # Open the NWM file.
             try:
@@ -3190,10 +3191,10 @@ def main():
                     continue
 
                 nwm_dim_time_locs = get_nwm_dim_time_loc(nwm_var)
-                nwm_x_dim_loc = nwm_dim_time_locs[0]
-                nwm_y_dim_loc = nwm_dim_time_locs[1]
+                #nwm_x_dim_loc = nwm_dim_time_locs[0]
+                #nwm_y_dim_loc = nwm_dim_time_locs[1]
                 nwm_z_dim_loc = nwm_dim_time_locs[2]
-                nwm_time_dim_loc = nwm_dim_time_locs[3]
+                #nwm_time_dim_loc = nwm_dim_time_locs[3]
 
                 num_z = 1
                 if  nwm_z_dim_loc is not None:
@@ -3212,7 +3213,7 @@ def main():
                         continue
 
                     nwm_grid = \
-                        new_nwm_grid_for_zc(nwm_dim_time_locs,
+                        new_nwm_grid_for_zc(zc, nwm_dim_time_locs,
                                             nwm_var)
 
 
@@ -3291,11 +3292,12 @@ def main():
                     #Manually mute the following part for sample station
                     sample_prt = 0  # print sample info when =1
                     if (sample_id is not None) and (sample_prt == 1):
-                        print_sample_station_loc(sample_ind,
+                        print_sample_station_loc(nwm_grid,
+                                                 sample_ind,
                                                  db_grid_cols,
                                                  db_grid_rows)
 
-                    time_start = time.time()
+                    #time_start = time.time()
 
                 num_vars_sampled += 1
 
@@ -3345,7 +3347,7 @@ def main():
 
 
 
-            nwm_finish = time.time()
+            #nwm_finish = time.time()
             #print('\nINFO: Update file {} '.format(a_nwm_file_name) +
             #      'took {} seconds.'.format(nwm_finish - nwm_start))
 
@@ -3394,7 +3396,7 @@ def main():
         rename_temp_databases(opt.db_dir,
                               db_file,
                               forcing_single_db,
-                              land_single_db, 
+                              land_single_db,
                               suffix)
                               #land_soil_db,
                               #land_snow_db)
@@ -3433,9 +3435,9 @@ def main():
                              oper,
                              base_db,
                              land_single_db,
-                             forcing_single_db) 
+                             forcing_single_db)
     '''
-    
-               
+
+
 if __name__ == '__main__':
     main()
