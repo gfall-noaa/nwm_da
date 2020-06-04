@@ -1030,16 +1030,281 @@ def qc_durre_snwd_tair_spatial(snow_depth_value_cm,
         return False, ref_ind
 
 
+def qc_durre_swe_wre(value_mm):
+    """
+    Basic integrity checks:
+    swe world record exceedance.
+    Uses the snow depth threshold from Durre (2010), but in mm instead of cm
+    (implicit 10:1 ratio).
+    """
+    threshold_value = 1146.0
+    if value_mm < 0.0 or value_mm > threshold_value:
+        return True
+    else:
+        return False
 
 
+def qc_durre_swe_change_wre(swe_value_mm,
+                            prev_swe_value_mm,
+                            prev_swe_qc):
+    """
+    Basic integrity checks:
+    swe increase world record exceedance.
+    Uses the snow depth threshold from Durre (2010), but in mm instead of cm
+    (implicit 10:1 ratio).
+    """
+
+    threshold_swe_increase_mm = 192.5
+
+    # Mask previous swe data that have any QC flags set.
+    prev_swe_value_mm = np.ma.masked_where(prev_swe_qc != 0,
+                                           prev_swe_value_mm)
+
+    num_unmasked_prev_swe = prev_swe_value_mm.count()
+
+    if num_unmasked_prev_swe == 0:
+        # Test is not possible.
+        return None, None
+
+    # Find the minimum observed preceding swe value for comparison with the
+    # observation being checked.
+    ref_ind = np.ma.argmin(prev_swe_value_mm)
+
+    if swe_value_mm - prev_swe_value_mm[ref_ind] > \
+       threshold_swe_increase_mm:
+        return True, ref_ind
+    else:
+        return False, ref_ind
 
 
+def qc_durre_swe_streak(swe_value_mm,
+                        prev_swe_value_mm,
+                        prev_swe_qc,
+                        streak_value_threshold=None):
+    """
+    Basic integrity checks:
+    swe streak check.
+    """
+    if streak_value_threshold is None:
+        streak_value_threshold = 0.1
+    streak_min_consecutive = 10
+
+    # Mask previous swe data that have any QC flags set.
+    prev_swe_value_mm = np.ma.masked_where(prev_swe_qc != 0,
+                                           prev_swe_value_mm)
+
+    # Assemble previous and current data into one time series.
+    station_time_series = np.ma.append(prev_swe_value_mm, swe_value_mm)
+
+    if station_time_series.count() < streak_min_consecutive:
+        return None
+
+    if np.ma.max(station_time_series) <= streak_value_threshold:
+        return None
+    
+    if (np.ma.max(station_time_series) -
+        np.ma.min(station_time_series)) < streak_value_threshold:
+        return True
+    else:
+        return False
 
 
+def qc_durre_swe_gap(swe_value_mm,
+                      prev_swe_value_mm,
+                      prev_swe_qc,
+                      ref_ceiling_mm=None,
+                      ref_default_mm=None,
+                      verbose=None):
+    """
+    Outlier checks:
+    Gap check for swe
+    Uses the same thresholds as qc_durre_snwd_gap, but in mm instead of cm
+    (implicit 10:1 ratio)
+    """
+
+    # First value of reporting_rate_threshold needs to be zero!
+    reporting_rate_threshold = [0.0, 0.25, 0.75, 6.0, 18.0]
+
+    gap_threshold_mm = [100.0,
+                        75.0,
+                        60.0,
+                        45.0,
+                        30.0]
+
+    reporting_rate_name = ['sporadic',
+                           'quasi-daily',
+                           'daily',
+                           'synoptic',
+                           'hourly']
+
+    # Mask previous swe data that have any QC flags set.
+    prev_swe_value_mm = np.ma.masked_where(prev_swe_qc != 0,
+                                           prev_swe_value_mm)
+
+    # Assemble previous and current data into one time series.
+    # Note that this guarantees that station_time_series will have at least
+    # one unmasked value (the observation being QCed, at the end), even if all
+    # the others are masked.
+    station_time_series = np.ma.append(prev_swe_value_mm, swe_value_mm)
+
+    # Note: add reporting_rate_threshold, gap_threshold_mm,
+    # and reporting_rate_name as INPUTS to obs_rate_category,
+    rc = obs_rate_category(station_time_series)
+
+    if rc is None:
+        if verbose:
+            print('WARNING - no match for observation rate.',
+                  file=sys.stderr)
+        return None
+
+    # Sort observations to simulate a cumulative distribution function.
+    sort_ind = station_time_series.argsort()
+    obs_sorted = station_time_series[sort_ind]
+    median_obs = np.ma.median(station_time_series)
+
+    # Initialize the reference value to the median.
+    ref_obs_init = median_obs
+
+    if ref_ceiling_mm is not None and \
+       ref_default_mm is not None:
+        # Replace ref_obs_init with the time series element nearest in value
+        # to ref_default_mm (typically the climatological median), if
+        # ref_obs_init exceeds the ref_ceiling_mm.
+        if ref_obs_init > ref_ceiling_mm:
+            ind = (np.abs(station_time_series - ref_default_mm)).argmin()
+            ref_obs_init = station_time_series[ind]
+            if verbose:
+                print('INFO: replacing median {} '.format(median_obs) +
+                      'with value {} '.format(ref_obs_init) +
+                      '(observation nearer to climatology) in gap check.')
+
+    # Initialize list of flagged reports.
+    ts_flag_ind = []
+    ref_obs = []
+
+    # Upper gap check.
+
+    # Initialize the reference value.
+    prev_obs = ref_obs_init
+
+    for oc in np.where((obs_sorted.mask == False) &
+                       (obs_sorted >= ref_obs_init))[0]:
+
+        if (obs_sorted[oc] - prev_obs) > gap_threshold_mm[rc]:
+
+            # This and all following observations on this side of obs_sorted
+            # will be flagged, if they fit into the database.
+
+            # Identify location of observation in time series.
+            ts_ind = sort_ind[oc]
+
+            ts_flag_ind.append(ts_ind)
+            ref_obs.append(prev_obs)
+
+        else:
+            prev_obs = obs_sorted[oc]
 
 
+    # Lower gap check.
+
+    # Initialize the reference value.
+    prev_obs = ref_obs_init
+
+    for oc in np.flipud(np.where((obs_sorted.mask == False) &
+                                 (obs_sorted < ref_obs_init))[0]):
+
+        if (prev_obs - obs_sorted[oc]) > gap_threshold_mm[rc]:
+
+            # This and all following observations on this side of obs_sorted
+            # will be flagged, if they fit into the database.
+
+            # Identify location of observation in time series.
+            ts_ind = sort_ind[oc]
+
+            ts_flag_ind.append(ts_ind)
+            ref_obs.append(prev_obs)
+
+        else:
+            prev_obs = obs_sorted[oc]
+
+    return ts_flag_ind, ref_obs
 
 
+def qc_durre_swe_prcp(site_swe_val_mm,
+                       site_prev_swe_val,
+                       prev_swe_qc,
+                       site_prcp_val_mm):
+    """
+    Precipitation--swe consistency check; i.e. "swe increase with 0
+    PRCP".
+    site_swe_val_mm - swe value being QCed
+    site_prev_swe_val - previous swe values (time series)
+    prev_swe_qc - QC flags for previous swe values (time series)
+    site_prcp_val_mm - precipitation accumulation
+    """
+
+    swe_change_threshold_mm = 10.0
+    prcp_accum_threshold_mm = 0.1
+
+    # Mask previous swe data that have any QC flags set.
+    site_prev_swe_val = np.ma.masked_where(prev_swe_qc != 0,
+                                           site_prev_swe_val)
+
+    # Count unmasked previous swe data.
+    num_unmasked_prev_swe = site_prev_swe_val.count()
+
+    if num_unmasked_prev_swe == 0:
+        return None, None
+
+    # Locate the swe observation furthest from the one being QCed.
+    ref_ind = np.min(np.where(site_prev_swe_val.mask == False))
+
+    if site_swe_val_mm - site_prev_swe_val[ref_ind] >= \
+       swe_change_threshold_mm and \
+       site_prcp_val_mm < prcp_accum_threshold_mm:
+        return True, ref_ind
+    else:
+        return False, ref_ind
+
+
+def qc_durre_swe_prcp_ratio(site_swe_val_mm,
+                             site_prev_swe_val_mm,
+                             prev_swe_qc,
+                             site_prcp_val_mm):
+    '''
+    Internal and temporal consistency checks (Durre 2010, Table 3)
+    Precipitation - snow water equivalent ("SWE/PRCP ratio") consistency
+    check, adapted from SNWD/PRCP ratio" test.
+    '''
+
+    swe_change_threshold_mm = 20.0
+    swe_prcp_ratio_threshold = 100
+
+    # Mask previous swe data that have any QC flags set.
+    site_prev_swe_val_mm = np.ma.masked_where(prev_swe_qc != 0,
+                                              site_prev_swe_val_mm)
+
+    # Count unmasked previous swe data.
+    num_unmasked_prev_swe = site_prev_swe_val_mm.count()
+
+    if num_unmasked_prev_swe == 0:
+        return None, None
+
+    # Locate the swe observation furthest from the one being QCed.
+    ref_ind = np.min(np.where(site_prev_swe_val_mm.mask == False))
+
+    # No flag for zero precipitation; that should be handled by a separate
+    # test.
+    if site_prcp_val_mm == 0.0:
+        return False, ref_ind
+
+    site_swe_change_mm = site_swe_val_mm - site_prev_swe_val_mm[ref_ind]
+    if site_swe_change_mm >= swe_change_threshold_mm and \
+       site_swe_change_mm / site_prcp_val_mm >= \
+       swe_prcp_ratio_threshold:
+        return True, ref_ind
+    else:
+        return False, ref_ind
 
 
 def parse_args():
@@ -2261,17 +2526,19 @@ def main():
 
                     if args.check_climatology:
 
-                        ref_ceiling_cm = (site_snwd_clim_max_mm + \
+                        snwd_ref_ceiling_cm = (site_snwd_clim_max_mm + \
                                           site_snwd_clim_iqr_mm) * 0.1
 
-                        ref_default_cm = site_snwd_clim_med_mm * 0.1
+                        snwd_ref_default_cm = site_snwd_clim_med_mm * 0.1
 
                         ts_flag_ind, ref_obs = \
                             qc_durre_snwd_gap(site_snwd_val_cm,
                                               site_prev_snwd_val_cm,
                                               site_prev_snwd_qc,
-                                              ref_ceiling_cm=ref_ceiling_cm,
-                                              ref_default_cm=ref_default_cm,
+                                              ref_ceiling_cm=
+                                              snwd_ref_ceiling_cm,
+                                              ref_default_cm=
+                                              snwd_ref_default_cm,
                                               verbose=args.verbose)
 
                     else:
