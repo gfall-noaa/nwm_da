@@ -685,8 +685,11 @@ def qc_durre_snwd_gap(snow_depth_value_cm,
                            'hourly']
 
     # Mask previous snow depth data that have any QC flags set.
+    print(prev_sd_value_cm)
     prev_sd_value_cm = np.ma.masked_where(prev_sd_qc != 0,
                                           prev_sd_value_cm)
+    print(prev_sd_value_cm)
+    print(len(prev_sd_value_cm))
 
     # Assemble previous and current data into one time series.
     # Note that this guarantees that station_time_series will have at least
@@ -779,7 +782,8 @@ def qc_durre_snwd_gap(snow_depth_value_cm,
 
         else:
             prev_obs = obs_sorted[oc]
-
+    print(ts_flag_ind)
+    print(ref_obs)
     return ts_flag_ind, ref_obs
 
 
@@ -2517,12 +2521,15 @@ def main():
 
                     site_prev_snwd_val_cm = \
                         wdb_prev_snwd_val_cm[wdb_prev_snwd_si, prev_snwd_ti:]
+                    print(len(site_prev_snwd_val_cm))
 
                     site_prev_snwd_qc = \
                         qcdb_prev_snwd_qc_flag[qcdb_si, prev_snwd_ti:]
+                    print(len(site_prev_snwd_qc))
 
                     station_time_series = \
                         np.ma.append(site_prev_snwd_val_cm, site_snwd_val_cm)
+                    print(len(station_time_series))
 
                     if args.check_climatology:
 
@@ -2596,6 +2603,9 @@ def main():
                             # Make sure the value is not flagged.
                             if qcdb_snwd_qc_flag[qcdb_si, ts_ind_db] & \
                                (1 << qc_bit) != 0:
+                                print(ts_ind_db)
+                                print(flagged_obs_datetime)
+                                print(ind, ts_ind, ts_flag_ind[ind])
                                 print('ERROR: (PROGRAMMING) ' +
                                       'reference value was ' +
                                       'previously flagged and should ' +
