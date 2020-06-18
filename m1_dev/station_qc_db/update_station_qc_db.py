@@ -685,11 +685,8 @@ def qc_durre_snwd_gap(snow_depth_value_cm,
                            'hourly']
 
     # Mask previous snow depth data that have any QC flags set.
-    print(prev_sd_value_cm)
     prev_sd_value_cm = np.ma.masked_where(prev_sd_qc != 0,
                                           prev_sd_value_cm)
-    print(prev_sd_value_cm)
-    print(len(prev_sd_value_cm))
 
     # Assemble previous and current data into one time series.
     # Note that this guarantees that station_time_series will have at least
@@ -782,8 +779,7 @@ def qc_durre_snwd_gap(snow_depth_value_cm,
 
         else:
             prev_obs = obs_sorted[oc]
-    print(ts_flag_ind)
-    print(ref_obs)
+
     return ts_flag_ind, ref_obs
 
 
@@ -1722,7 +1718,7 @@ def main():
 
     # Debugging.
     debug_station_id = None
-    # debug_station_id = 'SDFC1'
+    debug_station_id = 'UTSCI_MADIS'
 
     num_stations_added = 0
     num_flagged_sd_wr = 0
@@ -2310,7 +2306,6 @@ def main():
                         print('***** values: {} {}'.
                               format(site_prev_snwd_val_cm, site_snwd_val_cm))
                         print('***** flag: {}'.format(flag))
-                        xxx = input()
 
                     if flag:
 
@@ -2390,9 +2385,9 @@ def main():
                     else:
                         flag_str = 'flagged'
                     if args.verbose:
-                        print('INFO: check "{}" already done for site {} ({}) '.
-                              format(qc_test_name,
-                                     site_snwd_station_id,
+                        print('INFO: check "{}" '.format(qc_test_name) +
+                              'already done for site {} ({}) '.
+                              format(site_snwd_station_id,
                                      site_snwd_obj_id) +
                               'value {} ({})'.
                               format(site_snwd_val_cm, flag_str))
@@ -2474,9 +2469,9 @@ def main():
                     else:
                         flag_str = 'flagged'
                     if args.verbose:
-                        print('INFO: check "{}" already done for site {} ({}) '.
-                              format(qc_test_name,
-                                     site_snwd_station_id,
+                        print('INFO: check "{}" '.format(qc_test_name) +
+                              'already done for site {} ({}) '.
+                              format(site_snwd_station_id,
                                      site_snwd_obj_id) +
                               'value {} ({})'.
                               format(site_snwd_val_cm, flag_str))
@@ -2521,15 +2516,12 @@ def main():
 
                     site_prev_snwd_val_cm = \
                         wdb_prev_snwd_val_cm[wdb_prev_snwd_si, prev_snwd_ti:]
-                    print(len(site_prev_snwd_val_cm))
 
                     site_prev_snwd_qc = \
                         qcdb_prev_snwd_qc_flag[qcdb_si, prev_snwd_ti:]
-                    print(len(site_prev_snwd_qc))
 
                     station_time_series = \
                         np.ma.append(site_prev_snwd_val_cm, site_snwd_val_cm)
-                    print(len(station_time_series))
 
                     if args.check_climatology:
 
@@ -2575,7 +2567,7 @@ def main():
                             print('***** gap test flags {} '.
                                   format(station_time_series[ts_ind]) +
                                   'at {}, '.format(flagged_obs_datetime) +
-                                  ', reference {}'.format(ref_obs[ind]))
+                                  'reference {}'.format(ref_obs[ind]))
                             if ts_ind_db < 0:
                                 print('***** (does not fit in QC database)')
                             else:
@@ -2603,9 +2595,6 @@ def main():
                             # Make sure the value is not flagged.
                             if qcdb_snwd_qc_flag[qcdb_si, ts_ind_db] & \
                                (1 << qc_bit) != 0:
-                                print(ts_ind_db)
-                                print(flagged_obs_datetime)
-                                print(ind, ts_ind, ts_flag_ind[ind])
                                 print('ERROR: (PROGRAMMING) ' +
                                       'reference value was ' +
                                       'previously flagged and should ' +
@@ -2614,41 +2603,61 @@ def main():
                                 qcdb.close()
                                 sys.exit(1)
 
+                            if debug_this_station and \
+                               ts_ind_db != qcdb_ti:
+                                print('***** this is a "previous" value:')
+                                print('***** qc_chkd = {}'.
+                                      format(qcdb_snwd_qc_chkd[qcdb_si,
+                                                               ts_ind_db] &
+                                             (1 << qc_bit)))
+                                print('***** qc_flag = {}'.
+                                      format(qcdb_snwd_qc_flag[qcdb_si,
+                                                               ts_ind_db] &
+                                             (1 << qc_bit)))
+
                             # Turn on the QC bit for this value.
                             qcdb_snwd_qc_flag[qcdb_si, ts_ind_db] = \
                                 qcdb_snwd_qc_flag[qcdb_si,ts_ind_db] | \
                                 (1 << qc_bit)
+                            
+                            # Identify the previous value as having been
+                            # through this check, even though this is
+                            # only indirectly the case. Most likely it has
+                            # already been tested, and passed, but in the
+                            # current context it is being flagged.
+                            # if debug_this_station:
+                            #     print('***** qc_checked future-before: ' +
+                            #           '{}, {}'.
+                            #           format(ts_ind_db,
+                            #                  qcdb_snwd_qc_chkd[qcdb_si,
+                            #                                    ts_ind_db] & \
+                            #                  (1 << qc_bit)))
+                            qcdb_snwd_qc_chkd[qcdb_si, ts_ind_db] = \
+                                qcdb_snwd_qc_chkd[qcdb_si, ts_ind_db] \
+                                | (1 << qc_bit)
+                            # if debug_this_station:
+                            #     print('***** qc_checked future-after: {}'.
+                            #           format(qcdb_snwd_qc_chkd[qcdb_si,
+                            #                                    ts_ind_db] & \
+                            #                  (1 << qc_bit)))
 
                             num_flagged_sd_gap_this_time += 1
                             num_flagged_sd_gap += 1
 
-                            # if args.check_climatology:
-
-                                # Calculate the default reference value used
-                                # by the qc_durre_snwd_gap function.
-                                # psd = np.ma.masked_where(site_prev_snwd_qc != 0,
-                                #                          site_prev_snwd_val_cm)
-                                # sts = np.ma.append(psd, site_snwd_val_cm)
-                                # ref_obs_init = np.ma.median(sts)
-                                # sd_gap_station_id.append(site_snwd_station_id)
-                                # sd_gap_station_obj_id.append(site_snwd_obj_id)
-                                # sd_gap_date.append(flagged_obs_datetime)
-                                # sd_gap_val_cm.\
-                                #     append(station_time_series[ts_ind])
-                                # sd_gap_ob_med_val_cm.append(ref_obs_init)
-                                # sd_gap_ref_val_cm.append(ref_obs[ind])
-                                # sd_gap_cl_med_val_cm.\
-                                #     append(site_snwd_clim_med_mm * 0.1)
-                                # sd_gap_cl_max_val_cm.\
-                                #     append(site_snwd_clim_max_mm * 0.1)
-                                # sd_gap_cl_iqr_val_cm.\
-                                #     append(site_snwd_clim_iqr_mm * 0.1)
-
                     # Turn on the QC checked bit for this test, regardless of
                     # whether the observation was flagged.
+                    # if debug_this_station:
+                    #     print('***** qc_checked before: {}, {}'.
+                    #           format(qcdb_ti,
+                    #                  qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & \
+                    #                  (1 << qc_bit)))
                     qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] = \
                         qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] \
                         | (1 << qc_bit)
+                    # if debug_this_station:
+                    #     print('***** qc_checked after: {}'.
+                    #           format(qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & \
+                    #                  (1 << qc_bit)))
 
                 else:
 
@@ -2660,10 +2669,9 @@ def main():
                     else:
                         flag_str = 'flagged'
                     if args.verbose:
-                        print('INFO: check "{}" already done ' +
-                              'for site {} ({}) '.
-                              format(qc_test_name,
-                                     site_snwd_station_id,
+                        print('INFO: check "{}" '.format(qc_test_name) +
+                              'already done for site {} ({}) '.
+                              format(site_snwd_station_id,
                                      site_snwd_obj_id) +
                               'value {} ({})'.
                               format(site_snwd_val_cm, flag_str))
@@ -2841,9 +2849,9 @@ def main():
                     else:
                         flag_str = 'flagged'
                     if args.verbose:
-                        print('INFO: check "{}" already done for site {} ({}) '.
-                              format(qc_test_name,
-                                     site_snwd_station_id,
+                        print('INFO: check "{}" '.format(qc_test_name) +
+                              'already done for site {} ({}) '.
+                              format(site_snwd_station_id,
                                      site_snwd_obj_id) +
                               'value {} ({})'.
                               format(site_snwd_val_cm, flag_str))
@@ -2996,9 +3004,9 @@ def main():
                     else:
                         flag_str = 'flagged'
                     if args.verbose:
-                        print('INFO: check "{}" already done for site {} ({}) '.
-                              format(qc_test_name,
-                                     site_snwd_station_id,
+                        print('INFO: check "{}" '.format(qc_test_name) +
+                              'already done for site {} ({}) '.
+                              format(site_snwd_station_id,
                                      site_snwd_obj_id) +
                               'value {} ({})'.
                               format(site_snwd_val_cm, flag_str))
@@ -3160,9 +3168,9 @@ def main():
                     else:
                         flag_str = 'flagged'
                     if args.verbose:
-                        print('INFO: check "{}" already done for site {} ({}) '.
-                              format(qc_test_name,
-                                     site_snwd_station_id,
+                        print('INFO: check "{}" '.format(qc_test_name) +
+                              'already done for site {} ({}) '.
+                              format(site_snwd_station_id,
                                      site_snwd_obj_id) +
                               'value {} ({})'.
                               format(site_snwd_val_cm, flag_str))
@@ -3328,9 +3336,9 @@ def main():
                     else:
                         flag_str = 'flagged'
                     if args.verbose:
-                        print('INFO: check "{}" already done for site {} ({}) '.
-                              format(qc_test_name,
-                                     site_snwd_station_id,
+                        print('INFO: check "{}" '.format(qc_test_name) +
+                              'already done for site {} ({}) '.
+                              format(site_snwd_station_id,
                                      site_snwd_obj_id) +
                               'value {} ({})'.
                               format(site_snwd_val_cm, flag_str))
@@ -3477,9 +3485,9 @@ def main():
                     else:
                         flag_str = 'flagged'
                     if args.verbose:
-                        print('INFO: check "{}" already done for site {} ({}) '.
-                              format(qc_test_name,
-                                     site_snwd_station_id,
+                        print('INFO: check "{}" '.format(qc_test_name) +
+                              'already done for site {} ({}) '.
+                              format(site_snwd_station_id,
                                      site_snwd_obj_id) +
                               'value {} ({})'.
                               format(site_snwd_val_cm, flag_str))
