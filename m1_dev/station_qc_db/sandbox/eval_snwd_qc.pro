@@ -833,7 +833,7 @@ SKIP:
             THICK = 2, XTHICK = 2, YTHICK = 2, CHARTHICK = 2, $
             YRANGE = [0.0, 1.0], $
             PSYM = pfar_sym, $
-            TITLE = 'FAR for "' + qc_test_names[tc] + '" test!C ', $
+            TITLE = 'FAR for v0.1.0 "' + qc_test_names[tc] + '" test!C ', $
             XTICKFORMAT = 'LABEL_DATE', XTICKUNITS = 'Time', $
             YTITLE = 'False Alarm Ratio', $
             POS  = pos, $
@@ -908,7 +908,7 @@ SKIP:
             YRANGE = [0.0, 1.0], $
             LINESTYLE = 3, $
 ;            PSYM = far_sym, $ 
-            TITLE = 'Solo Frequency / FAR for "' + $
+            TITLE = 'Solo Frequency / FAR for v0.1.0 "' + $
                     qc_test_names[tc] + '" test!C ', $
             XTICKFORMAT = 'LABEL_DATE', XTICKUNITS = 'Time', $
             YTITLE = 'Solo Frequency / FAR', $
