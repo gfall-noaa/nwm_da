@@ -787,6 +787,7 @@ SKIP:
   char_size = 1.0
   sym_size = 1.0
   other_col = 80
+  fill_col = 200
   far_sym = -5
   pfar_sym = -8
   pos = [0.1, 0.25, 0.9, 0.75]
@@ -832,19 +833,30 @@ SKIP:
             pFAR[ind, ti], $
             THICK = 2, XTHICK = 2, YTHICK = 2, CHARTHICK = 2, $
             YRANGE = [0.0, 1.0], $
-            PSYM = pfar_sym, $
+            ;; PSYM = pfar_sym, $
             TITLE = 'FAR for v0.1.0 "' + qc_test_names[tc] + '" test!C ', $
             XTICKFORMAT = 'LABEL_DATE', XTICKUNITS = 'Time', $
             YTITLE = 'False Alarm Ratio', $
             POS  = pos, $
             YSTYLE = 8, $
             CHARSIZE = char_size, $
-            SYMSIZE = sym_size, $
-            /NOCLIP
+            /NODATA
+;            SYMSIZE = sym_size, $
+;            /NOCLIP
 
-      OPLOT, cluster_mean_date_Julian[ind], $
-             FAR[ind, ti], PSYM = far_sym, SYMSIZE = sym_size, $
-             THICK = 2, /NOCLIP
+      POLYFILL, [cluster_mean_date_Julian[ind[0]], $
+                 cluster_mean_date_Julian[ind], $
+                 REVERSE(cluster_mean_date_Julian[ind])], $
+                [FAR[ind[0], ti], $
+                 pFAR[ind, ti], $
+                 REVERSE(FAR[ind, ti])], $
+                COLOR = fill_col
+
+      OPLOT, cluster_mean_date_Julian[ind], pFAR[ind, ti], $
+             PSYM = pfar_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
+
+      OPLOT, cluster_mean_date_Julian[ind], FAR[ind, ti], $
+             PSYM = far_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
 
       PLOT, cluster_mean_date_Julian, $
             num_flagged_obs[*, ti], $
@@ -867,6 +879,9 @@ SKIP:
       yNudge = 0.01
       xBreak = 0.02
       yBreak = 0.05
+      POLYFILL, [x1Leg, x1Leg, x2Leg, x2Leg, x1Leg], $
+                [yLeg - yBreak, yLeg, yLeg, yLeg - yBreak, yLeg - yBreak], $
+                COLOR = fill_col, /NORMAL
       PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
              PSYM = pfar_sym, SYMSIZE = sym_size, THICK = 2
       XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Possible FAR', /NORMAL, $
@@ -923,6 +938,13 @@ SKIP:
       ind = WHERE((solo_FAR[*, ti] ne -1.0) and $
                   (solo_pFAR[*, ti] ne -1.0), count)
       if (count ne 0) then begin
+          POLYFILL, [cluster_mean_date_Julian[ind[0]], $
+                     cluster_mean_date_Julian[ind], $
+                     REVERSE(cluster_mean_date_Julian[ind])], $
+                    [solo_FAR[ind[0], ti], $
+                     solo_pFAR[ind, ti], $
+                     REVERSE(solo_FAR[ind, ti])], $
+                    COLOR = fill_col
           OPLOT, cluster_mean_date_Julian[ind], $
                  solo_FAR[ind, ti], $
                  PSYM = far_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
@@ -948,10 +970,13 @@ SKIP:
 ;     Legend
       x1Leg = 0.58
       x2Leg = 0.68
-      yLeg = 0.67
+      yLeg = 0.70
       yNudge = 0.01
       xBreak = 0.02
       yBreak = 0.05
+      POLYFILL, [x1Leg, x1Leg, x2Leg, x2Leg, x1Leg], $
+                [yLeg - yBreak, yLeg, yLeg, yLeg - yBreak, yLeg - yBreak], $
+                COLOR = fill_col, /NORMAL
       PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
              PSYM = pfar_sym, SYMSIZE = sym_size, THICK = 2
       XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Possible Solo FAR', /NORMAL, $
