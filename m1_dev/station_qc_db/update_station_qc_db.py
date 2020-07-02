@@ -1494,6 +1494,7 @@ def main():
     if args.check_climatology:
 
         sd_clim_dir = '/net/lfs0data5/SNODAS_climatology/snow_depth'
+        swe_clim_dir = '/net/lfs0data5/SNODAS_climatology/swe'
 
         # sd_gap_station_id = []
         # sd_gap_station_obj_id = []
@@ -1524,6 +1525,9 @@ def main():
 
     qcdb_snwd_qc_flag = qcdb.variables['snow_depth_qc']
     qcdb_snwd_qc_chkd = qcdb.variables['snow_depth_qc_checked']
+
+    qcdb_swe_qc_flag = qcdb.variables['swe_qc']
+    qcdb_swe_qc_chkd = qcdb.variables['swe_qc_checked']
 
     # Read the "last_station_update_datetime" attribute.
     try:
@@ -1716,6 +1720,10 @@ def main():
     flag_sd_change_snfl_low_value = False
     flag_sd_change_prcp_low_value = False # Affects ratio test as well.
 
+    # Switch for flagging low values in tests involving swe change.
+    flag_swe_change_wre_low_value = False
+    flag_swe_change_prcp_low_value = False
+
     # Debugging.
     debug_station_id = None
     debug_station_id = 'UTSCI_MADIS'
@@ -1730,6 +1738,12 @@ def main():
     num_flagged_sd_pr_cons = 0
     num_flagged_sd_at_spatial_cons = 0
 
+    num_flagged_swe_wr = 0
+    num_flagged_swe_change_wr = 0
+    num_flagged_swe_streak = 0
+    num_flagged_swe_gap = 0
+    num_flagged_swe_pr_cons = 0
+
     num_hrs_updated = 0
     qcdb_num_stations_start = 0
 
@@ -1743,12 +1757,23 @@ def main():
         if args.verbose:
             print('INFO: updating data for {}'.format(obs_datetime))
 
+        # Initialize counters for the current time.
+        num_stations_added_this_time = 0
+
+        #######################
+        # SNOW DEPTH QC BEGIN #
+        #######################
+
+
+        # Get snow depth and other observations used for snow depth QC.
+
+
         # Get all snow depth data for this datetime.
         t1 = dt.datetime.utcnow()
         wdb_snwd = wdb0.get_snow_depth_obs(obs_datetime,
-                                                 obs_datetime,
-                                                 scratch_dir=args.pkl_dir,
-                                                 verbose=args.verbose)
+                                           obs_datetime,
+                                           scratch_dir=args.pkl_dir,
+                                           verbose=args.verbose)
         t2 = dt.datetime.utcnow()
         elapsed_time = t2 - t1
         if args.verbose:
@@ -1773,7 +1798,7 @@ def main():
 
         if args.check_climatology:
 
-            # Get SNODAS climatology data for the current time.
+            # Get SNODAS snow depth climatology data for the current time.
             wdb_snwd_clim_med_mm = \
                 snodas_clim.at_loc(sd_clim_dir,
                                    obs_datetime,
@@ -1798,6 +1823,7 @@ def main():
                                    element='snow_depth',
                                    metric='iqr',
                                    sampling='neighbor')
+
 
         # Get previous num_hrs_prev_snwd hours of snow depth data.
         t1 = dt.datetime.utcnow()
@@ -1864,6 +1890,7 @@ def main():
                 np.ma.concatenate([new_qc, qcdb_prev_snwd_qc_flag],
                                   axis=1)
 
+
         # Get snowfall data associated with snow depth observations.
         t1 = dt.datetime.utcnow()
         wdb_snfl = \
@@ -1884,9 +1911,10 @@ def main():
         wdb_snfl_val_cm = wdb_snfl['values_cm']
         wdb_snfl_obj_id = wdb_snfl['station_obj_id']
 
+
         # Get precipitation data associated with snow depth observations.
         t1 = dt.datetime.utcnow()
-        wdb_prcp = \
+        wdb_snwd_prcp = \
             wdb0.get_snwd_prcp_obs(obs_datetime,
                                    num_hrs_prcp,
                                    scratch_dir=args.pkl_dir,
@@ -1895,14 +1923,15 @@ def main():
         elapsed_time = t2 - t1
         if args.verbose:
             print('INFO: found {} precipitation reports.'.
-                  format(wdb_snfl['num_stations']))
+                  format(wdb_snwd_prcp['num_stations']))
             print('INFO: query ran in {} seconds.'.
                   format(elapsed_time.total_seconds()))
 
-        # Extract snowfall values and station object identifiers, for
+        # Extract precipitation values and station object identifiers, for
         # convenience (shorter variable names).
-        wdb_prcp_val_mm = wdb_prcp['values_mm']
-        wdb_prcp_obj_id = wdb_prcp['station_obj_id']
+        wdb_snwd_prcp_val_mm = wdb_snwd_prcp['values_mm']
+        wdb_snwd_prcp_obj_id = wdb_snwd_prcp['station_obj_id']
+
 
         # Get air temperature observations. These are needed for snow depth
         # reporters (for the snow-temperature consistency check) and for other
@@ -1946,7 +1975,7 @@ def main():
                                    verbose=args.verbose)
 
         # Initialize counters for the current time.
-        num_stations_added_this_time = 0
+        # num_stations_added_this_time = 0
         num_flagged_sd_wr_this_time = 0
         num_flagged_sd_change_wr_this_time = 0
         num_flagged_sd_streak_this_time = 0
@@ -2068,6 +2097,8 @@ def main():
                 # Initialize qc variables to 0 for this (new) station.
                 qcdb_snwd_qc_chkd[qcdb_si,:] = 0
                 qcdb_snwd_qc_flag[qcdb_si,:] = 0
+                qcdb_swe_qc_chkd[qcdb_si,:] = 0
+                qcdb_swe_qc_flag[qcdb_si,:] = 0
 
                 # Add artificial qc data to qcdb_prev_snwd_qc_flag for
                 # the new station.
@@ -2154,24 +2185,24 @@ def main():
                 wdb_snfl_si = None
 
             # Locate station index in precipitation data.
-            wdb_prcp_si = []
-            for ind, val in enumerate(wdb_prcp_obj_id):
+            wdb_snwd_prcp_si = []
+            for ind, val in enumerate(wdb_snwd_prcp_obj_id):
                 if val == site_snwd_obj_id:
-                    wdb_prcp_si.append(ind)
+                    wdb_snwd_prcp_si.append(ind)
 
-            if len(wdb_prcp_si) != 0:
-                # The object ID for this station was found in the snowfall
-                # data.
-                if len(wdb_prcp_si) > 1:
+            if len(wdb_snwd_prcp_si) != 0:
+                # The object ID for this station was found in the
+                # precipitation data.
+                if len(wdb_snwd_prcp_si) > 1:
                     print('ERROR: multiple matches for station ' +
                           'object ID {} '.format(site_prcp_obj_id) +
                           'in precipitation data.',
                           file=sys.stderr)
                     qcdb.close()
                     exit(1)
-                wdb_prcp_si = wdb_prcp_si[0]
+                wdb_snwd_prcp_si = wdb_snwd_prcp_si[0]
             else:
-                wdb_prcp_si = None
+                wdb_snwd_prcp_si = None
 
 
             ################################################
@@ -2619,7 +2650,7 @@ def main():
                             qcdb_snwd_qc_flag[qcdb_si, ts_ind_db] = \
                                 qcdb_snwd_qc_flag[qcdb_si,ts_ind_db] | \
                                 (1 << qc_bit)
-                            
+
                             # Identify the previous value as having been
                             # through this check, even though this is
                             # only indirectly the case. Most likely it has
@@ -3021,7 +3052,7 @@ def main():
 
             qc_test_name = 'precip_consistency'
 
-            if wdb_prcp_si is not None and \
+            if wdb_snwd_prcp_si is not None and \
                wdb_prev_snwd_si is not None:
 
                 # Previous snow depth data is available, making this test
@@ -3048,16 +3079,18 @@ def main():
                     # Test has not been performed for this observation.
 
                     # Indices for locating this station:
-                    # 1. wdb_snwd_si    = the station index in
-                    #                     wdb_snwd_val_cm
-                    # 2. qcdb_si        = the station index in the QC database
-                    #                     which is covered by these arrays:
-                    #                     qcdb_prev_snwd_qc_flag
-                    #                     qcdb_snwd_qc_chkd
-                    #                     qcdb_snwd_qc_flag
+                    # 1. wdb_snwd_si      = the station index in
+                    #                       wdb_snwd_val_cm
+                    # 2. qcdb_si          = the station index in the QC
+                    #                       database which is covered by these
+                    #                       arrays:
+                    #                       qcdb_prev_snwd_qc_flag
+                    #                       qcdb_snwd_qc_chkd
+                    #                       qcdb_snwd_qc_flag
                     # 3. wdb_prev_snwd_si = the station index in
-                    #                     prev_sd and wdb_prev_snwd_obj_id
-                    # 4. wdb_prcp_si    = the station index in wdb_prcp_val_mm
+                    #                       prev_sd and wdb_prev_snwd_obj_id
+                    # 4. wdb_snwd_prcp_si = the station index in
+                    #                       wdb_snwd_prcp_val_mm
 
                     prev_snwd_ti = num_hrs_prev_snwd - num_hrs_prcp
 
@@ -3067,12 +3100,12 @@ def main():
                     site_prev_snwd_qc = \
                         qcdb_prev_snwd_qc_flag[qcdb_si, prev_snwd_ti:]
 
-                    site_prcp_val_mm = wdb_prcp_val_mm[wdb_prcp_si]
+                    site_prcp_val_mm = wdb_snwd_prcp_val_mm[wdb_snwd_prcp_si]
                     if not np.isscalar(site_prcp_val_mm):
                         print('---')
-                        print(type(wdb_prcp_val_mm))
+                        print(type(wdb_snwd_prcp_val_mm))
                         print(type(site_prcp_val_mm))
-                        print(type(wdb_prcp_si))
+                        print(type(wdb_snwd_prcp_si))
                         qcdb.close()
                         sys.exit(1)
 
@@ -3083,18 +3116,6 @@ def main():
                                            site_prcp_val_mm)
 
                     if flag:
- 
-                        # print('***** station: {} ({})'.
-                        #       format(site_snwd_station_id, site_snwd_obj_id))
-                        # print('***** prev snwd: {}'.format(site_prev_snwd_val_cm))
-                        # print('***** prev flag: {}'.format(site_prev_snwd_qc))
-                        # print('***** snwd: {}'.format(site_snwd_val_cm))
-                        # print('***** snwd change: {}'.
-                        #       format(site_snwd_val_cm -
-                        #              site_prev_snwd_val_cm[ref_ind]))
-                        # print('***** prcp: {}'.format(site_prcp_val_mm))
-                        # print('***** flag: {} {}'.format(flag, ref_ind))
-                        # xxx = input()
 
                         if args.verbose:
                             print('INFO: flagging snow depth change ' +
@@ -3185,7 +3206,7 @@ def main():
 
             qc_test_name = 'precip_ratio'
 
-            if wdb_prcp_si is not None and \
+            if wdb_snwd_prcp_si is not None and \
                wdb_prev_snwd_si is not None:
 
                 # Previous snow depth data is available, making this test
@@ -3227,7 +3248,7 @@ def main():
                     #                     qcdb_snwd_qc_flag
                     # 3. wdb_prev_snwd_si = the station index in
                     #                     prev_sd and wdb_prev_snwd_obj_id
-                    # 4. wdb_prcp_si    = the station index in wdb_prcp_val_mm
+                    # 4. wdb_snwd_prcp_si    = the station index in wdb_snwd_prcp_val_mm
 
                     prev_snwd_ti = num_hrs_prev_snwd - num_hrs_prcp
 
@@ -3237,7 +3258,7 @@ def main():
                     site_prev_snwd_qc = \
                         qcdb_prev_snwd_qc_flag[qcdb_si, prev_snwd_ti:]
 
-                    site_prcp_val_mm = wdb_prcp_val_mm[wdb_prcp_si]
+                    site_prcp_val_mm = wdb_snwd_prcp_val_mm[wdb_snwd_prcp_si]
 
                     flag, ref_ind = \
                         qc_durre_snwd_prcp_ratio(site_snwd_val_cm,
@@ -3491,6 +3512,424 @@ def main():
                                      site_snwd_obj_id) +
                               'value {} ({})'.
                               format(site_snwd_val_cm, flag_str))
+
+
+        #####################
+        # SNOW DEPTH QC END #
+        #####################
+
+
+        ########################################
+        # SNOW WATER EQUIVALENT (SWE) QC BEGIN #
+        ########################################
+
+
+        # Get snow depth and other observations used for snow depth QC.
+
+
+        # Get all SWE data for this datetime.
+        t1 = dt.datetime.utcnow()
+        wdb_swe = wdb0.get_swe_obs(obs_datetime,
+                                   obs_datetime,
+                                   scratch_dir=args.pkl_dir,
+                                   verbose=args.verbose)
+        t2 = dt.datetime.utcnow()
+        elapsed_time = t2 - t1
+        if args.verbose:
+            print('INFO: found {} SWE reports.'.
+                  format(wdb_swe['num_stations']))
+            print('INFO: query ran in {} seconds.'.
+                  format(elapsed_time.total_seconds()))
+
+        # Previous SWE data is needed for multiple tests.
+        # - World record increase exceedance check uses 24 hours.
+        # - Streak check uses 15 days.
+        # - Gap check uses 15 days.
+        # - Precipitation consistency checks use 24 hours.
+        num_hrs_prev_swe = max(num_hrs_wre,
+                               num_hrs_streak,
+                               num_hrs_gap,
+                               # num_hrs_prev_tair,
+                               # num_hrs_snowfall,
+                               num_hrs_prcp)
+
+        if args.check_climatology:
+
+            # Get SNODAS SWE climatology data for the current time.
+            wdb_swe_clim_med_mm = \
+                snodas_clim.at_loc(swe_clim_dir,
+                                   obs_datetime,
+                                   wdb_swe['station_lon'],
+                                   wdb_swe['station_lat'],
+                                   element='swe',
+                                   metric='median',
+                                   sampling='neighbor')
+            wdb_swe_clim_max_mm = \
+                snodas_clim.at_loc(swe_clim_dir,
+                                   obs_datetime,
+                                   wdb_swe['station_lon'],
+                                   wdb_swe['station_lat'],
+                                   element='swe',
+                                   metric='max',
+                                   sampling='neighbor')
+            wdb_swe_clim_iqr_mm = \
+                snodas_clim.at_loc(swe_clim_dir,
+                                   obs_datetime,
+                                   wdb_swe['station_lon'],
+                                   wdb_swe['station_lat'],
+                                   element='swe',
+                                   metric='iqr',
+                                   sampling='neighbor')
+
+
+        # Get previous num_hrs_prev_swe hours of swe data.
+        t1 = dt.datetime.utcnow()
+        wdb_prev_swe = \
+            wdb0.get_prev_swe_obs(obs_datetime,		
+                                  num_hrs_prev_swe,
+                                  scratch_dir=args.pkl_dir,
+                                  verbose=args.verbose)
+        t2 = dt.datetime.utcnow()
+        elapsed_time = t2 - t1
+
+        if args.verbose:
+            print('INFO: found {} '.
+                  format(wdb_prev_swe['values_mm'].count()) +
+                  'preceding swe reports ' +
+                  'from {} stations.'.format(wdb_prev_swe['num_stations']))
+            print('INFO: query ran in {} seconds.'.
+                  format(elapsed_time.total_seconds()))
+
+        # Extract previous swe values and station object identifiers,
+        # for convenience (shorter variable names).
+        wdb_prev_swe_val_mm = wdb_prev_swe['values_mm']
+        wdb_prev_swe_obj_id = wdb_prev_swe['station_obj_id']
+
+        # Get previous num_hrs_prev_swe hours of swe QC data.
+        t1 = obs_datetime - dt.timedelta(hours=num_hrs_prev_swe)
+        t1_num = date2num(t1, qcdb_var_time_units)
+        t1_ind = int(t1_num - qcdb_var_time[0])
+        t2 = obs_datetime - dt.timedelta(hours=1)
+        t2_num = date2num(t2, qcdb_var_time_units)
+        t2_ind = int(t2_num - qcdb_var_time[0])
+
+        # Remove negative indices.
+        left_ind = max(t1_ind, 0)
+        right_ind = max(t2_ind + 1, 0)
+
+        qcdb_prev_swe_qc_flag = qcdb_swe_qc_flag[:, left_ind:right_ind]
+
+        # Calculate the number of hours to add at the start of
+        # qcdb_prev_swe_qc_flag, for cases where num_hrs_prev_swe extends
+        # to times earlier than the time range covered by the database.
+        num_pad_hours = min(left_ind - t1_ind, num_hrs_prev_swe)
+
+        # Programming check.
+        if qcdb_prev_swe_qc_flag.shape[1] + num_pad_hours != \
+           num_hrs_prev_swe:
+            print('ERROR: (programming) miscalculation of num_pad_hours.',
+                  file=sys.stderr)
+            qcdb.close()
+            sys.exit(1)
+
+        # If necessary (i.e., if any or all of the previous
+        # num_hrs_prev_swe hours fall outside the time domain of the QC
+        # database), pad previous swe QC data with zeroes.
+        if num_pad_hours > 0 and qcdb_num_stations > 0:
+            if args.verbose:
+                print('INFO: need to pad previous swe QC flag ' +
+                      'with {} hours.'.
+                      format(num_pad_hours))
+
+            new_qc = np.ma.masked_array(np.array([[0] * num_pad_hours] *
+                                                 qcdb_num_stations))
+            qcdb_prev_swe_qc_flag = \
+                np.ma.concatenate([new_qc, qcdb_prev_swe_qc_flag],
+                                  axis=1)
+
+
+        # Get precipitation data associated with SWE observations.
+        t1 = dt.datetime.utcnow()
+        wdb_swe_prcp = \
+            wdb0.get_swe_prcp_obs(obs_datetime,
+                                  num_hrs_prcp,
+                                  scratch_dir=args.pkl_dir,
+                                  verbose=args.verbose)
+        t2 = dt.datetime.utcnow()
+        elapsed_time = t2 - t1
+        if args.verbose:
+            print('INFO: found {} precipitation reports.'.
+                  format(wdb_swe_prcp['num_stations']))
+            print('INFO: query ran in {} seconds.'.
+                  format(elapsed_time.total_seconds()))
+
+        # Extract precipitation values and station object identifiers, for
+        # convenience (shorter variable names).
+        wdb_swe_prcp_val_mm = wdb_swe_prcp['values_mm']
+        wdb_swe_prcp_obj_id = wdb_swe_prcp['station_obj_id']
+
+        # Initialize counters for the current time.
+        # num_stations_added_this_time = 0
+        num_flagged_swe_wr_this_time = 0
+        num_flagged_swe_change_wr_this_time = 0
+        num_flagged_swe_streak_this_time = 0
+        num_flagged_swe_gap_this_time = 0
+        num_flagged_swe_pr_cons_this_time = 0
+
+        # Rename wdb_swe values for convenience.
+        wdb_swe_obj_id = wdb_swe['station_obj_id']
+        wdb_swe_station_id = wdb_swe['station_id']
+        wdb_swe_val_mm = wdb_swe['values_mm'][:,0]
+
+        if args.verbose:
+            print('Performing SWE QC for {}'.format(obs_datetime))
+
+        ####################################################
+        # Loop over all reports for the current date/time. #
+        ####################################################
+
+        for wdb_swe_si in range(0, wdb_swe['num_stations']):
+
+            # Extract values of wdb_swe values for this station.
+            site_swe_obj_id = wdb_swe_obj_id[wdb_swe_si]
+            site_swe_station_id = wdb_swe_station_id[wdb_swe_si]
+            site_swe_val_mm = wdb_swe_val_mm[wdb_swe_si]
+
+            if args.check_climatology:
+                site_swe_clim_med_mm = wdb_swe_clim_med_mm[wdb_swe_si]
+                site_swe_clim_max_mm = wdb_swe_clim_max_mm[wdb_swe_si]
+                site_swe_clim_iqr_mm = wdb_swe_clim_iqr_mm[wdb_swe_si]
+
+            # Locate station index in QC database.
+            qcdb_si = np.where(qcdb_obj_id_var[:] == site_swe_obj_id)
+
+            debug_this_station = False
+            if debug_station_id is not None and \
+               site_swe_station_id == debug_station_id:
+                debug_this_station = True
+
+            if len(qcdb_si[0]) == 0:
+
+                # New station - get its metadata.
+
+                # Open the web database.
+                conn_string = "host='wdb0.dmz.nohrsc.noaa.gov' " + \
+                              "dbname='web_data'"
+                conn = psycopg2.connect(conn_string)
+                conn.set_client_encoding("utf-8")
+                cursor = conn.cursor()
+
+                # Read metadata for the current station.
+                sql_cmd = "SELECT " + wdb_col_list_str + " " + \
+                          "FROM point.allstation " + \
+                          "WHERE obj_identifier = {};". \
+                          format(site_swe_obj_id)
+                cursor.execute(sql_cmd)
+                wdb_station_meta = cursor.fetchall()
+                cursor.close()
+                conn.close()
+                if len(wdb_station_meta) != 1:
+                    print('ERROR: found {} matches in SQL statement ' +
+                          'for station object ID {}; expecting 1.'.
+                          format(len(wdb_station_meta), site_swe_obj_id),
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+                wdb_station_meta = wdb_station_meta[0]
+
+                # For all station variables append or confirm/update data.
+                for ind, qcdb_station_var in enumerate(qcdb_station_vars):
+                    allstation_column_name = wdb_col_list[ind]
+
+                    if isinstance(wdb_station_meta[ind], dt.datetime):
+                        # Format as "YYYY-MM-DD HH:MM:SS"
+                        if not qcdb_station_var.dtype is np.str:
+                            print('ERROR: NetCDF variable {}'.
+                                  format(qcdb_station_var.name) +
+                                  'must be of "str" type.',
+                                  file=sys.stderr)
+                            qcdb.close()
+                            exit(1)
+                        wdb_allstation_column_data = \
+                            wdb_station_meta[ind].strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        wdb_allstation_column_data = wdb_station_meta[ind]
+                        if isinstance(wdb_allstation_column_data, str):
+                            wdb_allstation_column_data = \
+                                wdb_allstation_column_data.strip()
+
+                    if allstation_column_name == 'station_id':
+                        if len(qcdb_si[0]) == 0:
+                            # This is a new station.
+                            if qcdb_num_stations_start > 0 and args.verbose:
+                                print('INFO: adding station "{}".'.
+                                      format(wdb_allstation_column_data))
+
+                    if len(qcdb_si[0]) == 0:
+                        # Station (si) object ID not in QC database.
+                        # Append. THIS ADDS 1 TO THE STATION DIMENSION.
+                        # if ind == 0:
+                        #     print(qcdb.dimensions['station'].size)
+                        qcdb_station_var[qcdb_num_stations] = \
+                            wdb_allstation_column_data
+                        # if ind == 0:
+                        #     print(qcdb.dimensions['station'].size)
+
+                # Metadata was appended above. Now QC data needs to
+                # be appended as well.
+                qcdb_si = qcdb_num_stations
+                qcdb_station_is_new = True
+                qcdb_num_stations += 1
+                num_stations_added += 1
+                num_stations_added_this_time += 1
+                if qcdb_num_stations_start and args.verbose:
+                    print('INFO: QC database now includes {} stations.'.
+                          format(qcdb_num_stations))
+                # Initialize qc variables to 0 for this (new) station.
+                qcdb_snwd_qc_chkd[qcdb_si,:] = 0
+                qcdb_snwd_qc_flag[qcdb_si,:] = 0
+                qcdb_swe_qc_chkd[qcdb_si,:] = 0
+                qcdb_swe_qc_flag[qcdb_si,:] = 0
+
+                # Add artificial qc data to qcdb_prev_swe_qc_flag for
+                # the new station.
+                new_row = np.ma.masked_array(np.array([[0] *
+                                                       num_hrs_prev_swe]))
+                if qcdb_prev_swe_qc_flag.shape[0] == 0:
+                    qcdb_prev_swe_qc_flag = new_row
+                else:
+                    qcdb_prev_swe_qc_flag = \
+                        np.ma.concatenate([qcdb_prev_swe_qc_flag, new_row],
+                                          axis=0)
+                new_row = None
+
+            else:                  
+
+                qcdb_si = qcdb_si[0][0]
+                qcdb_station_is_new = False
+
+            ########################################################
+            # Locate station index relative to all data needed for #
+            # performing QC tests.                                 #
+            ########################################################
+
+            # Locate station index in previous swe data.
+            # TODO: fix this brute force method. Maybe try the index method
+            # with a try/except arrangement.
+            wdb_prev_swe_si = []
+            for ind, val in enumerate(wdb_prev_swe_obj_id):
+                if val == site_swe_obj_id:
+                    wdb_prev_swe_si.append(ind)
+
+            if len(wdb_prev_swe_si) != 0:
+                # The object ID for this station was found in the
+                # preceding swe data.
+                if len(wdb_prev_swe_si) > 1:
+                    print('ERROR: multiple matches for station ' +
+                          'object ID {} '.format(site_swe_obj_id) +
+                          'in preceding swe data.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+                wdb_prev_swe_si = wdb_prev_swe_si[0]
+            else:
+                wdb_prev_swe_si = None
+
+
+            # Locate station index in precipitation data.
+            wdb_swe_prcp_si = []
+            for ind, val in enumerate(wdb_swe_prcp_obj_id):
+                if val == site_swe_obj_id:
+                    wdb_swe_prcp_si.append(ind)
+
+            if len(wdb_swe_prcp_si) != 0:
+                # The object ID for this station was found in the
+                # precipitation data.
+                if len(wdb_swe_prcp_si) > 1:
+                    print('ERROR: multiple matches for station ' +
+                          'object ID {} '.format(site_prcp_obj_id) +
+                          'in precipitation data.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+                wdb_swe_prcp_si = wdb_swe_prcp_si[0]
+            else:
+                wdb_swe_prcp_si = None
+
+
+            ####################################################
+            # Perform SWE QC tests on the current observation. #
+            ####################################################
+
+            # Get QC test names and bits for the QC flag and the "QC checked"
+            # flag.
+            swe_qc_test_names = qcdb_swe_qc_flag. \
+                                getncattr('qc_test_names')
+            swe_qc_test_bits = qcdb_swe_qc_flag. \
+                               getncattr('qc_test_bits')
+            swec_qc_test_names = qcdb_swe_qc_chkd. \
+                                 getncattr('qc_test_names')
+            swec_qc_test_bits = qcdb_swe_qc_chkd. \
+                                getncattr('qc_test_bits')
+
+
+            ##################################################
+            # Perform the SWE world record exceedance check. #
+            ##################################################
+
+            # Identify the QC bit for the test.
+            qc_test_name = 'world_record_exceedance'
+            ind = swe_qc_test_names.index(qc_test_name)
+            qc_bit = swe_qc_test_bits[ind]
+            if swe_qc_test_names[ind] != qc_test_name:
+                print('ERROR: inconsistent qc_test_names data in ' +
+                      'QC database.',
+                      file=sys.stderr)
+                qcdb.close()
+                exit(1)
+            if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
+                print('ERROR: inconsistent qc_test_bits data in ' +
+                      'QC database.',
+                      file=sys.stderr)
+                qcdb.close()
+                exit(1)
+
+            if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
+
+                if qc_durre_swe_wre(site_swe_val_mm):  #def 1
+                    # Value has been flagged.
+                    if args.verbose:
+                        print('INFO: flagging SWE value {} '.
+                              format(site_swe_val_mm) +
+                              'at station {} '.format(site_swe_station_id) +
+                              '({}) '.format(site_swe_obj_id) +
+                              '("{}").'.format(qc_test_name))
+
+                    # Turn on the QC bit for this test.
+                    qcdb_swe_qc_flag[qcdb_si, qcdb_ti] = \
+                        qcdb_swe_qc_flag[qcdb_si, qcdb_ti] \
+                        | (1 << qc_bit)
+
+                    num_flagged_swe_wr_this_time += 1
+                    num_flagged_swe_wr += 1
+
+                # Turn on the QC checked bit for this test, regardless of
+                # whether the observation was flagged.
+                qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] = \
+                    qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] \
+                    | (1 << qc_bit)
+
+
+
+
+        ######################################
+        # SNOW WATER EQUIVALENT (SWE) QC END #
+        ######################################
+
+
+
+
+
 
         ############################################
         # QC checks finished for the current time. #

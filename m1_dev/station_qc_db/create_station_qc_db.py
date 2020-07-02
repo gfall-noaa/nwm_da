@@ -12,6 +12,7 @@ import numpy as np
 import pyproj
 import sys
 import os
+import errno
 
 
 class Opt:
