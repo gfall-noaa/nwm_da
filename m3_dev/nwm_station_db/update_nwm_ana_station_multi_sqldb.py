@@ -31,6 +31,11 @@ import getpass
 #from netCDF4 import Dataset, date2num, num2date
 #import math
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'lib'))
+import nwm_da_time as ndt
+sys.path.append(os.path.join(os.path.dirname(__file__), 'lib'))
+import nwm_da_sqlite_db as nds_db
+
 #sqlite3.register_adapter(np.int32, lambda val: int(val))
 sqlite3.register_adapter(np.int32, int)
 
@@ -418,56 +423,6 @@ def subset_station_latlon_obj_ids(datetime_ep,
 
     return num_stations, db_grid_cols, db_grid_rows, obj_ids
 
-
-def attach_databases(conn, db_dir, sampling_method, land_layer,
-                     forcing_single_db, land_single_db,
-                     start_datetime_ep, finish_datetime_ep):
-    '''
-    Attach companion land and forcing data databases.
-    '''
-    # start_date_str = \
-    #     utc_epoch_to_string(start_datetime_ep, '%Y%m%d%H')
-    # finish_date_str = \
-    #     utc_epoch_to_string(finish_datetime_ep, '%Y%m%d%H')
-
-    if os.path.isfile(forcing_single_db):
-        conn.execute('ATTACH DATABASE "' + forcing_single_db + '" AS forcing_single')
-    else:
-        print('Database file {} does not exist. Need to create it first'.format(forcing_single_db))
-        sys.exit(1)
-
-    if os.path.isfile(land_single_db):
-        conn.execute('ATTACH DATABASE "' + land_single_db + '" AS land_single')
-    else:
-        print('Database file {} does not exist. Need to create it first'.format(land_single_db))
-        sys.exit(1)
-
-    # #below layer related databases may no longer need. Should have already
-    # #been decided in creating phase
-    # if len(land_layer) != 0:
-    #     land_soil_db = 'nwm_ana_station_land_soil_' + \
-    #                     start_date + '_to_' + \
-    #                     finish_date + '_' + sampling_method + '.db'
-    #     land_snow_db = 'nwm_ana_station_land_snow_' + \
-    #                     start_date + '_to_' + \
-    #                     finish_date + '_' + sampling_method + '.db'
-
-    # if len(land_layer) != 0:
-    #     land_soil_db_path = os.path.join(db_dir, land_soil_db)
-    #     if os.path.isfile(land_soil_db_path):
-    #         conn.execute('ATTACH DATABASE "' + \
-    #                             land_soil_db_path + '" AS land_soil')
-    #     else:
-    #         print('Database file {} does not exist. Need to create it first'.format(land_soil_db))
-    #         sys.exit(1)
-
-    #     land_snow_db_path = os.path.join(db_dir, land_snow_db)
-    #     if os.path.isfile(land_snow_db_path):
-    #         conn.execute('ATTACH DATABASE "' + \
-    #                             land_snow_db_path + '" AS land_snow')
-    #     else:
-    #         print('Database file {} does not exist. Need to create it first'.format(land_snow_db))
-    #         sys.exit(1)
 
 def get_data_column_names(conn, land_layer):
     '''
@@ -2787,11 +2742,9 @@ def main():
                                      oper)
 
         #Now check if other companion databases are exist and then attach them
-        attach_databases(sqldb_conn, opt.db_dir,
-                         sampling_method, land_layer,
-                         forcing_single_db, land_single_db,
-                         new_db_start_datetime_ep,
-                         new_db_finish_datetime_ep)
+        nds_db.attach_databases(sqldb_conn,
+                                forcing_single_db,
+                                land_single_db)
 
         print('INFO: Companion databases are now attached!')
 
