@@ -787,7 +787,7 @@ SKIP:
   char_size = 1.0
   sym_size = 1.0
   other_col = 80
-  fill_col = 200
+  fill_col = 220
   far_sym = -5
   pfar_sym = -8
   pos = [0.1, 0.25, 0.9, 0.75]
