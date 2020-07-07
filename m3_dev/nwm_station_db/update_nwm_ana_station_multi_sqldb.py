@@ -11,8 +11,6 @@
 
 import argparse
 import datetime as dt
-import calendar
-import glob
 import re
 import sys
 import os
@@ -40,54 +38,6 @@ import nwm_da_sqlite_db as nds_db
 sqlite3.register_adapter(np.int32, int)
 
 
-def string_to_datetime(date_str, date_format='%Y-%m-%d %H:%M:%S'):
-    '''
-    Convert a string time in the default format of %Y-%m-%d %H:%M:%S
-    to a datetime unless a different date_format is given
-    '''
-    return dt.datetime.strptime(date_str, date_format)
-
-def datetime_to_string(date_dt, date_format='%Y-%m-%d %H:%M:%S'):
-    '''
-    Convert a datetime time info to a string of %Y-%m-%d %H:%M:%S
-    as default unless a different date_format is given.
-    '''
-    return dt.datetime.strftime(date_dt, date_format)
-
-def datetime_to_utc_epoch(datetime_in):
-    """
-    Convert a (UTC) datetime into seconds since 1970-01-01 00:00:00.
-    """
-    return calendar.timegm(datetime_in.timetuple())
-
-
-def utc_epoch_to_datetime(datetime_epoch):
-    """
-    Convert a (UTC) date/time expressed as seconds since 1970-01-01 00:00:00
-    to a datetime type.
-    """
-    return \
-        dt.datetime.strptime('1970-01-01 00:00:00', '%Y-%m-%d %H:%M:%S') + \
-        dt.timedelta(seconds=datetime_epoch)
-
-
-def utc_epoch_to_string(datetime_epoch, date_format='%Y-%m-%d %H:%M:%S'):
-    """
-    Convert a (UTC) date/time expressed as seconds since 1970-01-01 00:00:00
-    to a string in the default form "YYYY-MM-DD HH:MM:SS". If date_foramt
-    is given, use the given format.
-    """
-    return dt.datetime.strftime(utc_epoch_to_datetime(datetime_epoch),
-                                date_format)
-
-def string_to_utc_epoch(date_str, date_format='%Y-%m-%d %H:%M:%S'):
-    '''
-    Convert a string time in the default format of %Y-%m-%d %H:%M:%S
-    to utc_epoch seconds via a datetime unless a date_format is given
-    '''
-    date_dt = dt.datetime.strptime(date_str, date_format)
-    return calendar.timegm(date_dt.timetuple())
-
 def progress(count, total, status=''):
     """
     Progress bar:
@@ -104,77 +54,6 @@ def progress(count, total, status=''):
     #sys.stdout.write('\r[%s] %s%s ...%s\r' % (bar, percents, '%', status))
     sys.stdout.write('\r[%s] %s%s %s\r' % (bar, percents, '%', status))
     sys.stdout.flush()
-
-def timedelta_to_int_hours(delta_time):
-
-    """
-    Converts a datetime timedelta object to an integer number of hours.
-    """
-
-    delta_time_hours = delta_time.days * 24 + \
-                       delta_time.seconds // 3600
-    # delta_time.total_seconds() // 3600 also works
-    return delta_time_hours
-
-def verify_base_database(base_name, db_dir):
-    '''
-    Locate and verify the base database files to be updated.
-    '''
-    if "_archive" in base_name:
-        pattern = \
-            os.path.join(db_dir, base_name +
-                         '_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' +
-                         '_to_' +
-                         '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' +
-                         '_base.db')
-        oper = False
-    elif "_oper" in base_name:
-        pattern = os.path.join(db_dir, base_name + '_base.db')
-        oper = True
-    else:
-        print('ERROR: Check your base name of the database to be updated')
-        sys.exit(1)
-    db_paths = glob.glob(pattern)
-    db_paths.sort()
-    #print('debug: (db_paths/patteren)', db_paths, pattern)
-
-    return oper, db_paths
-
-def get_start_finish_date_from_name(db_file, oper):
-    '''
-    Get start and finish date info from the given database file.
-    '''
-    dates = re.findall('[0-9]{10}', db_file)
-    if len(dates) > 0 and oper is False:
-        db_start_date_from_name = dates[-2]
-        db_start_datetime_from_name_dt = \
-            dt.datetime.strptime(db_start_date_from_name, '%Y%m%d%H')
-        db_start_datetime_from_name_ep = \
-            datetime_to_utc_epoch(db_start_datetime_from_name_dt)
-        db_finish_date_from_name = dates[-1]
-        db_finish_datetime_from_name_dt = \
-            dt.datetime.strptime(db_finish_date_from_name, '%Y%m%d%H')
-        db_finish_datetime_from_name_ep = \
-            datetime_to_utc_epoch(db_finish_datetime_from_name_dt)
-    else:
-        db_start_datetime_from_name_dt = None
-        db_finish_datetime_from_name_dt = None
-        db_start_datetime_from_name_ep = None
-        db_finish_datetime_from_name_ep = None
-
-    return db_start_datetime_from_name_ep, db_finish_datetime_from_name_ep
-
-def get_start_finish_date_from_db(conn):
-    '''
-    Get start and finish date info from the given database file.
-    '''
-    db_start_datetime_from_db_ep = \
-        conn.execute("SELECT start_date FROM databases_info").fetchone()[0]
-
-    db_finish_datetime_from_db_ep = \
-        conn.execute("SELECT finish_date FROM databases_info").fetchone()[0]
-
-    return db_start_datetime_from_db_ep, db_finish_datetime_from_db_ep
 
 def get_database_info(conn):
     '''
@@ -204,13 +83,14 @@ def get_database_info(conn):
     if station_update_time_ep is not None:
         last_station_update_datetime_ep = station_update_time_ep[0]
         print('\nINFO: Last station metadata update was performed at {} UTC.'
-              .format(utc_epoch_to_string(last_station_update_datetime_ep)))
+              .format(ndt.utc_epoch_to_string(last_station_update_datetime_ep)))
     else:
-        station_last_datetime_dt = dt.datetime.strptime('1970-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
+        station_last_datetime_dt = dt.datetime.strptime('1970-01-01 00:00:00',
+                                                        '%Y-%m-%d %H:%M:%S')
         last_station_update_datetime_ep = \
-            datetime_to_utc_epoch(station_last_datetime_dt)
+            ndt.datetime_to_utc_epoch(station_last_datetime_dt)
         print('\nINFO: Last station metadata update was performed at {} '.
-              format(utc_epoch_to_string(last_station_update_datetime_ep)) +
+              format(ndt.utc_epoch_to_string(last_station_update_datetime_ep)) +
               '(i.e., it has never been updated).')
 
     nwm_archive_dir = \
@@ -247,11 +127,11 @@ def database_info_and_checks(conn,
     print('\nName and time consistency checking for {}...'.format(db_file))
     db_start_datetime_from_name_ep, \
     db_finish_datetime_from_name_ep = \
-        get_start_finish_date_from_name(db_file, oper)
+        nds_db.get_start_finish_date_from_name(db_file, oper)
 
     db_start_datetime_from_db_ep, \
     db_finish_datetime_from_db_ep = \
-           get_start_finish_date_from_db(conn)
+           nds_db.get_start_finish_date_from_db(conn)
 
     forcing_single_db_assumed = db_file.replace('_base', '_forcing_single')
     land_single_db_assumed = db_file.replace('_base', '_land_single')
@@ -288,15 +168,15 @@ def database_info_and_checks(conn,
 
     print('  Number of days to update: ', db_num_days_update)
     print('  Last updated time: ',
-          utc_epoch_to_string(db_last_updated_datetime_ep))
+          ndt.utc_epoch_to_string(db_last_updated_datetime_ep))
     if db_num_days_update == 0 and oper is False:
         print('\nUpdating archive databases ...')
         new_db_start_datetime_ep = db_start_datetime_from_db_ep
         new_db_finish_datetime_ep = db_finish_datetime_from_db_ep
         print('Start date (archive): {}'.
-              format(utc_epoch_to_string(new_db_start_datetime_ep)))
+              format(ndt.utc_epoch_to_string(new_db_start_datetime_ep)))
         print('Finish date (archive): {}'.
-              format(utc_epoch_to_string(new_db_finish_datetime_ep)))
+              format(ndt.utc_epoch_to_string(new_db_finish_datetime_ep)))
     else:
         print('\nUpdating operational databases ...')
         this_update_datetime_ep = time.time()
@@ -307,9 +187,9 @@ def database_info_and_checks(conn,
         new_db_finish_datetime_ep = this_update_datetime_ep
 
         print('New start date (oper): {}'.
-              format(utc_epoch_to_string(new_db_start_datetime_ep)))
+              format(ndt.utc_epoch_to_string(new_db_start_datetime_ep)))
         print('New finish date (oper): {}'.
-              format(utc_epoch_to_string(new_db_finish_datetime_ep)))
+              format(ndt.utc_epoch_to_string(new_db_finish_datetime_ep)))
 
     return db_start_datetime_from_db_ep, \
            new_db_start_datetime_ep, \
@@ -423,34 +303,6 @@ def subset_station_latlon_obj_ids(datetime_ep,
 
     return num_stations, db_grid_cols, db_grid_rows, obj_ids
 
-
-def get_data_column_names(conn, land_layer):
-    '''
-    Get column names in the orginal order from data databases.
-    '''
-    tb_info = conn.execute("PRAGMA forcing_single. \
-                            table_info('nwm_forcing_single_layer')").fetchall()
-    column_names = list(zip(*tb_info))[1]
-    forcing_single_layer_col_names = ','.join(column_names)
-
-    tb_info = conn.execute("PRAGMA \
-                            land_single.table_info('nwm_land_single_layer')") \
-                            .fetchall()
-    column_names = list(zip(*tb_info))[1]
-    land_single_layer_col_names = ','.join(column_names)
-
-    if len(land_layer) != 0:
-        tb_info = conn.execute("PRAGMA \
-                                land_snow.table_info('nwm_land_snow_layers')") \
-                               .fetchall()
-        column_names = list(zip(*tb_info))[1]
-        land_snow_layer_col_names = ','.join(column_names)
-    else:
-        land_snow_layer_col_names = []
-
-    return forcing_single_layer_col_names, \
-           land_single_layer_col_names, \
-           land_snow_layer_col_names
 
 def get_nwm_files_processed(conn):
     '''
@@ -674,10 +526,11 @@ def get_nwm_file_info(a_nwm_file_name):
     nwm_file_cycle_datetime_dt = \
         dt.datetime.strptime(cycle_yyyymmdd + cycle_hh,
                              '%Y%m%d%H')
-    nwm_file_cycle_datetime_ep = datetime_to_utc_epoch(nwm_file_cycle_datetime_dt)
+    nwm_file_cycle_datetime_ep = \
+        ndt.datetime_to_utc_epoch(nwm_file_cycle_datetime_dt)
     nwm_file_datetime_dt = nwm_file_cycle_datetime_dt - \
                            dt.timedelta(hours=nwm_file_time_minus_hours)
-    nwm_file_datetime_ep = datetime_to_utc_epoch(nwm_file_datetime_dt)
+    nwm_file_datetime_ep = ndt.datetime_to_utc_epoch(nwm_file_datetime_dt)
 
 
     return nwm_file_cycle_type_str, \
@@ -758,7 +611,7 @@ def check_nwm_attributes(nwm, nwm_group, a_nwm_file_name):
     try:
         nwm_datetime_dt = num2date(nwm_var_time[:][0],
                                 units=nwm_var_time_units)
-        nwm_datetime_ep = datetime_to_utc_epoch(nwm_datetime_dt)
+        nwm_datetime_ep = ndt.datetime_to_utc_epoch(nwm_datetime_dt)
     except:
         print('ERROR: Unable to convert time ' +
               '{} '.format(nwm_var_time[:][0]) +
@@ -777,13 +630,13 @@ def check_nwm_attributes(nwm, nwm_group, a_nwm_file_name):
                              '%Y%m%d%H')
     nwm_file_datetime_dt = nwm_file_cycle_datetime_dt - \
                            dt.timedelta(hours=nwm_file_time_minus_hours)
-    nwm_file_datetime_ep = datetime_to_utc_epoch(nwm_file_datetime_dt)
+    nwm_file_datetime_ep = ndt.datetime_to_utc_epoch(nwm_file_datetime_dt)
     if nwm_datetime_ep != nwm_file_datetime_ep:
         print('ERROR: NWM file {} '.format(a_nwm_file_name) +
               'refers to date/time {}; '.
-               format(utc_epoch_to_string(nwm_datetime_ep)) +
+               format(ndt.utc_epoch_to_string(nwm_datetime_ep)) +
               '; filename indicates ' + 'date/time {}.'.
-               format(utc_epoch_to_string(nwm_file_datetime_ep)),
+               format(ndt.utc_epoch_to_string(nwm_file_datetime_ep)),
               file=sys.stderr)
         nwm.close()
         return 0
@@ -1475,7 +1328,7 @@ def update_nwm_file_update_info(conn,
         # print('INFO: {} provides initial group "{}" reference data for {}.'.
         #       format(nf_name,
         #              nf_group,
-        #              utc_epoch_to_string(nf_datetime_ep)))
+        #              ndt.utc_epoch_to_string(nf_datetime_ep)))
         try:
             conn.execute(sql_insert, (nf_name,
                                       nf_datetime_ep,
@@ -1494,11 +1347,11 @@ def update_nwm_file_update_info(conn,
         # Reference data has been defined for the current nf_datetime_ep,
         # for the current nf_group.
         # print('Further Update for {}'.
-        #       format(utc_epoch_to_string(nf_datetime_ep)))
+        #       format(ndt.utc_epoch_to_string(nf_datetime_ep)))
         # print('INFO: {} provides additional group "{}" data for {}.'.
         #       format(nf_name,
         #              nf_group,
-        #              utc_epoch_to_string(nf_datetime_ep)))
+        #              ndt.utc_epoch_to_string(nf_datetime_ep)))
         if (nf_cycle_type < ref_cycle_type_db) or \
            ((nf_cycle_type == ref_cycle_type_db) and \
             (nf_time_minus_hours > ref_time_minus_hours_db)):
@@ -1507,7 +1360,7 @@ def update_nwm_file_update_info(conn,
             # print('Case 1 - inserting')
             print('INFO: {} provides improved reference for {}'.
                   format(nf_name,
-                         utc_epoch_to_string(nf_datetime_ep)))
+                         ndt.utc_epoch_to_string(nf_datetime_ep)))
             is_reference = 1
             conn.execute(sql_insert, (nf_name,
                                       nf_datetime_ep,
@@ -1551,8 +1404,6 @@ def update_nwm_file_update_info(conn,
                           format(nf_group),
                           file=sys.stderr)
                     sys.exit(1)
-                #nwm_cycle_datetime_db_utc = calendar.timegm(
-                #                            nwm_cycle_datetime_db.timetuple())
                 sql_count = "SELECT COUNT(*) FROM " + table_name + " " + \
                             "WHERE cycle_datetime=" + \
                             str(ref_nwm_cycle_datetime_db_ep) + " " + \
@@ -1581,7 +1432,7 @@ def update_nwm_file_update_info(conn,
             #if (oper is True) or (nwm_time_minus_hour == 0):
             # print('INFO: {} is non-reference for {} but qualifies for addition'.
             #       format(nf_name,
-            #              utc_epoch_to_string(nf_datetime_ep)))
+            #              ndt.utc_epoch_to_string(nf_datetime_ep)))
             if (oper is True) or (nf_time_minus_hours == 0):
                 is_reference = 0
                 conn.execute(sql_insert, (nf_name,
@@ -1743,7 +1594,7 @@ def change_datetime_to_readable_string(datetime_df,
     '''
     str_list = []
     for each_v in datetime_df:
-        each_str = utc_epoch_to_string(each_v, '%Y-%m-%d %H:%M')
+        each_str = ndt.utc_epoch_to_string(each_v, '%Y-%m-%d %H:%M')
         str_list.append(each_str)
     str_series = pd.Series(str_list)
     df_str = str_series.to_frame(column_name)
@@ -1997,9 +1848,9 @@ def write_dataframe_to_database(sqlite_conn,
                 #    data_values.append(data_col_val)
                 #else:
                 #    dv = data_col_val.strftime('%Y-%m-%d %H:%M:%S')
-                #    data_values.append(string_to_utc_epoch(dv))
+                #    data_values.append(ndt.string_to_utc_epoch(dv))
                 dv = data_col_val.strftime('%Y-%m-%d %H:%M:%S')
-                data_values.append(string_to_utc_epoch(dv))
+                data_values.append(ndt.string_to_utc_epoch(dv))
             else:
                 data_values.append(data_col_val)
 
@@ -2296,9 +2147,9 @@ def update_nwm_db_allstation(db_file,
             "SELECT obj_identifier, date, value " + \
             "FROM point.obs_snow_depth " + \
             "WHERE date >= '" + \
-             utc_epoch_to_string(snow_start_datetime_ep) + "' " + \
+             ndt.utc_epoch_to_string(snow_start_datetime_ep) + "' " + \
             "AND date <= '" + \
-             utc_epoch_to_string(snow_end_datetime_ep) +"' " + \
+             ndt.utc_epoch_to_string(snow_end_datetime_ep) +"' " + \
             "AND value IS NOT NULL " + \
         ") AS tsd " + \
         "FULL JOIN" + \
@@ -2306,9 +2157,9 @@ def update_nwm_db_allstation(db_file,
             "SELECT obj_identifier, date, value " + \
             "FROM point.obs_swe " + \
             "WHERE date >= '" + \
-             utc_epoch_to_string(snow_start_datetime_ep) + "' " + \
+             ndt.utc_epoch_to_string(snow_start_datetime_ep) + "' " + \
             "AND date <= '" + \
-             utc_epoch_to_string(snow_end_datetime_ep) +"' " + \
+             ndt.utc_epoch_to_string(snow_end_datetime_ep) +"' " + \
             "AND value IS NOT NULL " + \
         ") AS tswe USING (date, obj_identifier) " + \
         "JOIN point.allstation AS tstn USING (obj_identifier) " + \
@@ -2322,11 +2173,11 @@ def update_nwm_db_allstation(db_file,
              " <= {} ".format(bb_max_lat) + \
              "AND (tstn.stop_date = '1900-01-01 00:00:00' " + \
              "OR tstn.stop_date >= '" + \
-             utc_epoch_to_string(db_start_datetime_ep) + \
+             ndt.utc_epoch_to_string(db_start_datetime_ep) + \
              "') " + \
              "AND (tstn.start_date = '1900-01-01 00:00:00' " + \
              "OR tstn.start_date <= '" + \
-              utc_epoch_to_string(db_end_datetime_ep) + \
+              ndt.utc_epoch_to_string(db_end_datetime_ep) + \
              "') " + \
              "AND tstn.use = TRUE " + \
         "GROUP BY " + group_str + \
@@ -2354,8 +2205,8 @@ def update_nwm_db_allstation(db_file,
     print('INFO: Total snow stations obtained from the web database is {}.'.format(len(wdb_df)))
 
     print('\nSnow station selection was base on the period: \nfrom {} to {}.'.format(
-          utc_epoch_to_string(snow_start_datetime_ep),
-          utc_epoch_to_string(snow_end_datetime_ep)))
+          ndt.utc_epoch_to_string(snow_start_datetime_ep),
+          ndt.utc_epoch_to_string(snow_end_datetime_ep)))
 
 
     # Calculate NWM grid row/column for each station and attach them
@@ -2436,7 +2287,6 @@ def update_nwm_db_allstation(db_file,
     insert_statement = 'INSERT INTO station_control VALUES (?)'
     update_statement = 'UPDATE station_control SET last_update_datetime=(?)'
     #time_str = this_station_update_datetime.strftime('%s')
-    #time_utc = calendar.timegm(this_station_update_datetime.timetuple())
     time_ep = this_station_update_datetime_ep
 
     if num_record == 0:
@@ -2530,7 +2380,7 @@ def ref_nwm_file_update_info(conn,
                                  1)
 
     #print('f_read {} for {}.'.format(nwm_files_read,
-    #                                 utc_epoch_to_string(nwm_file_datetime_ep)))
+    #                                 ndt.utc_epoch_to_string(nwm_file_datetime_ep)))
     if len(nwm_files_read) == 0:
         return None, None, None, None
 
@@ -2538,7 +2388,7 @@ def ref_nwm_file_update_info(conn,
     if len(nwm_files_read) > 1:
         print('ERROR: multiple is_reference_db = 1 ' +
               'results in nwm_file_update_info for ' +
-              utc_epoch_to_string(nwm_file_datetime_ep) +
+              ndt.utc_epoch_to_string(nwm_file_datetime_ep) +
               ' and nwm_group_db = "' + nwm_group + '".',
               file=sys.stderr)
               #nwm_file_datetime.strftime('%Y-%m-%d %H:%M:%S') +
@@ -2705,7 +2555,7 @@ def main():
     allstation_update_interval_hours = opt.station_update_interval_hours
 
     # Locate and verify the base database files to be updated.
-    oper, db_paths = verify_base_database(opt.base_name, opt.db_dir)
+    oper, db_paths = nds_db.verify_base_database(opt.base_name, opt.db_dir)
 
     num_nwm_files_read = 0
 
@@ -2768,7 +2618,7 @@ def main():
         forcing_single_layer_col_names, \
         land_single_layer_col_names, \
         land_snow_layer_col_names = \
-            get_data_column_names(sqldb_conn, land_layer)
+            nds_db.get_data_column_names(sqldb_conn, land_layer)
 
 
         ## A few common used info
@@ -2777,7 +2627,7 @@ def main():
 
         # Get cycle type info from the table: cycle_type_themes
         current_yyyymm = \
-            dt.datetime.strftime(utc_epoch_to_datetime(new_db_start_datetime_ep),
+            dt.datetime.strftime(ndt.utc_epoch_to_datetime(new_db_start_datetime_ep),
                                                        '%Y%m')
         # ***** Above will not work for more than a month period *******
 
@@ -2977,7 +2827,7 @@ def main():
             #if new_db_start_datetime_ep > db_start_datetime_from_db_ep[0]:
             if new_db_start_datetime_ep > db_start_datetime_from_db_ep:
                 print('\nDeleting records that older than {} ...'
-                      .format(utc_epoch_to_string(new_db_start_datetime_ep)))
+                      .format(ndt.utc_epoch_to_string(new_db_start_datetime_ep)))
                 delete_older_data(temp_db_conn, new_db_start_datetime_ep)
             else:
                 print('No records to be deleted')
@@ -3087,7 +2937,7 @@ def main():
                         (nf_time_minus_hours < ref_time_minus_hours_db)):
                         print('INFO: Skipping {} for {}.'.
                               format(nf_name,
-                                     utc_epoch_to_string(nf_datetime_ep)))
+                                     ndt.utc_epoch_to_string(nf_datetime_ep)))
                         continue
 
             # Get some of the colums of dynamic tables ready
@@ -3097,8 +2947,6 @@ def main():
             time_list_ep = [nf_datetime_ep]*num_stations
             #cycle_datetime_list = [nwm_file_cycle_datetimes[nfi]]*num_stations
             #time_list = [nwm_file_datetimes[nfi]]*num_stations
-            #cycle_datetime_list = [calendar.timegm(nwm_file_cycle_datetime.
-            #                                       timetuple())]*num_stations
             #cycle_datetime_list = [nwm_file_cycle_datetime.strftime('%Y-%m-%d %H:00')]*num_stations
             #time_list = [nwm_file_dt]*num_stations
             #time_list = [nwm_file_datetime.strftime('%Y-%m-%d %H:00')]*num_stations
@@ -3352,7 +3200,7 @@ def main():
             print('INFO: Updating nwm_file_update_info table ' +
                   'with {} for {}.'.
                   format(nf_name,
-                         utc_epoch_to_string(nf_datetime_ep)))
+                         ndt.utc_epoch_to_string(nf_datetime_ep)))
 
             #To update is_reference and delete un-necessary data from archive
 
