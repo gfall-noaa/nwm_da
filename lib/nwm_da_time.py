@@ -1,4 +1,7 @@
 import datetime as dt
+import pandas as pd
+import time
+import calendar
 
 def string_to_datetime(date_str, date_format='%Y-%m-%d %H:%M:%S'):
     '''
@@ -62,3 +65,48 @@ def timedelta_to_int_hours(delta_time):
                        delta_time.seconds // 3600
     # delta_time.total_seconds() // 3600 also works
     return delta_time_hours
+
+
+def datetime_series_to_epoch(dts):
+    '''From a single value of datetime series to epoch seconds'''
+    #numpy.datetime64
+    dt64 = pd.to_datetime(dts).values[0]
+    #Timestamp
+    dt_ts = pd.to_datetime(dt64)
+    #datetime
+    dtime = pd.to_datetime(dt_ts).to_pydatetime()
+    datetime_ep = datetime_to_utc_epoch(dtime)
+    return datetime_ep
+
+
+def ymdh_from_epoch(dt_ep):
+    '''extract year, month, day, and hour values from a epoch seconds'''
+    year = time.gmtime(dt_ep).tm_year
+    month = time.gmtime(dt_ep).tm_mon
+    day = time.gmtime(dt_ep).tm_mday
+    hour = time.gmtime(dt_ep).tm_hour
+    return year, month, day, hour
+
+
+def ymdh_from_datetime(dtime):
+    '''extract year, month, day, and hour values from a datetime'''
+    datetime_idx = pd.DatetimeIndex(dtime)
+    year = datetime_idx.year[0]
+    month = datetime_idx.month[0]
+    day = datetime_idx.day[0]
+    hour = datetime_idx.hour[0]
+    return year, month, day, hour
+
+
+def day_from_datetime(dtime):
+    '''extract day value from a datetime'''
+    datetime_idx = pd.DatetimeIndex(dtime)
+    day = datetime_idx.day[0]
+    return day
+
+
+def hour_from_datetime(dtime):
+    '''extract hour value from a datetime'''
+    datetime_idx = pd.DatetimeIndex(dtime)
+    hour = datetime_idx.hour[0]
+    return hour
