@@ -5,7 +5,6 @@ import os
 from netCDF4 import Dataset, num2date, date2num
 import datetime as dt
 import numpy as np
-import wdb0
 import sys
 import psycopg2
 import pandas as pd
@@ -16,6 +15,9 @@ from vincenty import vincenty
 import math
 from geopy import distance
 import errno
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'lib'))
+import wdb0
 
 def find_nearest_neighbors(lat1,
                            lon1,
@@ -555,7 +557,7 @@ def obs_rate_category(obs, min_sub_period_proportion=0.5, verbose=False):
     """
     Given a list of hourly observations in the form of a numpy masked
     array, determine the "rate category" that indicates how frequently
-    observations are available, using the following six categories:
+    observations are available, using the following file categories:
 
     1. sporadic (very few observations)
     2. quasi-daily (reporting rate >= 1 observation every 4 days)
@@ -1110,16 +1112,21 @@ def qc_durre_swe_streak(swe_value_mm,
 
 
 def qc_durre_swe_gap(swe_value_mm,
-                      prev_swe_value_mm,
-                      prev_swe_qc,
-                      ref_ceiling_mm=None,
-                      ref_default_mm=None,
-                      verbose=None):
+                     prev_swe_value_mm,
+                     prev_swe_qc,
+                     ref_ceiling_mm=None,
+                     ref_default_mm=None,
+                     verbose=None):
     """
     Outlier checks:
-    Gap check for swe
+    Gap check for SWE.
     Uses the same thresholds as qc_durre_snwd_gap, but in mm instead of cm
-    (implicit 10:1 ratio)
+    (implicit 10:1 ratio).
+    If ref_ceiling_mm and ref_default_mm are included, then when the default
+    reference value (median_obs) exceeds ref_ceiling_mm, it is replaced by the
+    value in the station_time_series that is nearest to ref_default_mm. The
+    purpose of this option is to override median_obs values that are based on
+    dubious large values of SWE, which often occur at automated sites.
     """
 
     # First value of reporting_rate_threshold needs to be zero!
@@ -1137,7 +1144,7 @@ def qc_durre_swe_gap(swe_value_mm,
                            'synoptic',
                            'hourly']
 
-    # Mask previous swe data that have any QC flags set.
+    # Mask previous SWE data that have any QC flags set.
     prev_swe_value_mm = np.ma.masked_where(prev_swe_qc != 0,
                                            prev_swe_value_mm)
 
@@ -2242,6 +2249,10 @@ def main():
                 qcdb.close()
                 exit(1)
 
+            # print(qcdb_si,
+            #       qcdb_ti,
+            #       type(qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti]),
+            #       qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti])
             if not qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
                 if qc_durre_snwd_wre(site_snwd_val_cm):
@@ -2557,7 +2568,7 @@ def main():
                     if args.check_climatology:
 
                         snwd_ref_ceiling_cm = (site_snwd_clim_max_mm + \
-                                          site_snwd_clim_iqr_mm) * 0.1
+                                               site_snwd_clim_iqr_mm) * 0.1
 
                         snwd_ref_default_cm = site_snwd_clim_med_mm * 0.1
 
@@ -3919,13 +3930,783 @@ def main():
                     qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] \
                     | (1 << qc_bit)
 
+            ############################################################
+            # Perform world record exceedance check for change in SWE. #
+            ############################################################
+
+            qc_test_name = 'world_record_increase_exceedance'
+            if debug_this_station:
+                print('***** Debugging swe "{}" test for value {} at {} ({}).'.
+                      format(qc_test_name,
+                             site_swe_val_mm,
+                             site_swe_station_id,
+                             site_swe_obj_id))
+
+            if wdb_prev_swe_si is not None:
+
+                # Preceding SWE data is available, making this test possible.
+
+                # Identify the QC bit for the test.
+                ind = swe_qc_test_names.index(qc_test_name)
+                qc_bit = swe_qc_test_bits[ind]
+                if swec_qc_test_names[ind] != qc_test_name:
+                    print('ERROR: inconsistent qc_test_names data in ' +
+                          'QC database.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+                if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
+                    print('ERROR: inconsistent qc_test_bits data in ' +
+                          'QC database.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+
+                if debug_this_station:
+                    print('***** have previous data.')
+
+                if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
+
+                    # Test has not been performed for this observation.
+
+                    # Note that there are three indices for locating this
+                    # station:
+                    # 1. wdb_swe_si    = the station index in
+                    #                     wdb_swe_val_mm
+                    # 2. qcdb_si        = the station index in the QC database
+                    #                     which is covered by these arrays:
+                    #                     qcdb_prev_swe_qc_flag
+                    #                     qcdb_swe_qc_chkd
+                    #                     qcdb_swe_qc_flag
+                    # 3. wdb_prev_swe_si = the station index in
+                    #                     prev_swe and wdb_prev_swe_obj_id
+
+                    prev_swe_ti = num_hrs_prev_swe - num_hrs_wre
+
+                    site_prev_swe_val_mm = \
+                        wdb_prev_swe_val_mm[wdb_prev_swe_si, prev_swe_ti:]
+
+                    site_prev_swe_qc = \
+                        qcdb_prev_swe_qc_flag[qcdb_si, prev_swe_ti:]
+
+                    flag, ref_ind = \
+                        qc_durre_swe_change_wre(site_swe_val_mm, 	#def 2
+                                                 site_prev_swe_val_mm,
+                                                 site_prev_swe_qc)
+
+                    if debug_this_station:
+                        print('***** values: {} {}'.
+                              format(site_prev_swe_val_mm, site_swe_val_mm))
+                        print('***** flag: {}'.format(flag))
+                        xxx = input()
+
+                    if flag:
+
+                        if args.verbose:
+                            print('INFO: flagging SWE change ' + 
+                                  '{} '.
+                                  format(site_prev_swe_val_mm[ref_ind]) +
+                                  'to {} '.format(site_swe_val_mm) +
+                                  'at station {} '.
+                                  format(site_swe_station_id) +
+                                  '({}) '.format(site_swe_obj_id) +
+                                  '("{}").'.format(qc_test_name))
+
+                        # Turn on the QC bit for this test.
+                        qcdb_swe_qc_flag[qcdb_si, qcdb_ti] = \
+                            qcdb_swe_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
+
+                        if flag_swe_change_wre_low_value:
+
+                            # Flag previous (low) value as well if that time
+                            # fits into the database.
+                            ref_ind_db = qcdb_ti - num_hrs_wre + ref_ind
+                            if ref_ind_db >= 0:
+                                ref_datetime = \
+                                    num2date(qcdb_var_time[0] + ref_ind_db,
+                                             units=qcdb_var_time_units)
+                                if args.verbose:
+                                    print('INFO: also flagging low-valued ' +
+                                          'observation {} at {}.'.
+                                          format(site_prev_swe_val_mm[ref_ind],
+                                                 ref_datetime))
+                                # First make sure the previous value is
+                                # not flagged.
+                                if qcdb_swe_qc_flag[qcdb_si, ref_ind_db] & \
+                                   (1 << qc_bit) != 0:
+                                    print('ERROR: (PROGRAMMING) ' +
+                                          'reference value was ' +
+                                          'previously flagged and ' +
+                                          'should not have been used.',
+                                          file=sys.stderr)
+                                    qcdb.close()
+                                    sys.exit(1)
+                                # Flag the previous value.
+                                qcdb_swe_qc_flag[qcdb_si, ref_ind_db] = \
+                                    qcdb_swe_qc_flag[qcdb_si,ref_ind_db] | \
+                                    (1 << qc_bit)
+                                # Identify the previous value as having been
+                                # through this check, even though this is
+                                # only indirectly the case. Most likely it has
+                                # already been tested, and passed, but now is
+                                # associated with the later problematic report.
+                                qcdb_swe_qc_chkd[qcdb_si, ref_ind_db] = \
+                                    qcdb_swe_qc_chkd[qcdb_si, ref_ind_db] | \
+                                    (1 << qc_bit)
+
+                        # Increment flagged-value counters.
+                        num_flagged_swe_change_wr_this_time += 1
+                        num_flagged_swe_change_wr += 1
+
+                    if flag is not None:
+
+                        # Turn on the QC checked bit for this test, regardless
+                        # of whether the observation was flagged.
+                        qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] = \
+                            qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] | (1 << qc_bit)
+
+                else:
+
+                    if debug_this_station:
+                        print('***** SWE increase WRE test done')
+
+                    # Test has already been performed.
+                    flag_value = qcdb_swe_qc_flag[qcdb_si, qcdb_ti] & \
+                                 (1 << qc_bit)
+                    if flag_value == 0:
+                        flag_str = 'not flagged'
+                    else:
+                        flag_str = 'flagged'
+                    if args.verbose:
+                        print('INFO: check "{}" '.format(qc_test_name) +
+                              'already done for site {} ({}) '.
+                              format(site_swe_station_id,
+                                     site_swe_obj_id) +
+                              'value {} ({})'.
+                              format(site_swe_val_mm, flag_str))
+
+            #################################
+            # Perform streak check for SWE. #
+            #################################
+
+            qc_test_name = 'streak'
+            if wdb_prev_swe_si is not None:
+
+                # Preceding SWE data is available, making this test possible.
+
+                # Identify the QC bit for the test.
+                ind = swe_qc_test_names.index(qc_test_name)
+                qc_bit = swe_qc_test_bits[ind]
+                if swec_qc_test_names[ind] != qc_test_name:
+                    print('ERROR: inconsistent qc_test_names data in ' +
+                          'QC database.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+                if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
+                    print('ERROR: inconsistent qc_test_bits data in ' +
+                          'QC database.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+
+                if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
+
+                    # Test has not been performed for this observation.
+
+                    prev_swe_ti = num_hrs_prev_swe - num_hrs_streak
+
+                    site_prev_swe_val_mm = \
+                        wdb_prev_swe_val_mm[wdb_prev_swe_si, prev_swe_ti:]
+
+                    site_prev_swe_qc = \
+                        qcdb_prev_swe_qc_flag[qcdb_si, prev_swe_ti:]
+
+                    flag = qc_durre_swe_streak(site_swe_val_mm,
+                                                site_prev_swe_val_mm,
+                                                site_prev_swe_qc)
+
+                    if flag:
+
+                        if args.verbose:
+                            print('INFO: flagging swe data ' +
+                                  'for "{}" check '.format(qc_test_name) +
+                                  'at station {} '.format(site_swe_station_id) +
+                                  '({}).'.format(site_swe_obj_id))
+
+                        # Turn on the QC bit for this test.
+                        qcdb_swe_qc_flag[qcdb_si, qcdb_ti] = \
+                            qcdb_swe_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
+
+                        # TODO:
+                        # Flag previous values as well?
+
+                        num_flagged_swe_streak_this_time += 1
+                        num_flagged_swe_streak += 1
+
+                    if flag is not None:
+
+                        # Turn on the QC checked bit for this test, regardless
+                        # of whether the observation was flagged.
+                        qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] = \
+                            qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] | (1 << qc_bit)
+
+                else:
+
+                    # Test has already been performed.
+                    flag_value = qcdb_swe_qc_flag[qcdb_si, qcdb_ti] & \
+                                 (1 << qc_bit)
+                    if flag_value == 0:
+                        flag_str = 'not flagged'
+                    else:
+                        flag_str = 'flagged'
+                    if args.verbose:
+                        print('INFO: check "{}" already done for site {} ({}) '.
+                              format(qc_test_name,
+                                     site_swe_station_id,
+                                     site_swe_obj_id) +
+                              'value {} ({})'.
+                              format(site_swe_val_mm, flag_str))
+
+
+            ##############################
+            # Perform gap check for SWE. #
+            ##############################
+
+            qc_test_name = 'gap'
+            if debug_this_station:
+                print('***** Debugging swe "{}" test for value {} at {} ({}).'.
+                      format(qc_test_name,
+                             site_swe_val_mm,
+                             site_swe_station_id,
+                             site_swe_obj_id))
+            if wdb_prev_swe_si is not None:
+
+                # Preceding SWE data is available, making this test possible.
+
+                # Identify the QC bit for the test.
+                ind = swe_qc_test_names.index(qc_test_name)
+                qc_bit = swe_qc_test_bits[ind]
+                if swec_qc_test_names[ind] != qc_test_name:
+                    print('ERROR: inconsistent qc_test_names data in ' +
+                          'QC database.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+                if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
+                    print('ERROR: inconsistent qc_test_bits data in ' +
+                          'QC database.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+
+                if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
+
+                    # Test has not been performed for this observation.
+
+                    prev_swe_ti = num_hrs_prev_swe - num_hrs_gap
+
+                    site_prev_swe_val_mm = \
+                        wdb_prev_swe_val_mm[wdb_prev_swe_si, prev_swe_ti:]
+
+                    site_prev_swe_qc = \
+                        qcdb_prev_swe_qc_flag[qcdb_si, prev_swe_ti:]
+
+                    station_time_series = \
+                        np.ma.append(site_prev_swe_val_mm, site_swe_val_mm)
+
+                    if args.check_climatology:
+
+                        swe_ref_ceiling_mm = Site_swe_clim_max_mm + \
+                                             site_swe_clim_iqr_mm)
+
+                        swe_ref_default_mm = site_swe_clim_med_mm
+
+                        ts_flag_ind, ref_obs = \
+                            qc_durre_swe_gap(site_swe_val_mm,
+                                             site_prev_swe_val_mm,
+                                             site_prev_swe_qc,
+                                             ref_ceiling_mm=
+                                             swe_ref_ceiling_mm,
+                                             ref_default_mm=
+                                             swe_ref_default_mm,
+                                             verbose=args.verbose)
+
+                    else:
+
+                        ts_flag_ind, ref_obs = \
+                            qc_durre_swe_gap(site_swe_val_mm,
+                                             site_prev_swe_val_mm,
+                                             site_prev_swe_qc,
+                                             verbose=args.verbose)
+
+                    if ts_flag_ind is None:
+                        print('ERROR: gap check failed ' +
+                              'for station {} '.format(site_swe_station_id) +
+                              '({}).'.format(site_swe_obj_id))
+                        qcdb.close()
+                        sys.exit(1)
+
+                    for ind, ts_ind in enumerate(ts_flag_ind):
+
+                        # Identify time index of observation in database.
+                        ts_ind_db = qcdb_ti - num_hrs_gap + ts_ind
+
+                        if debug_this_station:
+                            flagged_obs_datetime = \
+                                num2date(qcdb_var_time[0] + ts_ind_db,
+                                         units=qcdb_var_time_units)
+                            print('***** gap test flags {} '.
+                                  format(station_time_series[ts_ind]) +
+                                  'at {}, '.format(flagged_obs_datetime) +
+                                  'reference {}'.format(ref_obs[ind]))
+                            if ts_ind_db < 0:
+                                print('***** (does not fit in QC database)')
+                            else:
+                                print('***** (fits in QC database)')
+
+                        if ts_ind_db >= 0:
+
+                            # Observation fits in time frame of database.
+                            flagged_obs_datetime = \
+                                num2date(qcdb_var_time[0] + ts_ind_db,
+                                         units=qcdb_var_time_units)
+
+                            if args.verbose:
+                                print('INFO: flagging swe data ' +
+                                      'for "gap" check ' +
+                                      'at station {} '.
+                                      format(site_swe_station_id) +
+                                      '({}), '.
+                                      format(site_swe_obj_id) +
+                                      'value {}, '.
+                                      format(station_time_series[ts_ind]) +
+                                      'time {}.'.
+                                      format(flagged_obs_datetime))
+
+                            # Make sure the value is not flagged.
+                            if qcdb_swe_qc_flag[qcdb_si, ts_ind_db] & \
+                               (1 << qc_bit) != 0:
+                                print('ERROR: (PROGRAMMING) ' +
+                                      'reference value was ' +
+                                      'previously flagged and should ' +
+                                      'not have been used.',
+                                      file=sys.stderr)
+                                qcdb.close()
+                                sys.exit(1)
+
+                            if debug_this_station and \
+                               ts_ind_db != qcdb_ti:
+                                print('***** this is a "previous" value:')
+                                print('***** qc_chkd = {}'.
+                                      format(qcdb_swe_qc_chkd[qcdb_si,
+                                                               ts_ind_db] &
+                                             (1 << qc_bit)))
+                                print('***** qc_flag = {}'.
+                                      format(qcdb_swe_qc_flag[qcdb_si,
+                                                               ts_ind_db] &
+                                             (1 << qc_bit)))
+
+                            # Turn on the QC bit for this value.
+                            qcdb_swe_qc_flag[qcdb_si, ts_ind_db] = \
+                                qcdb_swe_qc_flag[qcdb_si,ts_ind_db] | \
+                                (1 << qc_bit)
+                            
+                            # Identify the previous value as having been
+                            # through this check, even though this is
+                            # only indirectly the case. Most likely it has
+                            # already been tested, and passed, but in the
+                            # current context it is being flagged.
+                            # if debug_this_station:
+                            #     print('***** qc_checked future-before: ' +
+                            #           '{}, {}'.
+                            #           format(ts_ind_db,
+                            #                  qcdb_swe_qc_chkd[qcdb_si,
+                            #                                    ts_ind_db] & \
+                            #                  (1 << qc_bit)))
+                            qcdb_swe_qc_chkd[qcdb_si, ts_ind_db] = \
+                                qcdb_swe_qc_chkd[qcdb_si, ts_ind_db] \
+                                | (1 << qc_bit)
+                            # if debug_this_station:
+                            #     print('***** qc_checked future-after: {}'.
+                            #           format(qcdb_swe_qc_chkd[qcdb_si,
+                            #                                    ts_ind_db] & \
+                            #                  (1 << qc_bit)))
+
+                            num_flagged_sd_gap_this_time += 1
+                            num_flagged_sd_gap += 1
+
+                    # Turn on the QC checked bit for this test, regardless of
+                    # whether the observation was flagged.
+                    # if debug_this_station:
+                    #     print('***** qc_checked before: {}, {}'.
+                    #           format(qcdb_ti,
+                    #                  qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & \
+                    #                  (1 << qc_bit)))
+                    qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] = \
+                        qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] \
+                        | (1 << qc_bit)
+                    # if debug_this_station:
+                    #     print('***** qc_checked after: {}'.
+                    #           format(qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & \
+                    #                  (1 << qc_bit)))
+
+                else:
+
+                    # Test has already been performed.
+                    flag_value = qcdb_swe_qc_flag[qcdb_si, qcdb_ti] \
+                             & (1 << qc_bit)
+                    if flag_value == 0:
+                        flag_str = 'not flagged'
+                    else:
+                        flag_str = 'flagged'
+                    if args.verbose:
+                        print('INFO: check "{}" '.format(qc_test_name) +
+                              'already done for site {} ({}) '.
+                              format(site_swe_station_id,
+                                     site_swe_obj_id) +
+                              'value {} ({})'.
+                              format(site_swe_val_mm, flag_str))
+
+            ################################################
+            # Perform precipitation-swe consistency check. #
+            ################################################
+
+            # This is an adaptation of the test described in Durre (2010)
+            # Table 3 (internal and temporal consistency checks) as
+            # "SNWD increase with 0 PRCP".
+
+            qc_test_name = 'precip_consistency'
+
+            if wdb_prcp_si is not None and \
+               wdb_prev_swe_si is not None:
+
+                # Previous swe data is available, making this test
+                # possible.
+
+                # Identify the QC bit for the test.
+                ind = swe_qc_test_names.index(qc_test_name)
+                qc_bit = swe_qc_test_bits[ind]
+                if swec_qc_test_names[ind] != qc_test_name:
+                    print('ERROR: inconsistent qc_test_names data in ' +
+                          'QC database.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+                if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
+                    print('ERROR: inconsistent qc_test_bits data in ' +
+                          'QC database.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+
+                if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
+
+                    # Test has not been performed for this observation.
+
+                    # Indices for locating this station:
+                    # 1. wdb_swe_si    = the station index in
+                    #                     wdb_swe_val_mm
+                    # 2. qcdb_si        = the station index in the QC database
+                    #                     which is covered by these arrays:
+                    #                     qcdb_prev_swe_qc_flag
+                    #                     qcdb_swe_qc_chkd
+                    #                     qcdb_swe_qc_flag
+                    # 3. wdb_prev_swe_si = the station index in
+                    #                     prev_swe and wdb_prev_swe_obj_id
+                    # 4. wdb_prcp_si    = the station index in wdb_prcp_val_mm
+
+                    prev_swe_ti = num_hrs_prev_swe - num_hrs_prcp
+
+                    site_prev_swe_val_mm = \
+                        wdb_prev_swe_val_mm[wdb_prev_swe_si, prev_swe_ti:]
+
+                    site_prev_swe_qc = \
+                        qcdb_prev_swe_qc_flag[qcdb_si, prev_swe_ti:]
+
+                    site_prcp_val_mm = wdb_prcp_val_mm[wdb_prcp_si]
+                    if not np.isscalar(site_prcp_val_mm):
+                        print('---')
+                        print(type(wdb_prcp_val_mm))
+                        print(type(site_prcp_val_mm))
+                        print(type(wdb_prcp_si))
+                        qcdb.close()
+                        sys.exit(1)
+
+                    flag, ref_ind = \
+                        qc_durre_swe_prcp(site_swe_val_mm,
+                                           site_prev_swe_val_mm,
+                                           site_prev_swe_qc,
+                                           site_prcp_val_mm)
+
+                    if flag:
+ 
+                        # print('***** station: {} ({})'.
+                        #       format(site_swe_station_id, site_swe_obj_id))
+                        # print('***** prev swe: {}'.format(site_prev_swe_val_mm))
+                        # print('***** prev flag: {}'.format(site_prev_swe_qc))
+                        # print('***** swe: {}'.format(site_swe_val_mm))
+                        # print('***** swe change: {}'.
+                        #       format(site_swe_val_mm -
+                        #              site_prev_swe_val_mm[ref_ind]))
+                        # print('***** prcp: {}'.format(site_prcp_val_mm))
+                        # print('***** flag: {} {}'.format(flag, ref_ind))
+                        # xxx = input()
+
+                        if args.verbose:
+                            print('INFO: flagging swe change ' +
+                                  '{} '.
+                                  format(site_prev_swe_val_mm[ref_ind]) +
+                                  'to {} '.format(site_swe_val_mm) +
+                                  'at station {} '.
+                                  format(site_swe_station_id) +
+                                  '({}) '.format(site_swe_obj_id) +
+                                  '("{}").'.format(qc_test_name))
+
+                        # Turn on the QC bit for this test.
+                        qcdb_swe_qc_flag[qcdb_si, qcdb_ti] = \
+                            qcdb_swe_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
+
+                        if flag_swe_change_prcp_low_value:
+
+                            # Flag previous value as well if that time fits
+                            # into the database.
+                            ref_ind_db = qcdb_ti - num_hrs_prev_swe + ref_ind
+                            if ref_ind_db >= 0:
+                                ref_datetime = \
+                                    num2date(qcdb_var_time[0] + ref_ind_db,
+                                             units=qcdb_var_time_units)
+                                if args.verbose:
+                                    print('INFO: also flagging ' +
+                                          'observation {} at {}.'.
+                                          format(site_prev_swe_val_mm[ref_ind],
+                                                 ref_datetime))
+                                # First make sure the previous value is not
+                                # flagged.
+                                if qcdb_swe_qc_flag[qcdb_si, ref_ind_db] & \
+                                   (1 << qc_bit) != 0:
+                                    print('ERROR: (PROGRAMMING) ' +
+                                          'reference value was ' +
+                                          'previously flagged and should ' +
+                                          'not have been used.',
+                                          file=sys.stderr)
+                                    qcdb.close()
+                                    sys.exit(1)
+                                # Flag the previous value.
+                                qcdb_swe_qc_flag[qcdb_si, ref_ind_db] = \
+                                    qcdb_swe_qc_flag[qcdb_si,ref_ind_db] | \
+                                    (1 << qc_bit)
+                                # Identify the previous value as having been
+                                # through this check, even though this is
+                                # only indirectly the case. Most likely it has
+                                # already been tested, and passed, but now is
+                                # associated with the later problematic report.
+                                qcdb_swe_qc_chkd[qcdb_si, ref_ind_db] = \
+                                    qcdb_swe_qc_chkd[qcdb_si, ref_ind_db] \
+                                    | (1 << qc_bit)
+
+                        num_flagged_swe_pr_cons_this_time += 1
+                        num_flagged_swe_pr_cons += 1
+
+                    if flag is not None:
+
+                        # Turn on the QC checked bit for this test, regardless
+                        # of whether the observation was flagged.
+                        qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] = \
+                            qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] | (1 << qc_bit)
+
+                else:
+
+                    # Test has already been performed.
+                    flag_value = qcdb_swe_qc_flag[qcdb_si, qcdb_ti] & \
+                                 (1 << qc_bit)
+                    if flag_value == 0:
+                        flag_str = 'not flagged'
+                    else:
+                        flag_str = 'flagged'
+                    if args.verbose:
+                        print('INFO: check "{}" already done for site {} ({}) '.
+                              format(qc_test_name,
+                                     site_swe_station_id,
+                                     site_swe_obj_id) +
+                              'value {} ({})'.
+                              format(site_swe_val_mm, flag_str))
+
+            ######################################################
+            # Perform precipitation-swe ratio consistency check. #
+            ######################################################
+
+            # This is an adaptation of the test described in Durre (2010)
+            # Table 3 (internal and temporal consistency checks) as
+            # "SNWD/PRCP ratio".
+
+            qc_test_name = 'precip_ratio'
+
+            if wdb_prcp_si is not None and \
+               wdb_prev_swe_si is not None:
+
+                # Previous swe data is available, making this test
+                # possible.
+
+                # Identify the QC bit for the test.
+                try:
+                    ind = swe_qc_test_names.index(qc_test_name)
+                except ValueError:
+                    # Try backward compatible option "depth_precip_ratio".
+                    qc_test_name = 'depth_precip_ratio'
+                    ind = swe_qc_test_names.index(qc_test_name)
+
+                qc_bit = swe_qc_test_bits[ind]
+                if swec_qc_test_names[ind] != qc_test_name:
+                    print('ERROR: inconsistent qc_test_names data in ' +
+                          'QC database.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+                if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
+                    print('ERROR: inconsistent qc_test_bits data in ' +
+                          'QC database.',
+                          file=sys.stderr)
+                    qcdb.close()
+                    exit(1)
+
+                if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
+
+                    # Test has not been performed for this observation.
+
+                    # Indices for locating this station:
+                    # 1. wdb_swe_si    = the station index in
+                    #                     wdb_swe_val_mm
+                    # 2. qcdb_si        = the station index in the QC database
+                    #                     which is covered by these arrays:
+                    #                     qcdb_prev_swe_qc_flag
+                    #                     qcdb_swe_qc_chkd
+                    #                     qcdb_swe_qc_flag
+                    # 3. wdb_prev_swe_si = the station index in
+                    #                     prev_swe and wdb_prev_swe_obj_id
+                    # 4. wdb_prcp_si    = the station index in wdb_prcp_val_mm
+
+                    prev_swe_ti = num_hrs_prev_swe - num_hrs_prcp
+
+                    site_prev_swe_val_mm = \
+                        wdb_prev_swe_val_mm[wdb_prev_swe_si, prev_swe_ti:]
+
+                    site_prev_swe_qc = \
+                        qcdb_prev_swe_qc_flag[qcdb_si, prev_swe_ti:]
+
+                    site_prcp_val_mm = wdb_prcp_val_mm[wdb_prcp_si]
+
+                    flag, ref_ind = \
+                        qc_durre_swe_prcp_ratio(site_swe_val_mm,
+                                                 site_prev_swe_val_mm,
+                                                 site_prev_swe_qc,
+                                                 site_prcp_val_mm)
+
+                    if flag:
+ 
+                        # print('***** station: {} ({})'.
+                        #       format(site_swe_station_id, site_swe_obj_id))
+                        # print('***** prev swe: {}'.
+                        #       format(site_prev_swe_val_mm))
+                        # print('***** prev flag: {}'.format(site_prev_swe_qc))
+                        # print('***** swe: {}'.format(site_swe_val_mm))
+                        # print('***** swe change: {}'.
+                        #       format(site_swe_val_mm -
+                        #              site_prev_swe_val_mm[ref_ind]))
+                        # print('***** prcp: {}'.format(site_prcp_val_mm))
+                        # print('***** ratio: {}'.
+                        #       format(10.0 * (site_swe_val_mm -
+                        #               site_prev_swe_val_mm[ref_ind]) /
+                        #              site_prcp_val_mm))
+                        # print('***** flag: {} {}'.format(flag, ref_ind))
+                        # xxx = input()
+
+                        if args.verbose:
+                            print('INFO: flagging swe change ' +
+                                  '{} '.
+                                  format(site_prev_swe_val_mm[ref_ind]) +
+                                  'to {} '.format(site_swe_val_mm) +
+                                  'at station {} '.
+                                  format(site_swe_station_id) +
+                                  '({}) '.format(site_swe_obj_id) +
+                                  '("{}").'.format(qc_test_name))
+
+                        # Turn on the QC bit for this test.
+                        qcdb_swe_qc_flag[qcdb_si, qcdb_ti] = \
+                            qcdb_swe_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
+
+                        if flag_swe_change_prcp_low_value:
+
+                            # Flag previous value as well if that time fits
+                            # into the database.
+                            ref_ind_db = qcdb_ti - num_hrs_prev_swe + ref_ind
+                            if ref_ind_db >= 0:
+                                ref_datetime = \
+                                    num2date(qcdb_var_time[0] + ref_ind_db,
+                                             units=qcdb_var_time_units)
+                                if args.verbose:
+                                    print('INFO: also flagging ' +
+                                          'observation {} at {}.'.
+                                          format(site_prev_swe_val_mm[ref_ind],
+                                                 ref_datetime))
+                                # First make sure the previous value is not
+                                # flagged.
+                                if qcdb_swe_qc_flag[qcdb_si, ref_ind_db] & \
+                                   (1 << qc_bit) != 0:
+                                    print('ERROR: (PROGRAMMING) ' +
+                                          'reference value was ' +
+                                          'previously flagged and should ' +
+                                          'not have been used.',
+                                          file=sys.stderr)
+                                    qcdb.close()
+                                    sys.exit(1)
+                                # Flag the previous value.
+                                qcdb_swe_qc_flag[qcdb_si, ref_ind_db] = \
+                                    qcdb_swe_qc_flag[qcdb_si,ref_ind_db] | \
+                                    (1 << qc_bit)
+                                # Identify the previous value as having been
+                                # through this check, even though this is
+                                # only indirectly the case. Most likely it has
+                                # already been tested, and passed, but now is
+                                # associated with the later problematic report.
+                                qcdb_swe_qc_chkd[qcdb_si, ref_ind_db] = \
+                                    qcdb_swe_qc_chkd[qcdb_si, ref_ind_db] \
+                                    | (1 << qc_bit)
+
+                        num_flagged_swe_pr_cons_this_time += 1
+                        num_flagged_swe_pr_cons += 1
+
+                    if flag is not None:
+
+                        # Turn on the QC checked bit for this test, regardless
+                        # of whether the observation was flagged.
+                        qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] = \
+                            qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] | (1 << qc_bit)
+
+                else:
+
+                    # Test has already been performed.
+                    flag_value = qcdb_swe_qc_flag[qcdb_si, qcdb_ti] & \
+                                 (1 << qc_bit)
+                    if flag_value == 0:
+                        flag_str = 'not flagged'
+                    else:
+                        flag_str = 'flagged'
+                    if args.verbose:
+                        print('INFO: check "{}" already done for site {} ({}) '.
+                              format(qc_test_name,
+                                     site_swe_station_id,
+                                     site_swe_obj_id) +
+                              'value {} ({})'.
+                              format(site_swe_val_mm, flag_str))
+
+
 
 
 
         ######################################
         # SNOW WATER EQUIVALENT (SWE) QC END #
         ######################################
-
 
 
 
