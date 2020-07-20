@@ -73,6 +73,8 @@ fi
 
 REMOTE_HOST="nomads.ncep.noaa.gov"
 REMOTE_DIR="pub/data/nccf/com/nwm/prod"
+#REMOTE_HOST="www.ftp.ncep.noaa.gov"
+#REMOTE_DIR="data/nccf/com/nwm/prod"
 
 HOURS_BACK=72
 
@@ -102,7 +104,7 @@ while [ $HOURS_BACK -ge 0 ] ; do
     STATUS=$?
     if [ $STATUS -ne 0 ] ; then
         if [ $STATUS -ne 22 ] ; then
-            err_msg "Unknown curl error for $URL"
+            err_msg "Unknown curl error (${STATUS}) for $URL"
             err_out
         fi
         # Source directory is not there.
@@ -137,7 +139,7 @@ while [ $HOURS_BACK -ge 0 ] ; do
     STATUS=$?
     if [ $STATUS -ne 0 ] ; then
         if [ $STATUS -ne 22 ] ; then
-            err_msg "Unknown curl error for $REMOTE_DIR_URL"
+            err_msg "Unknown curl error (${STATUS}) for $REMOTE_DIR_URL"
             err_out
         fi
         usr_msg "Remote directory $REMOTE_DIR_URL does not exist."
