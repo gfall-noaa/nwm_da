@@ -1,7 +1,6 @@
 #!/bin/sh
 
 # Use Google Cloud to backfill missing NWM archives.
-# Analysis forcing version.
 
 get_nwm_from_google() {
     REMOTE_PATH=$1
@@ -101,7 +100,7 @@ fi
 # - Analysis "tm00" files
 # - If the cycle hour is 16Z, Eetended analysis "tm04" to "tm27" files
 
-START_CYCLE_DATE="2019-10-01 00:00:00"
+START_CYCLE_DATE="2020-07-06 00:00:00"
 CUTOFF_CYCLE_DATE=`date -u --date="-47 hours" +"%Y-%m-%d %H:00:00"`
 
 CYCLE_DATE=$START_CYCLE_DATE
