@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/python3
 
 """
 Create quality control database for observations in the NOHRSC web
