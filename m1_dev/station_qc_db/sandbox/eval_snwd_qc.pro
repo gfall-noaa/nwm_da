@@ -4,11 +4,11 @@
 ; specific time and displays those observations and their QC
 ; information on a map.
 
-FUNCTION GET_WDB_SNOW_DEPTH_OBS, target_obs_date_YYYYMMDDHH, $
-                                 window_start_date_YYYYMMDDHH, $
-                                 window_finish_date_YYYYMMDDHH, $
-                                 min_lon_, max_lon_, $
-                                 min_lat_, max_lat_
+FUNCTION GET_WDB_SNOW_DEPTH_FOR_TARGET, target_obs_date_YYYYMMDDHH, $
+                                        window_start_date_YYYYMMDDHH, $
+                                        window_finish_date_YYYYMMDDHH, $
+                                        min_lon_, max_lon_, $
+                                        min_lat_, max_lat_
 
 ; Get hourly snow depth observations from the "web_data" database on
 ; wdb0.
@@ -134,7 +134,7 @@ FUNCTION GET_WDB_SNOW_DEPTH_OBS, target_obs_date_YYYYMMDDHH, $
       max_lat_file_str = STRMID(foo, 1) + 's' $
   else $
       max_lat_file_str = foo + 'n'
-  savFile = 'wdb0_obs_snow_depth' + $
+  savFile = 'wdb0_snow_depth' + $
             '_' + target_obs_date_YYYYMMDDHH + $
             '_m' + STRCRA(minus_hrs) + 'h' + $
             '_p' + STRCRA(plus_hrs) + 'h' + $
@@ -205,8 +205,8 @@ FUNCTION GET_WDB_SNOW_DEPTH_OBS, target_obs_date_YYYYMMDDHH, $
               'and t3.date = t2.date ' + $
               'order by t1.obj_identifier;"'
 
-;  PRINT, statement
   SPAWN, statement, result, EXIT_STATUS = status
+  fetch_date_Julian = SYSTIME(/JULIAN, /UTC)
 
   if (status ne 0) then begin
       ERR_MSG, 'psql statement failed: ' + statement
@@ -298,9 +298,10 @@ FUNCTION GET_WDB_SNOW_DEPTH_OBS, target_obs_date_YYYYMMDDHH, $
       RETURN, snow_depth_report
   endelse
 
-  snow_depth_report = snow_depth_report_
+  snow_depth_report = TEMPORARY(snow_depth_report_)
 
-  SAVE, snow_depth_report, FILENAME = savDir + '/' + savFile
+  if ((fetch_date_Julian - target_obs_date_Julian) gt 60) then $
+      SAVE, snow_depth_report, FILENAME = savDir + '/' + savFile
 
   RETURN, snow_depth_report
 
@@ -343,7 +344,7 @@ end
   num_hrs_pad_prev = 2
   num_hrs_pad_post = 2
   step_size_days = 6
-  full_run = 0
+  full_run = 1
 
   if ((num_hrs_pad_prev + num_hrs_pad_post) ge cluster_gap_hours) then begin
       ERR_MSG, 'Invalid padding values.'
@@ -401,6 +402,18 @@ end
   NCDF_ATTGET, id, 'snow_depth_qc', 'qc_test_bits', qc_test_bits
   if (N_ELEMENTS(qc_test_names) ne N_ELEMENTS(qc_test_bits)) then STOP
 
+; Produce false alarm debugging information for a specific test.
+  debug_test_name = 'streak'
+  debug_test_ind = -1
+  ti = 0
+  for tc = 0, N_ELEMENTS(qc_test_names) - 1 do begin
+      if (qc_test_names[tc] eq 'naught') then CONTINUE
+      if (qc_test_names[tc] eq 'anomaly') then CONTINUE
+      if (qc_test_names[tc] eq 'rate') then CONTINUE
+      if (qc_test_names[tc] eq debug_test_name) then debug_test_ind = ti
+      ti++
+  endfor
+
 ; Generate a pipe-delimited string listing the relevant QC tests.
   qc_test_names_str = ''
   for tc = 0, N_ELEMENTS(qc_test_names) - 1 do begin
@@ -426,6 +439,9 @@ end
   qcdb_time_units = STRING(qcdb_time_units)
   if (qcdb_time_units ne 'hours since 1970-01-01 00:00:00 UTC') then STOP
   qcdb_time_base_Julian = JULDAY(1, 1, 1970, 0, 0, 0)
+  qcdb_time_start_hours = qcdb_time[0]
+  qcdb_time_start_Julian = qcdb_time_base_Julian + $
+                           qcdb_time_start_hours / 24.0D
 
 ; Initialize false alarm ratios.
   FAR = []
@@ -504,7 +520,7 @@ end
 
 ;         Get snow depth observations.
           wdb_snow_depth_obs = $
-              GET_WDB_SNOW_DEPTH_OBS(eval_target_YYYYMMDDHH, $
+              GET_WDB_SNOW_DEPTH_FOR_TARGET(eval_target_YYYYMMDDHH, $
                                      eval_start_YYYYMMDDHH, $
                                      eval_finish_YYYYMMDDHH, $
                                      min_lon, max_lon, $
@@ -519,12 +535,16 @@ end
           qcdb_t1_1 = WHERE(qcdb_time eq eval_start_qcdb, count)
           if (count ne 1) then STOP
           qcdb_t1_1 = qcdb_t1_1[0]
+          ;Probably better:
+          ;qcdb_t1_1 = ROUND((eval_start_Julian - qcdb_time_start_Julian) * 24)
 
           eval_finish_qcdb = $
               ROUND((eval_finish_Julian - qcdb_time_base_Julian) * 24)
           qcdb_t1_2 = WHERE(qcdb_time eq eval_finish_qcdb, count)
           if (count ne 1) then STOP
           qcdb_t1_2 = qcdb_t1_2[0]
+          ;Probably better:
+          ;qcdb_t1_2 = ROUND((eval_finish_Julian - qcdb_time_start_Julian) * 24)
 
           if ((qcdb_t1_2 - qcdb_t1_1) ne $
               (num_hrs_pad_prev + num_hrs_pad_post)) then STOP
@@ -589,11 +609,13 @@ end
 
 ;             Get the time index of this observation.
               qcdb_ti = wdb_date_hours[wdb_si] - eval_start_qcdb
+              full_qcdb_ti = qcdb_t1_1 + qcdb_ti
 
 ;             Generate a few strings for convenience.
               obs_str = STRCRA(wdb_snow_depth_obs[wdb_si].obs_value_cm)
+              mdl_str = STRCRA(wdb_snow_depth_obs[wdb_si].mdl_value_cm)
               site_str = STRCRA(wdb_snow_depth_obs[wdb_si].station_id)
-              time_str = STRCRA(wdb_snow_depth_obs[wdb_si].date_UTC)
+              time_str = wdb_snow_depth_obs[wdb_si].date_UTC
 
               ;; if (wdb_si eq 126) then begin
               ;;     PRINT, snwd_qc_checked[qcdb_ti, qcdb_si]
@@ -616,7 +638,8 @@ end
 
 ;                 Initialize inventories for flags.
                   if NOT(ISA(inventory)) then begin
-                  ; Count QC tests and initialize test inventories.
+;                     Count QC tests and initialize test inventories.
+                      inv_ind = 0
                       num_qc_tests = 0
                       for tc = 0, N_ELEMENTS(qc_test_names) - 1 do begin
                           if (qc_test_names[tc] eq 'naught') then CONTINUE
@@ -671,32 +694,99 @@ end
                   inventory = inventory + this_inventory
 
                   if (snwd_qc[qcdb_ti, qcdb_si] ne 0) then begin
-                      
-;                     This observation has been flagged by at least
-;                     one test. Use abs_diff to decide if this flag is
-;                     a false alarm, possible false alarm, or hit. A
-;                     "hit" means that the observation has been
-;                     properly flagged.
+
+;                     This observation has been flagged by at least one
+;                     test. Use abs_diff to decide if this flag is a likely
+;                     false alarm, possible false alarm, or hit. A "hit" means
+;                     that the observation has been properly flagged.
 
 ;                     Judge the QC flag/s based on the difference
 ;                     between the observed and modeld (SNODAS) snow
 ;                     depth.
 
-;                     If any 
-
-                      ;; PRINT, 'Snow depth value ' + obs_str + ' ' + $
-                      ;;        'at station "' + site_str + '" ' + $
-                      ;;        'flagged with value ' + $
-                      ;;        STRCRA(snwd_qc[qcdb_ti, qcdb_si])
-
                       case 1 of
                           (abs_diff[wdb_si] ge 0.0) and $
-                              (abs_diff[wdb_si] lt abs_diff_thresh_cm[0]): begin
-                              ; false alarm
+                              (abs_diff[wdb_si] lt abs_diff_thresh_cm[0]): $
+                              begin
+                              ; likely false alarm
                               inventory_fa = inventory_fa + this_inventory
                               if (solo_ti ne -1) then $
                                   solo_inventory_fa[solo_ti] = $
                                   solo_inventory_fa[solo_ti] + 1
+
+                              prev_hours = 360
+
+                              if (debug_test_ind ne -1) then begin
+                                  if this_inventory[debug_test_ind] eq 1 $
+                                      then begin
+                                      PRINT, '"' + debug_test_name + $
+                                             '" test likely false alarm:'
+                                      PRINT, '  ' + $
+                                             site_str + ' - ' + $
+                                             time_str + ' - ' + $
+                                             ' obs ' + obs_str + ', ' + $
+                                             ' mdl ' + mdl_str
+                                      PRINT, '  qcdb_si = ' + $
+                                             STRCRA(qcdb_si) + $
+                                             ', full_qcdb_ti = ' + $
+                                             STRCRA(full_qcdb_ti)
+                                      ;; PRINT, '  ', $
+                                      ;;        snwd_qc[0:$
+                                      ;;                num_hrs_pad_prev + $
+                                      ;;                num_hrs_pad_post, $
+                                      ;;                qcdb_si]
+                                      ; Get obs and QC for 15 days.
+                                      obs_date_Julian = $
+                                          qcdb_time_start_Julian + $
+                                          DOUBLE(full_qcdb_ti) / 24.0D
+                                      sample_start_date_Julian = $
+                                          obs_date_Julian - $
+                                          DOUBLE(prev_hours) / 24.0D
+                                      sample_start_YYYYMMDDHH = $
+                                          JULIAN_TO_YYYYMMDDHH( $
+                                          sample_start_date_Julian)
+                                      sample_finish_YYYYMMDDHH = $
+                                          JULIAN_TO_YYYYMMDDHH( $
+                                          obs_date_Julian)
+                                      sd_sample = $
+                                          GET_WDB_OBS_SNOW_DEPTH_FOR_RANGE( $
+                                          sample_start_YYYYMMDDHH, $
+                                          sample_finish_YYYYMMDDHH, $
+                                          STATION_OBJ_ID = $
+                                          wdb_snow_depth_obs[wdb_si].$
+                                          station_obj_id)
+                                      sample_t1_1 = $
+                                          (full_qcdb_ti - prev_hours) > 0
+                                      sample_hours = $
+                                          full_qcdb_ti - sample_t1_1 + 1
+                                      NCDF_VARGET, id, $
+                                                   'snow_depth_qc', $
+                                                   sd_sample_qc, $
+                                                   COUNT = [sample_hours, $
+                                                            1], $
+                                                   OFFSET = [sample_t1_1, $
+                                                             qcdb_si]
+                                      ;if (sample_t1_1 gt 0) then STOP
+                                      sd_sample_str = $
+                                          STRCRA(sd_sample.obs_value_cm)
+                                      ind = WHERE(sd_sample.obs_value_cm eq $
+                                                  ndv, count)
+                                      if (count gt 0) then $
+                                          sd_sample_str[ind] = '-'
+                                      ;; print, sd_sample_str
+                                      ;; foo = sd_sample_str ne '-'
+                                      ind = WHERE(sd_sample_qc ne 0, count)
+                                      if (count gt 0) then $
+                                          sd_sample_str[ind] = '-'
+                                      if (sample_hours gt prev_hours) then $
+                                          begin
+                                          PRINT, sd_sample_str
+                                          PRINT, obs_str, ' (', $
+                                                 sd_sample.station_type + ')'
+                                      endif
+                                  endif
+                              endif
+
                               count_fa++
                           end
                           (abs_diff[wdb_si] ge abs_diff_thresh_cm[0]) and $
