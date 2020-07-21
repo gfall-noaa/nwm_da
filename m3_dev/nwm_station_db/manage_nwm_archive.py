@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/python3
 '''
   Clear out old data unlikely to be needed for NWM v2.0 database development.
 '''
