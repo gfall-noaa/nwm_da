@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/python3
 
 import argparse
 import os
@@ -557,7 +557,7 @@ def obs_rate_category(obs, min_sub_period_proportion=0.5, verbose=False):
     """
     Given a list of hourly observations in the form of a numpy masked
     array, determine the "rate category" that indicates how frequently
-    observations are available, using the following file categories:
+    observations are available, using the following five categories:
 
     1. sporadic (very few observations)
     2. quasi-daily (reporting rate >= 1 observation every 4 days)
@@ -879,7 +879,7 @@ def qc_durre_snwd_prcp(site_snwd_val_cm,
                        site_prev_snwd_val,
                        prev_sd_qc,
                        site_prcp_val_mm):
-    """
+    '''
     Internal and temporal consistency checks (Durre 2010, Table 3):
     Precipitation--snow depth consistency check; i.e. "SNWD increase with 0
     PRCP".
@@ -887,7 +887,7 @@ def qc_durre_snwd_prcp(site_snwd_val_cm,
     site_prev_snwd_val - previous snow depth values (time series)
     prev_sd_qc - QC flags for previous snow depth values (time series)
     site_prcp_val_mm - precipitation accumulation
-    """
+    '''
 
     # In Durre (2010), the test is described this way:
     #
@@ -928,14 +928,14 @@ def qc_durre_snwd_prcp_ratio(site_snwd_val_cm,
                              site_prev_snwd_val_cm,
                              prev_sd_qc,
                              site_prcp_val_mm):
-    """
+    '''
     Internal and temporal consistency checks (Durre 2010, Table 3):
     Precipitation--snow depth consistency check; i.e. "SNWD/PRCP ratio".
     site_snwd_val_cm - snow depth value being QCed
     site_prev_snwd_val_cm - previous snow depth values (time series)
     prev_sd_qc - QC flags for previous snow depth values (time series)
     site_prcp_val_mm - precipitation accumulation
-    """
+    '''
 
     # In Durre (2010), the test is described this way:
     # 
@@ -1238,15 +1238,15 @@ def qc_durre_swe_gap(swe_value_mm,
 
 
 def qc_durre_swe_prcp(site_swe_val_mm,
-                       site_prev_swe_val,
-                       prev_swe_qc,
-                       site_prcp_val_mm):
+                      site_prev_swe_val,
+                      prev_swe_qc,
+                      site_prcp_val_mm):
     """
-    Precipitation--swe consistency check; i.e. "swe increase with 0
+    Precipitation--SWE consistency check; i.e. "SWE increase with 0
     PRCP".
-    site_swe_val_mm - swe value being QCed
-    site_prev_swe_val - previous swe values (time series)
-    prev_swe_qc - QC flags for previous swe values (time series)
+    site_swe_val_mm - SWE value being QCed
+    site_prev_swe_val - previous SWE values (time series)
+    prev_swe_qc - QC flags for previous SWE values (time series)
     site_prcp_val_mm - precipitation accumulation
     """
 
@@ -1287,7 +1287,7 @@ def qc_durre_swe_prcp_ratio(site_swe_val_mm,
     swe_change_threshold_mm = 20.0
     swe_prcp_ratio_threshold = 100
 
-    # Mask previous swe data that have any QC flags set.
+    # Mask previous SWE data that have any QC flags set.
     site_prev_swe_val_mm = np.ma.masked_where(prev_swe_qc != 0,
                                               site_prev_swe_val_mm)
 
@@ -1297,7 +1297,7 @@ def qc_durre_swe_prcp_ratio(site_swe_val_mm,
     if num_unmasked_prev_swe == 0:
         return None, None
 
-    # Locate the swe observation furthest from the one being QCed.
+    # Locate the SWE observation furthest from the one being QCed.
     ref_ind = np.min(np.where(site_prev_swe_val_mm.mask == False))
 
     # No flag for zero precipitation; that should be handled by a separate
@@ -1482,9 +1482,11 @@ def main():
 
     # Get the start/end datetimes of the QC database.
     qcdb_start_datetime = num2date(qcdb_var_time[0],
-                                   units=qcdb_var_time_units)
+                                   units=qcdb_var_time_units,
+                                   only_use_cftime_datetimes=False)
     qcdb_end_datetime = num2date(qcdb_var_time[-1],
-                                 units=qcdb_var_time_units)
+                                 units=qcdb_var_time_units,
+                                 only_use_cftime_datetimes=False)
 
     # Read the "last_datetime_updated" attribute.
     try:
@@ -1502,33 +1504,6 @@ def main():
 
         sd_clim_dir = '/net/lfs0data5/SNODAS_climatology/snow_depth'
         swe_clim_dir = '/net/lfs0data5/SNODAS_climatology/swe'
-
-        # sd_gap_station_id = []
-        # sd_gap_station_obj_id = []
-        # sd_gap_date = []
-        # sd_gap_val_cm = []
-        # sd_gap_ob_med_val_cm = []
-        # sd_gap_ref_val_cm = []
-        # sd_gap_cl_med_val_cm = []
-        # sd_gap_cl_max_val_cm = []
-        # sd_gap_cl_iqr_val_cm = []
-
-        # csv_name = os.path.basename(args.database_path) + '_sdcwre_stats.csv'
-        # csv_name = os.path.basename(args.database_path) + '_sd_gap_stats.csv'
-        # csv_path = os.path.join(os.path.dirname(args.database_path),
-        #                         csv_name)
-        # new_csv_file = False
-        # mode = 'a'
-        # if not os.path.exists(csv_path) or \
-        #    qcdb_last_datetime_updated == \
-        #    dt.datetime.strptime('1970-01-01 00:00:00', '%Y-%m-%d %H:%M:%S'):
-        #     new_csv_file = True
-        #     mode = 'w'
-        # csv_file = open(csv_path, mode)
-        # if new_csv_file:
-        #     csv_file.write('station_id,station_obj_id,' +
-        #                    'date,val_cm,ob_med_val_cm,ref_val_cm,' +
-        #                    'cl_med_val_cm,cl_max_val_cm,cl_iqr_val_cm\n')
 
     qcdb_snwd_qc_flag = qcdb.variables['snow_depth_qc']
     qcdb_snwd_qc_chkd = qcdb.variables['snow_depth_qc_checked']
@@ -1760,7 +1735,9 @@ def main():
 
     for qcdb_ti in qcdb_update_time_ind:
         obs_datetime_num = qcdb_var_time[qcdb_ti]
-        obs_datetime = num2date(obs_datetime_num, qcdb_var_time_units)
+        obs_datetime = num2date(obs_datetime_num,
+                                units=qcdb_var_time_units,
+                                only_use_cftime_datetimes=False)
         if args.verbose:
             print('INFO: updating data for {}'.format(obs_datetime))
 
@@ -2373,7 +2350,8 @@ def main():
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
-                                             units=qcdb_var_time_units)
+                                             units=qcdb_var_time_units,
+                                             only_use_cftime_datetimes=False)
                                 if args.verbose:
                                     print('INFO: also flagging low-valued ' +
                                           'observation {} at {}.'.
@@ -2591,7 +2569,7 @@ def main():
                                               verbose=args.verbose)
 
                     if ts_flag_ind is None:
-                        print('ERROR: gap check failed ' +
+                        print('ERROR: snow depth gap check failed ' +
                               'for station {} '.format(site_snwd_station_id) +
                               '({}).'.format(site_snwd_obj_id))
                         qcdb.close()
@@ -2605,8 +2583,9 @@ def main():
                         if debug_this_station:
                             flagged_obs_datetime = \
                                 num2date(qcdb_var_time[0] + ts_ind_db,
-                                         units=qcdb_var_time_units)
-                            print('***** gap test flags {} '.
+                                         units=qcdb_var_time_units,
+                                         only_use_cftime_datetimes=False)
+                            print('***** snow depth gap test flags {} '.
                                   format(station_time_series[ts_ind]) +
                                   'at {}, '.format(flagged_obs_datetime) +
                                   'reference {}'.format(ref_obs[ind]))
@@ -2620,7 +2599,8 @@ def main():
                             # Observation fits in time frame of database.
                             flagged_obs_datetime = \
                                 num2date(qcdb_var_time[0] + ts_ind_db,
-                                         units=qcdb_var_time_units)
+                                         units=qcdb_var_time_units,
+                                         only_use_cftime_datetimes=False)
 
                             if args.verbose:
                                 print('INFO: flagging snow depth data ' +
@@ -2840,7 +2820,8 @@ def main():
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
-                                             units=qcdb_var_time_units)
+                                             units=qcdb_var_time_units,
+                                             only_use_cftime_datetimes=False)
                                 if args.verbose:
                                     print('INFO: also flagging ' +
                                           'observation {} at {}.'.
@@ -2996,7 +2977,8 @@ def main():
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
-                                             units=qcdb_var_time_units)
+                                             units=qcdb_var_time_units,
+                                             only_use_cftime_datetimes=False)
                                 if args.verbose:
                                     print('INFO: also flagging ' +
                                           'observation {} at {}.'.
@@ -3150,7 +3132,8 @@ def main():
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
-                                             units=qcdb_var_time_units)
+                                             units=qcdb_var_time_units,
+                                             only_use_cftime_datetimes=False)
                                 if args.verbose:
                                     print('INFO: also flagging ' +
                                           'observation {} at {}.'.
@@ -3279,23 +3262,6 @@ def main():
 
                     if flag:
  
-                        # print('***** station: {} ({})'.
-                        #       format(site_snwd_station_id, site_snwd_obj_id))
-                        # print('***** prev snwd: {}'.
-                        #       format(site_prev_snwd_val_cm))
-                        # print('***** prev flag: {}'.format(site_prev_snwd_qc))
-                        # print('***** snwd: {}'.format(site_snwd_val_cm))
-                        # print('***** snwd change: {}'.
-                        #       format(site_snwd_val_cm -
-                        #              site_prev_snwd_val_cm[ref_ind]))
-                        # print('***** prcp: {}'.format(site_prcp_val_mm))
-                        # print('***** ratio: {}'.
-                        #       format(10.0 * (site_snwd_val_cm -
-                        #               site_prev_snwd_val_cm[ref_ind]) /
-                        #              site_prcp_val_mm))
-                        # print('***** flag: {} {}'.format(flag, ref_ind))
-                        # xxx = input()
-
                         if args.verbose:
                             print('INFO: flagging snow depth change ' +
                                   '{} '.
@@ -3318,7 +3284,8 @@ def main():
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
-                                             units=qcdb_var_time_units)
+                                             units=qcdb_var_time_units,
+                                             only_use_cftime_datetimes=False)
                                 if args.verbose:
                                     print('INFO: also flagging ' +
                                           'observation {} at {}.'.
@@ -3467,7 +3434,8 @@ def main():
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
-                                             units=qcdb_var_time_units)
+                                             units=qcdb_var_time_units,
+                                             only_use_cftime_datetimes=False)
                                 if args.verbose:
                                     print('INFO: also flagging ' +
                                           'observation {} at {}.'.
@@ -3907,7 +3875,7 @@ def main():
 
             if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
-                if qc_durre_swe_wre(site_swe_val_mm):  #def 1
+                if qc_durre_swe_wre(site_swe_val_mm):
                     # Value has been flagged.
                     if args.verbose:
                         print('INFO: flagging SWE value {} '.
@@ -3972,14 +3940,14 @@ def main():
                     # Note that there are three indices for locating this
                     # station:
                     # 1. wdb_swe_si    = the station index in
-                    #                     wdb_swe_val_mm
+                    #                    wdb_swe_val_mm
                     # 2. qcdb_si        = the station index in the QC database
                     #                     which is covered by these arrays:
                     #                     qcdb_prev_swe_qc_flag
                     #                     qcdb_swe_qc_chkd
                     #                     qcdb_swe_qc_flag
                     # 3. wdb_prev_swe_si = the station index in
-                    #                     prev_swe and wdb_prev_swe_obj_id
+                    #                      prev_swe and wdb_prev_swe_obj_id
 
                     prev_swe_ti = num_hrs_prev_swe - num_hrs_wre
 
@@ -4024,7 +3992,8 @@ def main():
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
-                                             units=qcdb_var_time_units)
+                                             units=qcdb_var_time_units,
+                                             only_use_cftime_datetimes=False)
                                 if args.verbose:
                                     print('INFO: also flagging low-valued ' +
                                           'observation {} at {}.'.
@@ -4123,13 +4092,13 @@ def main():
                         qcdb_prev_swe_qc_flag[qcdb_si, prev_swe_ti:]
 
                     flag = qc_durre_swe_streak(site_swe_val_mm,
-                                                site_prev_swe_val_mm,
-                                                site_prev_swe_qc)
+                                               site_prev_swe_val_mm,
+                                               site_prev_swe_qc)
 
                     if flag:
 
                         if args.verbose:
-                            print('INFO: flagging swe data ' +
+                            print('INFO: flagging SWE data ' +
                                   'for "{}" check '.format(qc_test_name) +
                                   'at station {} '.format(site_swe_station_id) +
                                   '({}).'.format(site_swe_obj_id))
@@ -4175,7 +4144,7 @@ def main():
 
             qc_test_name = 'gap'
             if debug_this_station:
-                print('***** Debugging swe "{}" test for value {} at {} ({}).'.
+                print('***** Debugging SWE "{}" test for value {} at {} ({}).'.
                       format(qc_test_name,
                              site_swe_val_mm,
                              site_swe_station_id,
@@ -4217,8 +4186,8 @@ def main():
 
                     if args.check_climatology:
 
-                        swe_ref_ceiling_mm = Site_swe_clim_max_mm + \
-                                             site_swe_clim_iqr_mm)
+                        swe_ref_ceiling_mm = site_swe_clim_max_mm + \
+                                             site_swe_clim_iqr_mm
 
                         swe_ref_default_mm = site_swe_clim_med_mm
 
@@ -4241,7 +4210,7 @@ def main():
                                              verbose=args.verbose)
 
                     if ts_flag_ind is None:
-                        print('ERROR: gap check failed ' +
+                        print('ERROR: SWE gap check failed ' +
                               'for station {} '.format(site_swe_station_id) +
                               '({}).'.format(site_swe_obj_id))
                         qcdb.close()
@@ -4255,8 +4224,9 @@ def main():
                         if debug_this_station:
                             flagged_obs_datetime = \
                                 num2date(qcdb_var_time[0] + ts_ind_db,
-                                         units=qcdb_var_time_units)
-                            print('***** gap test flags {} '.
+                                         units=qcdb_var_time_units,
+                                         only_use_cftime_datetimes=False)
+                            print('***** SWE gap test flags {} '.
                                   format(station_time_series[ts_ind]) +
                                   'at {}, '.format(flagged_obs_datetime) +
                                   'reference {}'.format(ref_obs[ind]))
@@ -4270,10 +4240,11 @@ def main():
                             # Observation fits in time frame of database.
                             flagged_obs_datetime = \
                                 num2date(qcdb_var_time[0] + ts_ind_db,
-                                         units=qcdb_var_time_units)
+                                         units=qcdb_var_time_units,
+                                         only_use_cftime_datetimes=False)
 
                             if args.verbose:
-                                print('INFO: flagging swe data ' +
+                                print('INFO: flagging SWE data ' +
                                       'for "gap" check ' +
                                       'at station {} '.
                                       format(site_swe_station_id) +
@@ -4300,11 +4271,11 @@ def main():
                                 print('***** this is a "previous" value:')
                                 print('***** qc_chkd = {}'.
                                       format(qcdb_swe_qc_chkd[qcdb_si,
-                                                               ts_ind_db] &
+                                                              ts_ind_db] &
                                              (1 << qc_bit)))
                                 print('***** qc_flag = {}'.
                                       format(qcdb_swe_qc_flag[qcdb_si,
-                                                               ts_ind_db] &
+                                                              ts_ind_db] &
                                              (1 << qc_bit)))
 
                             # Turn on the QC bit for this value.
@@ -4333,8 +4304,8 @@ def main():
                             #                                    ts_ind_db] & \
                             #                  (1 << qc_bit)))
 
-                            num_flagged_sd_gap_this_time += 1
-                            num_flagged_sd_gap += 1
+                            num_flagged_swe_gap_this_time += 1
+                            num_flagged_swe_gap += 1
 
                     # Turn on the QC checked bit for this test, regardless of
                     # whether the observation was flagged.
@@ -4369,7 +4340,7 @@ def main():
                               format(site_swe_val_mm, flag_str))
 
             ################################################
-            # Perform precipitation-swe consistency check. #
+            # Perform precipitation-SWE consistency check. #
             ################################################
 
             # This is an adaptation of the test described in Durre (2010)
@@ -4378,7 +4349,7 @@ def main():
 
             qc_test_name = 'precip_consistency'
 
-            if wdb_prcp_si is not None and \
+            if wdb_swe_prcp_si is not None and \
                wdb_prev_swe_si is not None:
 
                 # Previous swe data is available, making this test
@@ -4405,16 +4376,16 @@ def main():
                     # Test has not been performed for this observation.
 
                     # Indices for locating this station:
-                    # 1. wdb_swe_si    = the station index in
-                    #                     wdb_swe_val_mm
-                    # 2. qcdb_si        = the station index in the QC database
-                    #                     which is covered by these arrays:
-                    #                     qcdb_prev_swe_qc_flag
-                    #                     qcdb_swe_qc_chkd
-                    #                     qcdb_swe_qc_flag
+                    # 1. wdb_swe_si      = the station index in
+                    #                      wdb_swe_val_mm
+                    # 2. qcdb_si         = the station index in the QC database
+                    #                      which is covered by these arrays:
+                    #                      qcdb_prev_swe_qc_flag
+                    #                      qcdb_swe_qc_chkd
+                    #                      qcdb_swe_qc_flag
                     # 3. wdb_prev_swe_si = the station index in
-                    #                     prev_swe and wdb_prev_swe_obj_id
-                    # 4. wdb_prcp_si    = the station index in wdb_prcp_val_mm
+                    #                      prev_swe and wdb_prev_swe_obj_id
+                    # 4. wdb_swe_prcp_si = the station index in wdb_prcp_val_mm
 
                     prev_swe_ti = num_hrs_prev_swe - num_hrs_prcp
 
@@ -4424,37 +4395,25 @@ def main():
                     site_prev_swe_qc = \
                         qcdb_prev_swe_qc_flag[qcdb_si, prev_swe_ti:]
 
-                    site_prcp_val_mm = wdb_prcp_val_mm[wdb_prcp_si]
+                    site_prcp_val_mm = wdb_swe_prcp_val_mm[wdb_swe_prcp_si]
                     if not np.isscalar(site_prcp_val_mm):
                         print('---')
-                        print(type(wdb_prcp_val_mm))
+                        print(type(wdb_swe_prcp_val_mm))
                         print(type(site_prcp_val_mm))
-                        print(type(wdb_prcp_si))
+                        print(type(wdb_swe_prcp_si))
                         qcdb.close()
                         sys.exit(1)
 
                     flag, ref_ind = \
                         qc_durre_swe_prcp(site_swe_val_mm,
-                                           site_prev_swe_val_mm,
-                                           site_prev_swe_qc,
-                                           site_prcp_val_mm)
+                                          site_prev_swe_val_mm,
+                                          site_prev_swe_qc,
+                                          site_prcp_val_mm)
 
                     if flag:
- 
-                        # print('***** station: {} ({})'.
-                        #       format(site_swe_station_id, site_swe_obj_id))
-                        # print('***** prev swe: {}'.format(site_prev_swe_val_mm))
-                        # print('***** prev flag: {}'.format(site_prev_swe_qc))
-                        # print('***** swe: {}'.format(site_swe_val_mm))
-                        # print('***** swe change: {}'.
-                        #       format(site_swe_val_mm -
-                        #              site_prev_swe_val_mm[ref_ind]))
-                        # print('***** prcp: {}'.format(site_prcp_val_mm))
-                        # print('***** flag: {} {}'.format(flag, ref_ind))
-                        # xxx = input()
 
                         if args.verbose:
-                            print('INFO: flagging swe change ' +
+                            print('INFO: flagging SWE change ' +
                                   '{} '.
                                   format(site_prev_swe_val_mm[ref_ind]) +
                                   'to {} '.format(site_swe_val_mm) +
@@ -4475,7 +4434,8 @@ def main():
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
-                                             units=qcdb_var_time_units)
+                                             units=qcdb_var_time_units,
+                                             only_use_cftime_datetimes=False)
                                 if args.verbose:
                                     print('INFO: also flagging ' +
                                           'observation {} at {}.'.
@@ -4533,7 +4493,7 @@ def main():
                               format(site_swe_val_mm, flag_str))
 
             ######################################################
-            # Perform precipitation-swe ratio consistency check. #
+            # Perform precipitation-SWE ratio consistency check. #
             ######################################################
 
             # This is an adaptation of the test described in Durre (2010)
@@ -4542,7 +4502,7 @@ def main():
 
             qc_test_name = 'precip_ratio'
 
-            if wdb_prcp_si is not None and \
+            if wdb_swe_prcp_si is not None and \
                wdb_prev_swe_si is not None:
 
                 # Previous swe data is available, making this test
@@ -4584,7 +4544,7 @@ def main():
                     #                     qcdb_swe_qc_flag
                     # 3. wdb_prev_swe_si = the station index in
                     #                     prev_swe and wdb_prev_swe_obj_id
-                    # 4. wdb_prcp_si    = the station index in wdb_prcp_val_mm
+                    # 4. wdb_swe_prcp_si    = the station index in wdb_swe_prcp_val_mm
 
                     prev_swe_ti = num_hrs_prev_swe - num_hrs_prcp
 
@@ -4594,7 +4554,7 @@ def main():
                     site_prev_swe_qc = \
                         qcdb_prev_swe_qc_flag[qcdb_si, prev_swe_ti:]
 
-                    site_prcp_val_mm = wdb_prcp_val_mm[wdb_prcp_si]
+                    site_prcp_val_mm = wdb_swe_prcp_val_mm[wdb_swe_prcp_si]
 
                     flag, ref_ind = \
                         qc_durre_swe_prcp_ratio(site_swe_val_mm,
@@ -4604,25 +4564,8 @@ def main():
 
                     if flag:
  
-                        # print('***** station: {} ({})'.
-                        #       format(site_swe_station_id, site_swe_obj_id))
-                        # print('***** prev swe: {}'.
-                        #       format(site_prev_swe_val_mm))
-                        # print('***** prev flag: {}'.format(site_prev_swe_qc))
-                        # print('***** swe: {}'.format(site_swe_val_mm))
-                        # print('***** swe change: {}'.
-                        #       format(site_swe_val_mm -
-                        #              site_prev_swe_val_mm[ref_ind]))
-                        # print('***** prcp: {}'.format(site_prcp_val_mm))
-                        # print('***** ratio: {}'.
-                        #       format(10.0 * (site_swe_val_mm -
-                        #               site_prev_swe_val_mm[ref_ind]) /
-                        #              site_prcp_val_mm))
-                        # print('***** flag: {} {}'.format(flag, ref_ind))
-                        # xxx = input()
-
                         if args.verbose:
-                            print('INFO: flagging swe change ' +
+                            print('INFO: flagging SWE change ' +
                                   '{} '.
                                   format(site_prev_swe_val_mm[ref_ind]) +
                                   'to {} '.format(site_swe_val_mm) +
@@ -4643,7 +4586,8 @@ def main():
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
-                                             units=qcdb_var_time_units)
+                                             units=qcdb_var_time_units,
+                                             only_use_cftime_datetimes=False)
                                 if args.verbose:
                                     print('INFO: also flagging ' +
                                           'observation {} at {}.'.
@@ -4701,20 +4645,15 @@ def main():
                               format(site_swe_val_mm, flag_str))
 
 
-
-
-
         ######################################
         # SNOW WATER EQUIVALENT (SWE) QC END #
         ######################################
 
 
-
-
-
         ############################################
         # QC checks finished for the current time. #
         ############################################
+
 
         if args.verbose:
             print('INFO: added {} '.format(num_stations_added_this_time) +
