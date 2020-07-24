@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/python3
 '''
   Update databases that created by the create program initially.
   The station information within the domain will be retrieved.
@@ -610,7 +610,8 @@ def check_nwm_attributes(nwm, nwm_group, a_nwm_file_name):
         return 0
     try:
         nwm_datetime_dt = num2date(nwm_var_time[:][0],
-                                units=nwm_var_time_units)
+                                   units=nwm_var_time_units,
+                                   only_use_cftime_datetimes=False)
         nwm_datetime_ep = ndt.datetime_to_utc_epoch(nwm_datetime_dt)
     except:
         print('ERROR: Unable to convert time ' +
