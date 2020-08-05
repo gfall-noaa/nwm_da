@@ -167,7 +167,7 @@ def database_info_and_checks(conn,
               file=sys.stderr)
 
     print('  Number of days to update: ', db_num_days_update)
-    print('  Last updated time: ',
+    print('  Date/time of last update: ',
           ndt.utc_epoch_to_string(db_last_updated_datetime_ep))
     if db_num_days_update == 0 and oper is False:
         print('\nUpdating archive databases ...')
@@ -1359,8 +1359,9 @@ def update_nwm_file_update_info(conn,
 
             # New data is a better reference than existing data.
             # print('Case 1 - inserting')
-            print('INFO: {} provides improved reference for {}'.
+            print('INFO: {} provides improved reference over {} for {}.'.
                   format(nf_name,
+                         ref_nwm_file_name,
                          ndt.utc_epoch_to_string(nf_datetime_ep)))
             is_reference = 1
             conn.execute(sql_insert, (nf_name,
@@ -1649,6 +1650,8 @@ def get_sample_station_info(conn, sample_id):
                          "WHERE id='" + sample_id + "'").fetchone()
     except:
         print('No sample_grid_col_row obtained')
+    if sample_grid_col_row is None:
+        print('none')
     try:
         sample_obj_id = conn.execute("SELECT obj_identifier FROM stations " + \
                             "WHERE id='" + sample_id + "'").fetchone()
@@ -2563,7 +2566,7 @@ def main():
                   .format(min(len(nwm_file_names),
                               opt.max_num_nwm_files - num_nwm_files_read)))
         else:
-            print('INFO: {} unprocessed NWM files found to be sampled:'
+            print('INFO: {} unprocessed NWM files found to be sampled.'
                   .format(len(nwm_file_names)))
         # Files in nwm_file_names will all be sampled/processed below
 
@@ -2585,6 +2588,10 @@ def main():
                                    nwm_file_time_minus_hours,
                                    nwm_file_datetimes_ep,
                                    nwm_file_cycle_datetimes_ep)
+
+        print('INFO: dates/times of unprocessed files range from {} to {}.'.
+              format(ndt.utc_epoch_to_string(nwm_file_datetimes_ep[0]),
+                     ndt.utc_epoch_to_string(nwm_file_datetimes_ep[-1])))
 
         # print('--')
         # for nwm_file_name in nwm_file_names:
