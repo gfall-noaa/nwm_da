@@ -785,7 +785,7 @@ def qc_durre_snwd_gap(snow_depth_value_cm,
     return ts_flag_ind, ref_obs
 
 
-def qc_durre_snwd_temp(snow_depth_value_cm,
+def qc_durre_snwd_tair(snow_depth_value_cm,
                        prev_sd_value_cm,
                        prev_sd_qc,
                        prev_at_value_deg_c):
@@ -1920,15 +1920,21 @@ def main():
         # Get air temperature observations. These are needed for snow depth
         # reporters (for the snow-temperature consistency check) and for other
         # sites as well (for the spatial snow-temperature consistency check).
-        t1 = dt.datetime.utcnow()
+        current_datetime = dt.datetime.utcnow()
+        # TODO:
+        # If wdb_prev_tair exists already, and
+        #    wdb_prev_tair_datetime is less than 15 minutes in the past
+        #    then
+        # use the prev_obs_air_temp=wdb_prev_tair keyword in the call to
+        # wdb0.get_air_temp_obs
         wdb_prev_tair = \
             wdb0.get_air_temp_obs(obs_datetime -
                                   dt.timedelta(hours=num_hrs_prev_tair),
                                   obs_datetime,
                                   scratch_dir=args.pkl_dir,
                                   verbose=args.verbose)
-        t2 = dt.datetime.utcnow()
-        elapsed_time = t2 - t1
+        wdb_prev_tair_datetime = dt.datetime.utcnow()
+        elapsed_time = wdb_prev_tair_datetime - current_datetime
 
         if args.verbose:
             print('INFO: found {} '.
@@ -2086,6 +2092,9 @@ def main():
 
                 # Add artificial qc data to qcdb_prev_snwd_qc_flag for
                 # the new station.
+                # ??? Should we also generate/expand ???
+                # ??? qcdb_prev_swe_qc_flag here     ???
+                #     Pretty sure we do not need to.
                 new_row = np.ma.masked_array(np.array([[0] *
                                                        num_hrs_prev_snwd]))
                 if qcdb_prev_snwd_qc_flag.shape[0] == 0:
@@ -2791,7 +2800,7 @@ def main():
                         exit(1)
 
                     flag, ref_ind = \
-                        qc_durre_snwd_temp(site_snwd_val_cm,
+                        qc_durre_snwd_tair(site_snwd_val_cm,
                                            site_prev_snwd_val_cm,
                                            site_prev_snwd_qc,
                                            site_prev_tair_val_deg_c)
@@ -3772,6 +3781,9 @@ def main():
 
                 # Add artificial qc data to qcdb_prev_swe_qc_flag for
                 # the new station.
+                # ??? Should we also generate/expand ???
+                # ??? qcdb_prev_snwd_qc_flag here    ???
+                #     Pretty sure we do not need to.
                 new_row = np.ma.masked_array(np.array([[0] *
                                                        num_hrs_prev_swe]))
                 if qcdb_prev_swe_qc_flag.shape[0] == 0:
