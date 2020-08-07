@@ -9,12 +9,15 @@ import sys
 import psycopg2
 import pandas as pd
 import time
-import snodas_clim
 import shutil
 from vincenty import vincenty
 import math
 from geopy import distance
 import errno
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..',
+                             'snodas_climatology'))
+import snodas_clim
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'lib'))
 import wdb0
@@ -1916,7 +1919,6 @@ def main():
         wdb_snwd_prcp_val_mm = wdb_snwd_prcp['values_mm']
         wdb_snwd_prcp_obj_id = wdb_snwd_prcp['station_obj_id']
 
-
         # Get air temperature observations. These are needed for snow depth
         # reporters (for the snow-temperature consistency check) and for other
         # sites as well (for the spatial snow-temperature consistency check).
@@ -1934,6 +1936,8 @@ def main():
                                   scratch_dir=args.pkl_dir,
                                   verbose=args.verbose)
         wdb_prev_tair_datetime = dt.datetime.utcnow()
+        wdb_prev_tair_datetimes = \
+            [wdb_prev_tair_datetime] * (num_hrs_prev_tair + 1)
         elapsed_time = wdb_prev_tair_datetime - current_datetime
 
         if args.verbose:
