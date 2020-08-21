@@ -422,6 +422,8 @@ PRO SHOW_SNWD_TAIR_DATA, site_str, $
                          snwd_sample, $
                          snwd_sample_qc
 
+; Use GET_SNWD_WRIE_DATA to fetch snow depth data and corresponding QC
+; data for comparison with air temperature data.
   GET_SNWD_WRIE_DATA, obs_date_Julian, $
                       prev_hours_tair, $
                       station_obj_id, $
@@ -492,7 +494,7 @@ end
 ; start of the database, and a little before the end of the database,
 ; to accommodate padding set by num_hrs_pad_prev and
 ; num_hrs_pad_post.
-  start_date_YYYYMMDDHH = '2020010200'
+  start_date_YYYYMMDDHH = '2020030200'
   finish_date_YYYYMMDDHH = '2020060100'
 
   finish_date_Julian = YYYYMMDDHH_TO_JULIAN(finish_date_YYYYMMDDHH)
