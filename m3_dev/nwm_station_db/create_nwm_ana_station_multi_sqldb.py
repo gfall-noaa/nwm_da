@@ -1,4 +1,4 @@
-#!/usr/bin/python3.6
+#!/usr/bin/python3
 '''
   This program generates initial set of databases that will be updated
   by the update program. All prameters and control options are
