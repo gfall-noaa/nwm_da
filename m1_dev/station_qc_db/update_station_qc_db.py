@@ -1881,10 +1881,10 @@ def main():
         # Get snowfall data associated with snow depth observations.
         t1 = dt.datetime.utcnow()
         wdb_snfl = \
-            wdb0.get_snwd_snowfall_obs(obs_datetime,
-                                       num_hrs_snowfall,
-                                       scratch_dir=args.pkl_dir,
-                                       verbose=args.verbose)
+            wdb0.get_snwd_snfl_obs(obs_datetime,
+                                   num_hrs_snowfall,
+                                   scratch_dir=args.pkl_dir,
+                                   verbose=args.verbose)
         t2 = dt.datetime.utcnow()
         elapsed_time = t2 - t1
         if args.verbose:
