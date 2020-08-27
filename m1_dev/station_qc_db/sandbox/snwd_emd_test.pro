@@ -88,17 +88,18 @@
   grn[grn_ind] = 255
   blu[grn_ind] = 150
   
-  ;; TVLCT, red, grn, blu
-  ;; for xc = 0, max_count - 1 do begin
-  ;;     i = max_ind[xc]
-  ;;     PLOTS, x_sorted[i], y_sorted[i], PSYM = 5, SYMSIZE = 2, $
-  ;;            COLOR = blu_ind, THICK = 2
-  ;; endfor
-  ;; for nc = 0, min_count - 1 do begin
-  ;;     i = min_ind[nc]
-  ;;     PLOTS, x_sorted[i], y_sorted[i], PSYM = 6, SYMSIZE = 2, $
-  ;;            COLOR = red_ind, THICK = 2
-  ;; endfor
+  TVLCT, red, grn, blu
+
+  for xc = 0, max_count - 1 do begin
+      i = max_ind[xc]
+      PLOTS, x_sorted[i], y_sorted[i], PSYM = 5, SYMSIZE = 2, $
+             COLOR = blu_ind, THICK = 2
+  endfor
+  for nc = 0, min_count - 1 do begin
+      i = min_ind[nc]
+      PLOTS, x_sorted[i], y_sorted[i], PSYM = 6, SYMSIZE = 2, $
+             COLOR = red_ind, THICK = 2
+  endfor
 
   ;; y_str = STRCRA(y_sorted)
   ;; for i = 0, n - 1 do begin
@@ -120,8 +121,12 @@
 
   if ((min_count ge 3) and (max_count ge 3)) then begin
 
-      m_lo = SPLINE(x_sorted[min_ind], y_sorted[min_ind], x_sorted)
-      m_hi = SPLINE(x_sorted[max_ind], y_sorted[max_ind], x_sorted)
+      m_lo = INTERPOL(y_sorted[min_ind], x_sorted[min_ind], x_sorted, $
+                      /QUAD)
+      m_hi = INTERPOL(y_sorted[max_ind], x_sorted[max_ind], x_sorted, $
+                      /QUAD)
+      ;; m_lo = SPLINE(x_sorted[min_ind], y_sorted[min_ind], x_sorted)
+      ;; m_hi = SPLINE(x_sorted[max_ind], y_sorted[max_ind], x_sorted)
       m1 = 0.5 * (m_lo + m_hi)
 
       OPLOT, x_sorted, m_lo, LINESTYLE = 2, COLOR = red_ind, THICK = 2, $
@@ -131,6 +136,12 @@
       OPLOT, x_sorted, m1, COLOR = grn_ind, THICK = 2, $
              /NOCLIP
   endif
+  move = GET_KBRD(1)
+
+
+
+
+
   ;;     h1 = y_sorted - m1
 
   ;;     WSET_OR_WINDOW, 2, XSIZE = 1600, YSIZE = 900
@@ -154,7 +165,7 @@
 
   ;; endif
 
-  imf = EMD(y_sorted)
+  imf = GF_EMD(y_sorted, /FLAT, /I_QUAD)
 ;  imf = EMD(y_sorted, /QUEK)
   size_imf = SIZE(imf)
   if (size_imf[0] ne 2) then begin
@@ -193,9 +204,21 @@
       noise = imf[*, 0]
       signal = imf[*, 1:num_imf - 1] # replicate(1.0, num_imf - 1)
   endelse
-  OPLOT, x_sorted, signal, COLOR = 150, THICK = 2, LINESTYLE = 2, /NOCLIP
-  if ISA(NOISE) then $
+  WSET_OR_WINDOW, 0
+  PLOT, snwd[sc].date_utc_julian[ind], snwd[sc].obs_value_cm[ind], $
+        TITLE = snwd[sc].station_id + ' ' + $
+        start_date_YYYYMMDDHH + ' to ' + finish_date_YYYYMMDDHH, $
+        XTICKFORMAT = 'LABEL_DATE', XTICKUNITS = 'Time', $
+        CHARSIZE = 1.5, $
+        XRANGE = [snwd[sc].date_utc_julian[ind[0]], $
+                  snwd[sc].date_utc_julian[ind[count-1]]], $
+        XSTYLE = 1, XMINOR = 1, /NODATA, /NOERASE 
+  OPLOT, x_sorted, signal, COLOR = grn_ind, THICK = 3, LINESTYLE = 2, /NOCLIP
+;  OPLOT, x_sorted, imf[*, num_imf - 1], COLOR = blu_ind, THICK = 3, /NOCLIP
+  if ISA(NOISE) then begin
+      OPLOT, x_sorted, noise, COLOR = red_ind, THICK = 2, /NOCLIP
       PRINT, 'noise: ', TOTAL(noise), MEAN(noise), STDDEV(noise)
+  endif
 
   WSET_OR_WINDOW, 2, XSIZE = 1600, YSIZE = 900
   PLOT, x_sorted, imf[*, 0], $
@@ -219,6 +242,7 @@
              COLOR = 255 / num_imf * (ic + 1), $
              THICK = 2
   endfor
+  if ISA(noise) then OPLOT, x_sorted, noise, COLOR = red_ind, THICK = 2
   move = GET_KBRD(1)
   
 ; EMD FINISH
@@ -226,5 +250,3 @@
   endfor
   
 end
-
-
