@@ -1,6 +1,6 @@
 ;+
 ; NAME:
-;	EMD
+;	GF_EMD
 ;
 ; PURPOSE:
 ;	This function estimates the empirical mode decomposition of a given 
@@ -26,8 +26,6 @@
 ;	SPLINEMEAN:  If set, the procedure estimates the local mean by splining
 ;		between the mean of the extrema.  The default is to take the 
 ;		mean of the splines through the extrema.
-;	VERBOSE:  If set, the procedure prints some output and error warnings.
-;		The default is not set.
 ;	ZEROCROSS:  If set, the procedure tests for IMFs by comparing the 
 ;		number of extrema and zero crossings.  The default is by 
 ;		checking the size of the difference between successive
@@ -38,6 +36,10 @@
 ;       Astronomy User's Library instead of SPLINE.
 ;       https://idlastro.gsfc.nasa.gov/homepage.html
 ;       https://idlastro.gsfc.nasa.gov/ftp/pro/math/hermite.pro
+;       I_SPLINE: If set, use INTERPOL, /SPLINE instead of SPLINE.
+;       I_QUAD: If set, use INTERPOL, /QUADRATIC instead of SPLINE.
+;       I_LSQUAD: If set, use INTERPOL, /LSQUADRATIC instead of SPLINE.
+;       
 ;GF-
 ;
 ; OUTPUT:
@@ -85,11 +87,17 @@
 ;DAS, 2004-07-27 (documentation for routine library) Modified: DAS,
 ;2005-08-05 (replaced sum_row.pro with total) -
 
-FUNCTION EMD, $
-	Data, $
-	SHIFTFACTOR=shiftfactor, $
-	QUEK=quekopt, SPLINEMEAN=splinemeanopt, ZEROCROSS=zerocrossopt, $
-	VERBOSE=verboseopt, FLAT=flatopt, HERMITE=hermiteopt
+FUNCTION GF_EMD, $
+         Data, $
+         SHIFTFACTOR = shiftfactor, $
+    QUEK=quekopt, $
+    SPLINEMEAN=splinemeanopt, $
+    ZEROCROSS=zerocrossopt, $
+    FLAT = flat, $
+    HERMITE = hermite, $
+    I_SPLINE = i_spline, $
+    I_QUAD = i_quad, $
+    I_LSQUAD = i_lsquad
 
 ;***********************************************************************
 ; Constants and Options
@@ -116,10 +124,10 @@ checkresval = 2
 checkexitval = 3
 
 ; Length of the time series
-ndata = n_elements( data )
+num_data = n_elements( data )
 
 ; We need to know if we need to use long integers for indices
-if var_type( ndata ) eq 2 then begin
+if var_type( num_data ) eq 2 then begin
   idtype = 1
 endif else begin
   idtype = 1l
@@ -129,11 +137,14 @@ endelse
 quekopt = keyword_set( quekopt )
 splinemeanopt = keyword_set( splinemeanopt )
 zerocrossopt = keyword_set( zerocrossopt )
-flatopt = keyword_set( flatopt )
-hermiteopt = keyword_set( hermiteopt )
 
-; Option to print output and error warnings.
-verboseopt = keyword_set( verboseopt )
+case 1 of
+    KEYWORD_SET(hermite): interp_method = 1
+    KEYWORD_SET(i_spline): interp_method = 2
+    KEYWORD_SET(i_quad): interp_method = 3
+    KEYWORD_SET(i_lsquad): interp_method = 4
+    else: interp_method = 0 ; SPLINE
+endcase
 
 ; Initialise the vector to be decomposed (it is altered with each step)
 x = data
@@ -146,7 +157,7 @@ while check lt checkexitval do begin
 
   ; Check if we have extracted everything (ie if you have the residual).
   ; Find local extrema for minimum and maximum envelopes.
-  if flatopt then $
+  if KEYWORD_SET(flat) then $
       nextrema = n_elements( extrema( x, /flat ) ) $
   else $
       nextrema = n_elements( extrema( x ) )
@@ -168,7 +179,7 @@ while check lt checkexitval do begin
 
     ; Find local extrema for minimum and maximum envelopes
     ;temp = extrema( x, minima=minima, maxima=maxima, /flat )
-    if flatopt then $
+    if KEYWORD_SET(flat) then $
       temp = extrema( x, minima=minima, maxima=maxima, /flat ) $
     else $
       temp = extrema( x, minima=minima, maxima=maxima )
@@ -246,32 +257,56 @@ while check lt checkexitval do begin
       meanpos = meanpos[1+id]
       meanval = meanval[1+id]
       ; Estimate the local mean through a spline interpolation
-      if hermiteopt then $
-        localmean = hermite( meanpos, meanval, indgen( ndata ) ) $
-      else $
-        localmean = spline( meanpos, meanval, indgen( ndata ) )
+      case interp_method of
+          0: localmean = SPLINE(meanpos, meanval, INDGEN(num_data))
+          1: localmean = HERMITE(meanpos, meanval, INDGEN(num_data))
+          2: localmean = INTERPOL(meanval, meanpos, INDGEN(num_data), $
+                                  /SPLINE)
+          3: localmean = INTERPOL(meanval, meanpos, INDGEN(num_data), $
+                                  /QUADRATIC)
+          4: localmean = INTERPOL(meanval, meanpos, INDGEN(num_data), $
+                                  /LSQUADRATIC)
+      endcase
 
     ; If we want to take the mean of the splines of the extrema
     endif else begin
 
       ; Spline interpolate to get maximum and minimum envelopes
-      print, min(maxpos), max(maxpos), ' -> ', 0, ndata - 1, ndata
-      if hermiteopt then begin
-        maxenv = hermite( maxpos, maxval, indgen( ndata ) )
-        minenv = hermite( minpos, minval, indgen( ndata ) )
+      print, min(maxpos), max(maxpos), ' -> ', 0, num_data - 1, num_data
+      case interp_method of
+          0: begin
+              maxenv = SPLINE(maxpos, maxval, INDGEN(num_data))
+              minenv = SPLINE(minpos, minval, INDGEN(num_data))
+          end
+          1: begin
+              maxenv = HERMITE(maxpos, maxval, INDGEN(num_data))
+              minenv = HERMITE(minpos, minval, INDGEN(num_data))
+          end
+          2: begin
+              maxenv = INTERPOL(maxval, maxpos, INDGEN(num_data), /SPLINE)
+              minenv = INTERPOL(minval, minpos, INDGEN(num_data), /SPLINE)
+          end
+          3: begin
+              maxenv = INTERPOL(maxval, maxpos, INDGEN(num_data), /QUADRATIC)
+              minenv = INTERPOL(minval, minpos, INDGEN(num_data), /QUADRATIC)
+          end
+          4: begin
+              maxenv = INTERPOL(maxval, maxpos, INDGEN(num_data), /LSQUADRATIC)
+              minenv = INTERPOL(minval, minpos, INDGEN(num_data), /LSQUADRATIC)
+          end
+      endcase
+      if KEYWORD_SET(hermite) then begin
       endif else begin
-        maxenv = spline( maxpos, maxval, indgen( ndata ) )
-        minenv = spline( minpos, minval, indgen( ndata ) )
       endelse
       help, minenv, maxenv
 ;GF+
-      ;; oplot, indgen(ndata), maxenv, color = 2
-      ;; oplot, indgen(ndata), minenv, color = 1
+      ;; oplot, indgen(num_data), maxenv, color = 2
+      ;; oplot, indgen(num_data), minenv, color = 1
 ;GF-
       ; Estimate the local mean as the mean of these envelopes
       localmean = ( minenv + maxenv ) / 2.
 ;GF+
-      ;; oplot, indgen(ndata), localmean, color = 3, linestyle = 2
+      ;; oplot, indgen(num_data), localmean, color = 3, linestyle = 2
       ;; wait, 0.1
 ;GF-
 
@@ -286,7 +321,7 @@ while check lt checkexitval do begin
       ; Count the number of zero crossings
       nzeroes = zero_cross( x )
       ; Count the number of extrema
-      if flatopt then $
+      if KEYWORD_SET(flat) then $
         nextrema = n_elements( extrema( x, /flat ) ) $
       else $                    
         nextrema = n_elements( extrema( x ) )
@@ -336,7 +371,7 @@ while check lt checkexitval do begin
     if check gt 0 then begin
         oplot, x, color = 3, thick = 3
         print, 'check = ', check
-        move = get_kbrd(1)
+        WAIT, 0.1
     endif
 ;GF-
 
