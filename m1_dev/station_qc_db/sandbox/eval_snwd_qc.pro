@@ -475,6 +475,22 @@ PRO SHOW_SNWD_TAIR_DATA, site_str, $
 end
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ; MAIN PROGRAM
 
 
@@ -494,7 +510,7 @@ end
 ; start of the database, and a little before the end of the database,
 ; to accommodate padding set by num_hrs_pad_prev and
 ; num_hrs_pad_post.
-  start_date_YYYYMMDDHH = '2020030200'
+  start_date_YYYYMMDDHH = '2020010100'
   finish_date_YYYYMMDDHH = '2020060100'
 
   finish_date_Julian = YYYYMMDDHH_TO_JULIAN(finish_date_YYYYMMDDHH)
@@ -582,6 +598,7 @@ end
   ;debug_test_name = 'streak'
   debug_test_name = 'world_record_increase_exceedance'
   debug_test_name = 'temperature_consistency'
+  debug_test_name = 'snowfall_consistency'
 
   debug_test_ind = !NULL
   ti = 0
@@ -800,7 +817,11 @@ end
 
 ;             Generate a few strings for convenience.
               obs_str = STRCRA(wdb_snow_depth_obs[wdb_si].obs_value_cm)
+              obs_str_in = $
+                  STRCRA(wdb_snow_depth_obs[wdb_si].obs_value_cm / 2.54)
               mdl_str = STRCRA(wdb_snow_depth_obs[wdb_si].mdl_value_cm)
+              mdl_str_in = $
+                  STRCRA(wdb_snow_depth_obs[wdb_si].mdl_value_cm / 2.54)
               site_str = STRCRA(wdb_snow_depth_obs[wdb_si].station_id)
               time_str = wdb_snow_depth_obs[wdb_si].date_UTC
 
@@ -913,8 +934,10 @@ end
                                   PRINT, '"' + debug_test_name + $
                                          '" test likely false alarm:'
                                   PRINT, '  ' + $
-                                         site_str + ' - ' + $
-                                         time_str + ' - ' + $
+                                         site_str + '(' + $
+                                         STRCRA(station_obj_id) + $
+                                         ') - ' + $
+                                         time_str + ' -' + $
                                          ' obs ' + obs_str + ', ' + $
                                          ' mdl ' + mdl_str
                                   PRINT, '  qcdb_si = ' + $
@@ -1025,6 +1048,72 @@ end
                                                        ndv, $
                                                        snwd_sample, $
                                                        snwd_sample_qc
+
+                              endif
+
+                              if (ISA(debug_test_ind) and $
+                                  (this_inventory[debug_test_ind] eq 1) and $
+                                  (debug_test_name eq $
+                                   'snowfall_consistency')) $
+                              then begin
+
+                                  prev_hours = 24
+
+                                  PRINT, '"' + debug_test_name + $
+                                         '" test likely false alarm:'
+                                  PRINT, '  ' + $
+                                         site_str + $
+                                         '(' + STRCRA(station_obj_id) + $
+                                         ') - ' + $
+                                         time_str + ' -' + $
+                                         ' obs ' + obs_str_in + ', ' + $
+                                         ' mdl ' + mdl_str_in
+                                  PRINT, '  qcdb_si = ' + $
+                                         STRCRA(qcdb_si) + $
+                                         ', qcdb_ti = ' + $
+                                         STRCRA(qcdb_ti)
+                                  sample_start_date_Julian = $
+                                      obs_date_Julian - $
+                                      DOUBLE(prev_hours) / 24.0D
+                                  sample_start_YYYYMMDDHH = $
+                                      JULIAN_TO_YYYYMMDDHH( $
+                                      sample_start_date_Julian)
+                                  sample_finish_YYYYMMDDHH = $
+                                      JULIAN_TO_YYYYMMDDHH( $
+                                      obs_date_Julian)
+                                  snwd_sample = $
+                                      GET_WDB_OBS_SNOW_DEPTH_FOR_RANGE( $
+                                      sample_start_YYYYMMDDHH, $
+                                      sample_finish_YYYYMMDDHH, $
+                                      STATION_OBJ_ID = station_obj_id)
+                                  sample_t1_1 = $
+                                      (qcdb_ti - prev_hours) > 0
+                                  sample_num_hours = $
+                                      qcdb_ti - sample_t1_1 + 1
+                                  NCDF_VARGET, qcdb_nc_id, $
+                                               'snow_depth_qc', $
+                                               snwd_sample_qc, $
+                                               COUNT = [sample_num_hours, $
+                                                        1], $
+                                               OFFSET = [sample_t1_1, $
+                                                         qcdb_si]
+                                      ;if (sample_t1_1 gt 0) then STOP
+                                  snwd_sample_str = $
+                                      STRCRA(snwd_sample.obs_value_cm / 2.54)
+                                  ind = WHERE(snwd_sample.obs_value_cm eq $
+                                              ndv, count)
+                                  if (count gt 0) then $
+                                      snwd_sample_str[ind] = '-'
+                                  ind = WHERE(snwd_sample_qc ne 0, count)
+                                  if (count gt 0) then $
+                                      snwd_sample_str[ind] = '-'
+                                  if (sample_num_hours gt prev_hours) then $
+                                      begin
+                                      PRINT, snwd_sample_str
+                                      PRINT, obs_str_in, ' (', $
+                                             snwd_sample.station_type + ')'
+                                  endif
+                                  move = GET_KBRD(1)
 
                               endif
 
