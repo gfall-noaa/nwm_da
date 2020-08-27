@@ -149,10 +149,10 @@ def database_info_and_checks(conn,
     #print(os.path.join(db_dir, forcing_single_db_from_db))
     #print(forcing_single_db_assumed)
     if forcing_single_db_from_db == forcing_single_db_assumed:
-        print('  forcing_single_db file name is consistent')
+        print('forcing_single_db file name is consistent')
         forcing_single_db = os.path.join(db_dir, forcing_single_db_assumed)
     if land_single_db_from_db == land_single_db_assumed:
-        print('  land_single_db file name is consistent')
+        print('land_single_db file name is consistent')
         land_single_db = os.path.join(db_dir, land_single_db_assumed)
 
     if db_start_datetime_from_db_ep != db_start_datetime_from_name_ep and \
@@ -166,8 +166,7 @@ def database_info_and_checks(conn,
               'filename "{}".'.format(db_file),
               file=sys.stderr)
 
-    print('  Number of days to update: ', db_num_days_update)
-    print('  Date/time of last update: ',
+    print('Date/time of last update: ',
           ndt.utc_epoch_to_string(db_last_updated_datetime_ep))
     if db_num_days_update == 0 and oper is False:
         print('\nUpdating archive databases ...')
@@ -178,6 +177,12 @@ def database_info_and_checks(conn,
         print('Finish date (archive): {}'.
               format(ndt.utc_epoch_to_string(new_db_finish_datetime_ep)))
     else:
+        if db_num_days_update == 0:
+            print('WARNING: database uses "oper" in its name but has ' +
+                  'num_days_update = 0 in its databases_info table.')
+        if oper is False:
+            print('WARNING: database uses "archive" in its name but has ' +
+                  'num_days_update != 0 in its databases_info table.')
         print('\nUpdating operational databases ...')
         this_update_datetime_ep = time.time()
         new_db_start_datetime_ep = this_update_datetime_ep - \
@@ -186,6 +191,7 @@ def database_info_and_checks(conn,
         #db_start_datetime_from_db_ep = new_db_start_datetime_ep
         new_db_finish_datetime_ep = this_update_datetime_ep
 
+        print('Number of days to update: ', db_num_days_update)
         print('New start date (oper): {}'.
               format(ndt.utc_epoch_to_string(new_db_start_datetime_ep)))
         print('New finish date (oper): {}'.
