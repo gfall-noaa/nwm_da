@@ -363,17 +363,13 @@ def get_swe_obs(begin_datetime,
     return(obs_swe)
 
 
-
-
-
-
-
-
 def get_swe_obs_df(begin_datetime,
                    end_datetime,
                    no_data_value=-99999.0,
                    bounding_box=None,
                    scratch_dir=None,
+                   target_hour=None,
+                   hr_range=None,
                    verbose=None):
 
     """
@@ -391,10 +387,13 @@ def get_swe_obs_df(begin_datetime,
                 end_datetime.strftime('%Y%m%d%H') + \
                 '.pkl'
 
+    #print(scratch_dir, file_name)
+    #print(type(scratch_dir), type(file_name))
+    
     if scratch_dir is not None:
         file_name = os.path.join(scratch_dir, file_name)
 
-    if os.path.isfile(file_name):
+    if os.path.isfile(file_name) and target_hour is None:
 
         # Retrieve data from pkl file and return.
         file_obj = open(file_name, 'rb')
@@ -410,6 +409,33 @@ def get_swe_obs_df(begin_datetime,
     conn = psycopg2.connect(conn_string)
     conn.set_client_encoding("utf-8")
     cursor = conn.cursor()
+
+    hour_limit_str = ''
+    if target_hour is not None:
+      from_hour = target_hour - hr_range[0]
+      to_hour = target_hour + hr_range[1]
+      if from_hour < 0: from_hour = 24 - from_hour
+      if to_hour > 23: to_hour = to_hour - 24
+      from_hour_str = '{}'.format(str(int(from_hour)).zfill(2))
+      to_hour_str = '{}'.format(str(int(to_hour)).zfill(2))
+      #print('from {} to {}'.format(int(from_hour), int(to_hour)))
+      #print('hour string is {}'.format(str(int(from_hour)).zfill(2)))
+
+    if to_hour > from_hour:
+      hour_limit_str = " AND (DATE_PART('hour', date) " + \
+                      ">='" + from_hour_str + "' AND " + \
+                       " DATE_PART('hour', date) " + \
+                      "<='" + to_hour_str + "') "
+    else:
+      hour_limit_str = " AND ((DATE_PART('hour', date) " + \
+                       ">='" + from_hour_str + "' AND " + \
+                       "DATE_PART('hour', date) " + \
+                       "<='23')"  + " OR " + \
+                       " (DATE_PART('hour', date) " + \
+                       ">='00'" + " AND " + \
+                       " DATE_PART('hour', date) " + \
+                       "<='" + to_hour_str + "')) "
+
 
     # Define a SQL statement.
     sql_cmd = 'SELECT ' + \
@@ -430,25 +456,32 @@ def get_swe_obs_df(begin_datetime,
               'AND date <= \'' + \
               end_datetime.strftime('%Y-%m-%d %H:%M:%S') + \
               '\' ' + \
+              hour_limit_str + \
               'AND point.allstation.obj_identifier = ' + \
               'point.obs_swe.obj_identifier ' + \
               'AND value IS NOT NULL '
 
+    #print(bounding_box['min_lat'], bounding_box['max_lat'],
+    #      bounding_box['min_lon'], bounding_box['max_lon'])
     if bounding_box is not None:
         sql_cmd = sql_cmd + \
-                  'AND point.allstation.coordinates[0] >= ' + \
-                  '{} '.format(bounding_box[0]) + \
-                  'AND point.allstation.coordinates[0] < ' + \
-                  '{} '.format(bounding_box[1]) + \
                   'AND point.allstation.coordinates[1] >= ' + \
-                  '{} '.format(bounding_box[2]) + \
+                  '{} '.format(bounding_box['min_lat']) + \
                   'AND point.allstation.coordinates[1] < ' + \
-                  '{} '.format(bounding_box[3])
+                  '{} '.format(bounding_box['max_lat']) + \
+                  'AND point.allstation.coordinates[0] >= ' + \
+                  '{} '.format(bounding_box['min_lon']) + \
+                  'AND point.allstation.coordinates[0] < ' + \
+                  '{} '.format(bounding_box['max_lon'])
 
-    sql_cmd = sql_cmd + 'ORDER BY obj_identifier, date;'
+    sql_cmd = sql_cmd + ' ORDER BY obj_identifier, date;'
+
+    #print('wdb0 query', sql_cmd)
 
     if verbose:
         print('INFO: psql command "{}"'.format(sql_cmd))
+        print('\nBounding box=', bounding_box, type(bounding_box))
+        #print('\nwdb0 hour_limit_str:', hour_limit_str)
 
     cursor.execute(sql_cmd)
 
@@ -576,7 +609,7 @@ def get_prev_snow_depth_obs(target_datetime,
     sql_cmd = sql_cmd + 'ORDER BY t1.obj_identifier, t2.date;'
 
     if verbose:
-        print('INFO: psql command "{}"'.format(sql_cmd))
+        print('\nINFO: psql command "{}"\n'.format(sql_cmd))
 
     cursor.execute(sql_cmd)
 
