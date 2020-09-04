@@ -510,7 +510,7 @@ end
 ; start of the database, and a little before the end of the database,
 ; to accommodate padding set by num_hrs_pad_prev and
 ; num_hrs_pad_post.
-  start_date_YYYYMMDDHH = '2020010100'
+  start_date_YYYYMMDDHH = '2020030100'
   finish_date_YYYYMMDDHH = '2020060100'
 
   finish_date_Julian = YYYYMMDDHH_TO_JULIAN(finish_date_YYYYMMDDHH)
