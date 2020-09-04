@@ -6,13 +6,14 @@ import pickle as pkl
 import datetime as dt
 import logging
 
-logger = logging.getLogger(__name__)
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-console_formatter = \
-    logging.Formatter('%(name)s.%(funcName)s: %(levelname)s: %(message)s')
-console_handler.setFormatter(console_formatter)
-logger.addHandler(console_handler)
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.DEBUG)
+# console_handler = logging.StreamHandler()
+# console_formatter = \
+#     logging.Formatter('%(name)s.%(funcName)s: %(levelname)s: %(message)s')
+# console_handler.setFormatter(console_formatter)
+# console_handler.setLevel(logging.DEBUG) # Change INFO to DEBUG for development.
+# logger.addHandler(console_handler)
 
 """
 Functions for reading data from wdb0.
@@ -914,9 +915,8 @@ def get_air_temp_obs(begin_datetime,
     wdb0.
     """
 
-    logger.debug('hi')
-    print('hi')
-    
+    logger = logging.getLogger()
+
     file_name = 'wdb0_obs_air_temp_' + \
         begin_datetime.strftime('%Y%m%d%H') + \
         '_to_' + \
@@ -942,8 +942,6 @@ def get_air_temp_obs(begin_datetime,
     num_hours = time_range.days * 24 + time_range.seconds // 3600 + 1
     obs_datetime = [begin_datetime +
                     dt.timedelta(hours=i) for i in range(num_hours)]
-    logger.debug('--')
-    logger.debug(obs_datetime)
 
     if prev_obs_air_temp is not None:
 
@@ -1003,11 +1001,10 @@ def get_air_temp_obs(begin_datetime,
         else:
             # Identify datetimes for new data and their indices in the full
             # time series.
-            curr_obs_datetime = [curr_begin_datetime +
-                                 dt.timedelta(hours=i)
-                                 for i in range(curr_num_hours)]
-            logger.debug(curr_obs_datetime)
-            logger.debug(dt_needed)
+            # curr_obs_datetime = [curr_begin_datetime +
+            #                      dt.timedelta(hours=i)
+            #                      for i in range(curr_num_hours)]
+            curr_obs_datetime = dt_needed
             obs_dt_from_curr_obs_dt = [obs_datetime.index(i)
                                        for i in curr_obs_datetime]
 
@@ -1060,7 +1057,7 @@ def get_air_temp_obs(begin_datetime,
     sql_cmd = sql_cmd + 'ORDER BY obj_identifier, date;'
 
     if verbose:
-        print('INFO: psql command "{}"'.format(sql_cmd))
+        logger.info('psql command "{}"'.format(sql_cmd))
 
     cursor.execute(sql_cmd)
 
@@ -1107,13 +1104,6 @@ def get_air_temp_obs(begin_datetime,
                 curr_obs[station_ind,:] = no_data_value
                 curr_obs[station_ind,:] = np.ma.masked
             # New station
-            # if station_ind % 1000 == 0:
-            #     print('hi')
-            #     print(type(row['lon']))
-            #     print(type(np.float64(row['lon'])))
-            #     print(type(row['lat']))
-            #     print(type(row['elevation']))
-            #     print(type(row['recorded_elevation']))
             curr_station_obj_id.append(row['obj_identifier'])
             curr_station_id.append(row['station_id'])
             curr_station_name.append(row['name'])
@@ -1133,8 +1123,8 @@ def get_air_temp_obs(begin_datetime,
     curr_num_stations = station_ind + 1
 
     # Place results in a dictionary.
-    print('num_hours: {}'.format(num_hours))
-    print('curr_num_hours: {}'.format(curr_num_hours))
+    logger.debug('num_hours: {}'.format(num_hours))
+    logger.debug('curr_num_hours: {}'.format(curr_num_hours))
     curr_obs_air_temp = {'num_stations': curr_num_stations,
                     'num_hours': curr_num_hours,
                     'station_obj_id': curr_station_obj_id,
@@ -1150,14 +1140,14 @@ def get_air_temp_obs(begin_datetime,
     if prev_obs_air_temp is not None:
 
         # Combine prev_obs_air_temp and curr_obs_air_temp.
-        print('# prev stations: {}'.
-              format(prev_obs_air_temp['num_stations']))
-        print('# current stations: {}'.
-              format(curr_obs_air_temp['num_stations']))
+        logger.debug('# prev stations: {}'.
+                     format(prev_obs_air_temp['num_stations']))
+        logger.debug('# current stations: {}'.
+                     format(curr_obs_air_temp['num_stations']))
         prev_station_obj_id = prev_obs_air_temp['station_obj_id']
         new_station_obj_id = sorted(list(set(prev_station_obj_id) |
                                          set(curr_station_obj_id)))
-        print('# combined: {}'.format(len(new_station_obj_id)))
+        logger.debug('# combined: {}'.format(len(new_station_obj_id)))
 
         # Extract other "prev" station variables for shorter names.
         prev_station_id = prev_obs_air_temp['station_id']
@@ -1211,41 +1201,32 @@ def get_air_temp_obs(begin_datetime,
         new_station_rec_elev[new_station_from_curr] = curr_station_rec_elev
         new_station_rec_elev = list(new_station_rec_elev)
 
-        print(type(new_station_obj_id[0]))
-        print(type(new_station_rec_elev[0]))
-        
-        for sc in range(2000,2016):
-            print('{:>6d}  {:>16}  {:>20.20}  {:>9.4f}  {:>8.4f}  {:>5d}  {:>5d}'.
-                  format(new_station_obj_id[sc],
-                         new_station_id[sc],
-                         new_station_name[sc],
-                         new_station_lon[sc],
-                         new_station_lat[sc],
-                         new_station_elev[sc],
-                         new_station_rec_elev[sc]))
-        # print(type(station_lon[0]))
-        # print(station_lon[:50])
-        # print(type(station_lat[0]))
-        # print(type(station_elevation[0]))
-        # print(station_elevation[:50])
-        # print(type(station_rec_elevation[0]))
-        # new_station_lon = np.array(1000
+        si = 2000
+        for sc in range(si, si+16):
+            logger.info('{:>6d}  {:>16}  {:>20.20}  {:>9.4f}  {:>8.4f}  '.
+                        format(new_station_obj_id[sc],
+                               new_station_id[sc],
+                               new_station_name[sc],
+                               new_station_lon[sc],
+                               new_station_lat[sc]) +
+                        '{:>5d}  {:>5d}'.
+                        format(new_station_elev[sc],
+                               new_station_rec_elev[sc]))
+
         prev_obs_in_obs = [prev_obs_datetime.index(i) for i in dt_in_both]
         prev_obs = prev_obs_air_temp['values_deg_c'][:,prev_obs_in_obs]
 
         obs = np.ma.empty([new_num_stations, num_hours], dtype=float)
         obs[:,:] = no_data_value
         obs[:,:] = np.ma.masked
-        print(obs.shape)
-        si = 100
-        print(new_station_obj_id[si])
-        print(obs[si,:])
+        logger.debug(new_station_obj_id[si])
+        logger.debug(obs[si,:])
         obs[np.ix_(new_station_from_prev, obs_dt_from_prev_obs_dt)] = \
             prev_obs
-        print(obs[si,:])
+        logger.debug(obs[si,:])
         obs[np.ix_(new_station_from_curr, obs_dt_from_curr_obs_dt)] = \
             curr_obs
-        print(obs[si,:])
+        logger.debug(obs[si,:])
 
         obs_air_temp = {'num_stations': new_num_stations,
                         'num_hours': num_hours,
@@ -1274,7 +1255,6 @@ def get_air_temp_obs(begin_datetime,
         file_obj.close()
         if verbose:
             print('INFO: wrote query results to {}.'.format(file_name))
-
 
     return(obs_air_temp)
 
