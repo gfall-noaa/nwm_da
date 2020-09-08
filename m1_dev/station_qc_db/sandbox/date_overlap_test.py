@@ -3,10 +3,16 @@
 import datetime as dt
 import sys
 import os
+import logging
+import socket
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..',
                              'lib'))
 import wdb0
+import local_logger
+
+
+logger = local_logger.init(logging.INFO)
 
 pkl_dir = '/net/scratch/nwm_snow_da/wdb0_pkl'
 
@@ -30,10 +36,9 @@ elapsed_time = wdb_prev_tair_datetime - current_datetime
 print('INFO: query ran in {} seconds.'.
       format(elapsed_time.total_seconds()))
 
-
 begin_datetime = dt.datetime.strptime('2020-01-10 12:00:00 UTC',
                                       '%Y-%m-%d %H:%M:%S UTC')
-end_datetime = dt.datetime.strptime('2020-01-11 12:00:00 UTC',
+end_datetime = dt.datetime.strptime('2020-01-11 15:00:00 UTC',
                                     '%Y-%m-%d %H:%M:%S UTC')
 time_range = end_datetime - begin_datetime
 num_hours = time_range.days * 24 + time_range.seconds // 3600 + 1
@@ -58,23 +63,23 @@ if keep_going:
 
 if keep_going:
     dt_needed = sorted(list(set(obs_datetime) - set(prev_obs_datetime)))
-    print(dt_needed)
-    new_data_begin_datetime = dt_needed[0]
-    new_data_end_datetime = dt_needed[-1]
+#     new_data_begin_datetime = dt_needed[0]
+#     new_data_end_datetime = dt_needed[-1]
 
-print(keep_going)
-print(obs_in_prev_obs)
-print(new_data_begin_datetime)
-print(new_data_end_datetime)
-print('--')
+# print(keep_going)
+# print(obs_in_prev_obs)
+# print(new_data_begin_datetime)
+# print(new_data_end_datetime)
 
 # Get new temperatures - leave out "scratch_dir=pkl_dir" so the function has
 # to do the work.
 t1 = dt.datetime.utcnow()
+print('calling get_air_temp_obs')
 wdb_new_tair = \
     wdb0.get_air_temp_obs(begin_datetime,
                           end_datetime,
                           verbose=True,
+                          read_pkl=False,
                           prev_obs_air_temp=wdb_prior_tair)
 t2 = dt.datetime.utcnow()
 elapsed_time = t2 - t1

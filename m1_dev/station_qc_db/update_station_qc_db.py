@@ -14,6 +14,8 @@ from vincenty import vincenty
 import math
 from geopy import distance
 import errno
+import logging
+import random
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..',
                              'snodas_climatology'))
@@ -21,6 +23,7 @@ import snodas_clim
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'lib'))
 import wdb0
+import local_logger
 
 def find_nearest_neighbors(lat1,
                            lon1,
@@ -1399,16 +1402,21 @@ def main():
     NOHRSC web database.
     """
 
+    # Initialize logger.
+    logger = local_logger.init(logging.DEBUG)
+
     # Read command line arguments.
     args = parse_args()
     if args is None:
-        print('ERROR: Failed to parse command line.', file=sys.stderr)
-        exit(1)
+        #print('ERROR: Failed to parse command line.', file=sys.stderr)
+        logger.error('Failed to parse command line.')
+        sys.exit(1)
 
     if not os.path.exists(args.database_path):
-        print('ERROR: {} not found.'.format(args.database_path),
-              file=sys.stderr)
-        exit(1)
+        # print('ERROR: {} not found.'.format(args.database_path),
+        #       file=sys.stderr)
+        logger.error('{} not found.'.format(args.database_path))
+        sys.exit(1)
 
     # Set configuration parameters.
 
@@ -1713,6 +1721,12 @@ def main():
     debug_station_id = None
     debug_station_id = 'UTSCI_MADIS'
 
+    wdb_prev_tair = None
+    wdb_prev_tair_fetch_datetimes = None
+    #wdb_prev_tair_fetch_elapsed = None
+    data_elapsed_cutoff_seconds = 600 * 24 * 3600 # 60 days
+    fetch_elapsed_cutoff_seconds = 2 * 60       # 10 minutes
+    
     num_stations_added = 0
     num_flagged_sd_wr = 0
     num_flagged_sd_change_wr = 0
@@ -1929,16 +1943,103 @@ def main():
         #    then
         # use the prev_obs_air_temp=wdb_prev_tair keyword in the call to
         # wdb0.get_air_temp_obs
+        # if wdb_prev_tair is not None:
+        #     logger.debug('have fetched tair before during this update')
+        #     if wdb_prev_tair_fetch_datetimes is None:
+        #         logger.debug('weird - no wdb_prev_tair_fetch_datetimes')
+        # else:
+        #     logger.debug('have not fetched tair before during this update')
+        #     if wdb_prev_tair_fetch_datetimes is not None:
+        #         logger.debug('weird - have wdb_prev_tair_fetch_datetimes')
+
+        if wdb_prev_tair is not None:
+            # A copy of the datatimes for the prior wdb_prev_tair will be
+            # needed to update wdb_prev_tair_fetch_datetimes.
+            prior_wdb_prev_tair_datetime = \
+                wdb_prev_tair['obs_datetime'].copy()
+            # If the newest value of prior_wdb_prev_tair_datetime is less than
+            # 60 days in the past, and the earliest value of
+            # wdb_prev_tair_fetch_datetimes is more than 10 minutes in the
+            # past (i.e., the maximum time elapsed since fetching data is more
+            # than 10 minutes), we need to start over.
+            current_datetime = dt.datetime.utcnow()
+            data_elapsed = list(current_datetime - \
+                                np.array(prior_wdb_prev_tair_datetime))
+            data_elapsed_sec = [td.total_seconds()
+                                for td in data_elapsed]
+            fetch_elapsed = list(current_datetime - \
+                                 wdb_prev_tair_fetch_datetimes)
+            fetch_elapsed_sec = [td.total_seconds()
+                                 for td in fetch_elapsed]
+
+            logger.debug('min(data_elapsed_sec) = {}'.
+                         format(min(data_elapsed_sec)))
+            logger.debug('max(fetch_elapsed_sec) = {}'.
+                         format(max(fetch_elapsed_sec)))
+
+            if min(data_elapsed_sec) < data_elapsed_cutoff_seconds and \
+               max(fetch_elapsed_sec) > fetch_elapsed_cutoff_seconds:
+                logger.warning('Re-fetching all air temperature data.')
+                wdb_prev_tair = None
+                wdb_prev_tair_fetch_datetimes = None
+
         wdb_prev_tair = \
             wdb0.get_air_temp_obs(obs_datetime -
                                   dt.timedelta(hours=num_hrs_prev_tair),
                                   obs_datetime,
                                   scratch_dir=args.pkl_dir,
-                                  verbose=args.verbose)
-        wdb_prev_tair_datetime = dt.datetime.utcnow()
-        wdb_prev_tair_datetimes = \
-            [wdb_prev_tair_datetime] * (num_hrs_prev_tair + 1)
-        elapsed_time = wdb_prev_tair_datetime - current_datetime
+                                  verbose=args.verbose,
+                                  prev_obs_air_temp=wdb_prev_tair)
+
+        si = random.randrange(wdb_prev_tair['num_stations'])
+        msg = '{}({})'.format(wdb_prev_tair['station_id'][si],
+                              wdb_prev_tair['station_obj_id'][si]) + \
+              ' {} - {}'.format(wdb_prev_tair['obs_datetime'][0].
+                                strftime('%Y-%m-%d %H'),
+                                wdb_prev_tair['obs_datetime'][-1].
+                                strftime('%Y-%m-%d %H'))
+        logger.debug('Random sample: {}'.format(msg))
+        logger.debug(wdb_prev_tair['values_deg_c'][si,:])
+        xxx = input()
+        
+        current_datetime = dt.datetime.utcnow()
+        if wdb_prev_tair_fetch_datetimes is None:
+            wdb_prev_tair_fetch_datetimes = \
+                np.array([current_datetime] * (num_hrs_prev_tair + 1))
+            # wdb_prev_tair_fetch_elapsed = \
+            #     (current_datetime - wdb_prev_tair_fetch_datetimes). \
+            #     astype('timedelta64[ms]')
+        else:
+            # Update wdb_prev_tair_fetch_datetimes, shifting values from
+            # prior_wdb_prev_tair_datetime to their positions in
+            # the new wdb_prev_tair['obs_datetime'] and setting new values to
+            # current_datetime.
+            new_dt = sorted(list(set(wdb_prev_tair['obs_datetime']) -
+                                 set(prior_wdb_prev_tair_datetime)))
+            old_dt = sorted(list(set(wdb_prev_tair['obs_datetime']) &
+                                 set(prior_wdb_prev_tair_datetime)))
+            new_dt_ind = [wdb_prev_tair['obs_datetime'].index(i)
+                          for i in new_dt]
+            old_dt_ind = [wdb_prev_tair['obs_datetime'].index(i)
+                          for i in old_dt]
+            old_dt_from_prev_ind = [prior_wdb_prev_tair_datetime.index(i)
+                                    for i in old_dt]
+            killme = wdb_prev_tair_fetch_datetimes.copy()
+            wdb_prev_tair_fetch_datetimes[old_dt_ind] = \
+                killme[old_dt_from_prev_ind]
+            wdb_prev_tair_fetch_datetimes[new_dt_ind] = current_datetime
+            # wdb_prev_tair_fetch_elapsed = \
+            #     (current_datetime - wdb_prev_tair_fetch_datetimes). \
+            #     astype('timedelta64[ms]')
+
+        # logger.debug(type(wdb_prev_tair_fetch_datetimes))
+        # logger.debug(type(wdb_prev_tair_fetch_elapsed))
+        # logger.debug([wdb_prev_tair_fetch_elapsed[i].total_seconds()
+        #               for i in range(len(wdb_prev_tair_fetch_elapsed))])
+        # logger.debug([td.total_seconds()
+        #               for td in wdb_prev_tair_fetch_elapsed])
+        # logger.debug([td.astype(int) / 1000 \
+        #               for td in wdb_prev_tair_fetch_elapsed])
 
         if args.verbose:
             print('INFO: found {} '.
@@ -2598,14 +2699,15 @@ def main():
                                 num2date(qcdb_var_time[0] + ts_ind_db,
                                          units=qcdb_var_time_units,
                                          only_use_cftime_datetimes=False)
-                            print('***** snow depth gap test flags {} '.
-                                  format(station_time_series[ts_ind]) +
-                                  'at {}, '.format(flagged_obs_datetime) +
-                                  'reference {}'.format(ref_obs[ind]))
+                            logger.debug('snow depth gap test flags {} '.
+                                         format(station_time_series[ts_ind]) +
+                                         'at {}, '.
+                                         format(flagged_obs_datetime) +
+                                         'reference {}'.format(ref_obs[ind]))
                             if ts_ind_db < 0:
-                                print('***** (does not fit in QC database)')
+                                logger.debug('(does not fit in QC database)')
                             else:
-                                print('***** (fits in QC database)')
+                                logger.debug('(fits in QC database)')
 
                         if ts_ind_db >= 0:
 
@@ -2616,16 +2718,16 @@ def main():
                                          only_use_cftime_datetimes=False)
 
                             if args.verbose:
-                                print('INFO: flagging snow depth data ' +
-                                      'for "gap" check ' +
-                                      'at station {} '.
-                                      format(site_snwd_station_id) +
-                                      '({}), '.
-                                      format(site_snwd_obj_id) +
-                                      'value {}, '.
-                                      format(station_time_series[ts_ind]) +
-                                      'time {}.'.
-                                      format(flagged_obs_datetime))
+                                logger.info('flagging snow depth data ' +
+                                            'for "gap" check ' +
+                                            'at station {} '.
+                                            format(site_snwd_station_id) +
+                                            '({}), '.
+                                            format(site_snwd_obj_id) +
+                                            'value {}, '.
+                                            format(station_time_series[ts_ind]) +
+                                            'time {}.'.
+                                            format(flagged_obs_datetime))
 
                             # Make sure the value is not flagged.
                             if qcdb_snwd_qc_flag[qcdb_si, ts_ind_db] & \
@@ -4772,7 +4874,7 @@ def main():
               format(num_flagged_sd_gap))
         print('INFO: flagged {} snow depth obs.'.
               format(num_flagged_sd_at_cons) +
-              'for snow depth/air temp. consistency.')
+              'for snow depth/air\ temp. consistency.')
         print('INFO: flagged {} snow depth obs.'.
               format(num_flagged_sd_sf_cons) +
               'for snow depth/snowfall consistency.')
@@ -4814,7 +4916,7 @@ def main():
                   file=sys.stderr)
             sys.exit(1)
         if args.verbose:
-            print('INFO: De;eted unmodified database copy {}.'.
+            print('INFO: Deleted unmodified database copy {}.'.
                   format(temp_database_path))
     else:
 

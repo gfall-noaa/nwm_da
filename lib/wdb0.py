@@ -4,6 +4,16 @@ import pandas as pd
 import numpy as np
 import pickle as pkl
 import datetime as dt
+import logging
+
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.DEBUG)
+# console_handler = logging.StreamHandler()
+# console_formatter = \
+#     logging.Formatter('%(name)s.%(funcName)s: %(levelname)s: %(message)s')
+# console_handler.setFormatter(console_formatter)
+# console_handler.setLevel(logging.DEBUG) # Change INFO to DEBUG for development.
+# logger.addHandler(console_handler)
 
 """
 Functions for reading data from wdb0.
@@ -929,37 +939,40 @@ def get_air_temp_obs(begin_datetime,
                      bounding_box=None,
                      scratch_dir=None,
                      verbose=None,
-                     prev_obs_air_temp=None):
+                     prev_obs_air_temp=None,
+                     read_pkl=True,
+                     write_pkl=True):
 
     """
     Get hourly air temperature observations from the "web_data" database on
     wdb0.
     """
 
-    # Only use .pkl files if there is no bounding box.
-    if bounding_box is None:
+    logger = logging.getLogger()
 
-        file_name = 'wdb0_obs_air_temp_' + \
-                    begin_datetime.strftime('%Y%m%d%H') + \
-                    '_to_' + \
-                    end_datetime.strftime('%Y%m%d%H') + \
-                    '.pkl'
+    file_name = 'wdb0_obs_air_temp_' + \
+        begin_datetime.strftime('%Y%m%d%H') + \
+        '_to_' + \
+        end_datetime.strftime('%Y%m%d%H') + \
+        '.pkl'
 
-        if scratch_dir is not None:
-            file_name = os.path.join(scratch_dir, file_name)
+    if scratch_dir is not None:
+        file_name = os.path.join(scratch_dir, file_name)
 
-            if os.path.isfile(file_name):
+    # Only read data from a .pkl file if there is no bounding box.
+    if bounding_box is None and read_pkl is True:
 
-                # Retrieve data from pkl file and return.
-                file_obj = open(file_name, 'rb')
-                obs_air_temp = pkl.load(file_obj)
-                file_obj.close()
-                return(obs_air_temp)
+        if os.path.isfile(file_name):
 
+            # Retrieve data from pkl file and return.
+            file_obj = open(file_name, 'rb')
+            obs_air_temp = pkl.load(file_obj)
+            file_obj.close()
+            return(obs_air_temp)
 
+    # Define the list of datetimes covering [begin_datetime, end_datetime]
     time_range = end_datetime - begin_datetime
     num_hours = time_range.days * 24 + time_range.seconds // 3600 + 1
-    # print('num_hours = {}'.format(num_hours))
     obs_datetime = [begin_datetime +
                     dt.timedelta(hours=i) for i in range(num_hours)]
 
@@ -970,43 +983,66 @@ def get_air_temp_obs(begin_datetime,
         prev_obs_datetime = prev_obs_air_temp['obs_datetime']
         prev_begin_datetime = prev_obs_datetime[0]
         prev_end_datetime = prev_obs_datetime[-1]
-
+        # Gather datetimes that exist in both obs_datetime and
+        # prev_obs_datetime.
         dt_in_both = sorted(list(set(prev_obs_datetime) & set(obs_datetime)))
-        # prev_obs_in_obs = [prev_obs_datetime.index(i) for i in dt_in_both]
 
-        # Verify that the list of new datetimes for which we need data is
-        # continguous, which keeps this function simple.
-        # print('obs_datetime:')
-        # print(obs_datetime)
-        # print('dt_in_both:')
-        # print(dt_in_both)
-        obs_dt_from_prev_obs_dt = [obs_datetime.index(i) for i in dt_in_both]
-        print('obs_dt_from_prev_obs_dt:')
-        print(obs_dt_from_prev_obs_dt)
-        if len(obs_dt_from_prev_obs_dt) == 0:
+        if len(dt_in_both) == 0:
+            # No time overlap; data from prev_obs_air_temp cannot be used.
+            logger.warning('No data overlap between requested date/times ' +
+                           'and previous observations.')
             prev_obs_air_temp = None
         else:
+            # Verify that the list of new datetimes for which we already have
+            # data is coterminous with either the beginning or the end of
+            # obs_datetime, which keeps the function simpler.
+            obs_dt_from_prev_obs_dt = \
+                [obs_datetime.index(i) for i in dt_in_both]
             if (obs_dt_from_prev_obs_dt[0] != 0) and \
                (obs_dt_from_prev_obs_dt[-1] != (num_hours - 1)):
                 prev_obs_air_temp = None
 
     if prev_obs_air_temp is not None:
+
         # Identify the datetimes for which new data is needed.
-        # print('obs_dt_from_prev_obs_dt:')
-        # print(obs_dt_from_prev_obs_dt)
         dt_needed = sorted(list(set(obs_datetime) - set(prev_obs_datetime)))
-        # print('dt_needed:')
-        # print(dt_needed)
-        curr_begin_datetime = dt_needed[0]
-        curr_end_datetime = dt_needed[-1]
-        curr_num_hours = len(dt_needed)
-        curr_obs_datetime = [curr_begin_datetime +
-                             dt.timedelta(hours=i)
-                             for i in range(curr_num_hours)]
-        obs_dt_from_curr_obs_dt = [obs_datetime.index(i)
-                                   for i in curr_obs_datetime]
+        if len(dt_needed) > 0:
+            curr_begin_datetime = dt_needed[0]
+            curr_end_datetime = dt_needed[-1]
+            curr_num_hours = len(dt_needed)
+            # Verify the time range is contiguous.
+            time_range_needed = dt_needed[-1] - dt_needed[0]
+            num_hours_needed = time_range_needed.days * 24 + \
+                time_range_needed.seconds // 3600 + 1
+        else:            
+            # We do not need to get any new data? Figure out which indices of
+            # obs_datetime match prev_obs_datetime, subset prev_obs_datetime
+            # for those, and return the result. No .pkl file will be created.
+            prev_obs_in_obs = \
+                [prev_obs_datetime.index(i) for i in obs_datetime]
+            obs = prev_obs_air_temp['values_deg_c'][:,prev_obs_in_obs]
+            obs_air_temp = prev_obs_air_temp
+            obs_air_temp['num_hours'] = num_hours
+            obs_air_temp['values_deg_c'] = obs
+            return(obs_air_temp)
+
+        if num_hours_needed != curr_num_hours:
+            logger.warning('Date/times needed are non-contiguous ' +
+                           'if previous datetimes are used. ' +
+                           'Will fetch all data instead.')
+            prev_obs_air_temp = None
+        else:
+            # Identify datetimes for new data and their indices in the full
+            # time series.
+            # curr_obs_datetime = [curr_begin_datetime +
+            #                      dt.timedelta(hours=i)
+            #                      for i in range(curr_num_hours)]
+            curr_obs_datetime = dt_needed
+            obs_dt_from_curr_obs_dt = [obs_datetime.index(i)
+                                       for i in curr_obs_datetime]
 
     else:
+
         curr_begin_datetime = begin_datetime
         curr_end_datetime = end_datetime
         curr_num_hours = num_hours
@@ -1054,7 +1090,7 @@ def get_air_temp_obs(begin_datetime,
     sql_cmd = sql_cmd + 'ORDER BY obj_identifier, date;'
 
     if verbose:
-        print('INFO: psql command "{}"'.format(sql_cmd))
+        logger.info('psql command "{}"'.format(sql_cmd))
 
     cursor.execute(sql_cmd)
 
@@ -1076,20 +1112,20 @@ def get_air_temp_obs(begin_datetime,
     # This section organizes the query results into lists and arrays.
 
     station_ind = -1
-    current_station_obj_id = -1
-    station_obj_id = []
-    station_id = []
-    station_name = []
-    station_lon = []
-    station_lat = []
-    station_elevation = []
-    station_rec_elevation = []
+    this_station_obj_id = -1
+    curr_station_obj_id = []
+    curr_station_id = []
+    curr_station_name = []
+    curr_station_lon = []
+    curr_station_lat = []
+    curr_station_elev = []
+    curr_station_rec_elev = []
     # Create a 2-d [time, station] array.
     curr_obs = np.ma.empty([1, curr_num_hours], dtype=float)
     curr_obs[0,:] = no_data_value
     curr_obs[0,:] = np.ma.masked
     for ind, row in df.iterrows():
-        if row['obj_identifier'] != current_station_obj_id:
+        if row['obj_identifier'] != this_station_obj_id:
             station_ind += 1
             if station_ind > 0:
                 # Just finished all data for previous station.
@@ -1101,15 +1137,15 @@ def get_air_temp_obs(begin_datetime,
                 curr_obs[station_ind,:] = no_data_value
                 curr_obs[station_ind,:] = np.ma.masked
             # New station
-            station_obj_id.append(row['obj_identifier'])
-            station_id.append(row['station_id'])
-            station_name.append(row['name'])
-            station_lon.append(row['lon'])
-            station_lat.append(row['lat'])
-            station_elevation.append(row['elevation'])
-            station_rec_elevation.append(row['recorded_elevation'])
+            curr_station_obj_id.append(row['obj_identifier'])
+            curr_station_id.append(row['station_id'])
+            curr_station_name.append(row['name'])
+            curr_station_lon.append(row['lon'])
+            curr_station_lat.append(row['lat'])
+            curr_station_elev.append(row['elevation'])
+            curr_station_rec_elev.append(row['recorded_elevation'])
 
-            current_station_obj_id = station_obj_id[station_ind]
+            this_station_obj_id = curr_station_obj_id[station_ind]
 
         # Add the observation to the curr_obs array.
         time_diff = row['date'] - curr_begin_datetime
@@ -1120,81 +1156,138 @@ def get_air_temp_obs(begin_datetime,
     curr_num_stations = station_ind + 1
 
     # Place results in a dictionary.
-    print('num_hours: {}'.format(num_hours))
-    print('curr_num_hours: {}'.format(curr_num_hours))
-    obs_air_temp = {'num_stations': curr_num_stations,
+    logger.debug('num_hours: {}'.format(num_hours))
+    logger.debug('curr_num_hours: {}'.format(curr_num_hours))
+    curr_obs_air_temp = {'num_stations': curr_num_stations,
                     'num_hours': curr_num_hours,
-                    'station_obj_id': station_obj_id,
-                    'station_id': station_id,
-                    'station_name': station_name,
-                    'station_lon': station_lon,
-                    'station_lat': station_lat,
-                    'station_elevation': station_elevation,
-                    'station_rec_elevation': station_rec_elevation,
+                    'station_obj_id': curr_station_obj_id,
+                    'station_id': curr_station_id,
+                    'station_name': curr_station_name,
+                    'station_lon': curr_station_lon,
+                    'station_lat': curr_station_lat,
+                    'station_elevation': curr_station_elev,
+                    'station_rec_elevation': curr_station_rec_elev,
                     'obs_datetime': curr_obs_datetime,
                     'values_deg_c': curr_obs}
 
+    if prev_obs_air_temp is not None:
+
+        # Combine prev_obs_air_temp and curr_obs_air_temp.
+        logger.debug('# prev stations: {}'.
+                     format(prev_obs_air_temp['num_stations']))
+        logger.debug('# current stations: {}'.
+                     format(curr_obs_air_temp['num_stations']))
+        prev_station_obj_id = prev_obs_air_temp['station_obj_id']
+        new_station_obj_id = sorted(list(set(prev_station_obj_id) |
+                                         set(curr_station_obj_id)))
+        logger.debug('# combined: {}'.format(len(new_station_obj_id)))
+
+        # Extract other "prev" station variables for shorter names.
+        prev_station_id = prev_obs_air_temp['station_id']
+        prev_station_name = prev_obs_air_temp['station_name']
+        prev_station_lon = prev_obs_air_temp['station_lon']
+        prev_station_lat = prev_obs_air_temp['station_lat']
+        prev_station_elev = prev_obs_air_temp['station_elevation']
+        prev_station_rec_elev = prev_obs_air_temp['station_rec_elevation']
+        
+        # Identify indices of previous and current object identifiers in the
+        # combined list.
+        # Using ".index" is very slow. Try to make this faster.
+        new_station_from_prev = [new_station_obj_id.index(i)
+                                 for i in prev_station_obj_id]
+        new_station_from_curr = [new_station_obj_id.index(i)
+                                 for i in curr_station_obj_id]
+
+        # Create new station variable lists.
+        new_num_stations = len(new_station_obj_id)
+
+        new_station_id = np.array([''] * new_num_stations, dtype=object)
+        new_station_id[new_station_from_prev] = prev_station_id
+        new_station_id[new_station_from_curr] = curr_station_id
+        new_station_id = list(new_station_id)
+
+        new_station_name = np.array([''] * new_num_stations, dtype=object)
+        new_station_name[new_station_from_prev] = prev_station_name
+        new_station_name[new_station_from_curr] = curr_station_name
+        new_station_name = list(new_station_name)
+
+        new_station_lon = np.array([no_data_value] * new_num_stations,
+                                   dtype=np.float64)
+        new_station_lon[new_station_from_prev] = prev_station_lon
+        new_station_lon[new_station_from_curr] = curr_station_lon
+        new_station_lon = list(new_station_lon)
+
+        new_station_lat = np.array([no_data_value] * new_num_stations,
+                                   dtype=np.float64)
+        new_station_lat[new_station_from_prev] = prev_station_lat
+        new_station_lat[new_station_from_curr] = curr_station_lat
+        new_station_lat = list(new_station_lat)
+
+        new_station_elev = np.array([0] * new_num_stations, dtype=np.int32)
+        new_station_elev[new_station_from_prev] = prev_station_elev
+        new_station_elev[new_station_from_curr] = curr_station_elev
+        new_station_elev = list(new_station_elev)
+
+        new_station_rec_elev = np.array([0] * new_num_stations,
+                                        dtype=np.int32)
+        new_station_rec_elev[new_station_from_prev] = prev_station_rec_elev
+        new_station_rec_elev[new_station_from_curr] = curr_station_rec_elev
+        new_station_rec_elev = list(new_station_rec_elev)
+
+        si = 2000
+        for sc in range(si, si+16):
+            logger.info('{:>6d}  {:>16}  {:>20.20}  {:>9.4f}  {:>8.4f}  '.
+                        format(new_station_obj_id[sc],
+                               new_station_id[sc],
+                               new_station_name[sc],
+                               new_station_lon[sc],
+                               new_station_lat[sc]) +
+                        '{:>5d}  {:>5d}'.
+                        format(new_station_elev[sc],
+                               new_station_rec_elev[sc]))
+
+        prev_obs_in_obs = [prev_obs_datetime.index(i) for i in dt_in_both]
+        prev_obs = prev_obs_air_temp['values_deg_c'][:,prev_obs_in_obs]
+
+        obs = np.ma.empty([new_num_stations, num_hours], dtype=float)
+        obs[:,:] = no_data_value
+        obs[:,:] = np.ma.masked
+        logger.debug(new_station_obj_id[si])
+        logger.debug(obs[si,:])
+        obs[np.ix_(new_station_from_prev, obs_dt_from_prev_obs_dt)] = \
+            prev_obs
+        logger.debug(obs[si,:])
+        obs[np.ix_(new_station_from_curr, obs_dt_from_curr_obs_dt)] = \
+            curr_obs
+        logger.debug(obs[si,:])
+
+        obs_air_temp = {'num_stations': new_num_stations,
+                        'num_hours': num_hours,
+                        'station_obj_id': new_station_obj_id,
+                        'station_id': new_station_id,
+                        'station_name': new_station_name,
+                        'station_lon': new_station_lon,
+                        'station_lat': new_station_lat,
+                        'station_elevation': new_station_elev,
+                        'station_rec_elevation': new_station_rec_elev,
+                        'obs_datetime': obs_datetime,
+                        'values_deg_c': obs}
+
+    else:
+
+        obs_air_temp = curr_obs_air_temp
+
     # Create the pkl file if all data fetched is more than 60 days earlier
-    # than the current date/time.
+    # than the current date/time, as long as write_pkl is not set to False.
     lag = dt.datetime.utcnow() - end_datetime
     if bounding_box is None and \
-       lag > dt.timedelta(days=60):
+       lag > dt.timedelta(days=60) and \
+       write_pkl is True:
         file_obj = open(file_name, 'wb')
         pkl.dump(obs_air_temp, file_obj)
         file_obj.close()
         if verbose:
             print('INFO: wrote query results to {}.'.format(file_name))
-
-    if prev_obs_air_temp is not None:
-
-        # Combine prev_obs_air_temp and obs_air_temp.
-        print('# prev stations: {}'.format(prev_obs_air_temp['num_stations']))
-
-        print('# current stations: {}'.format(obs_air_temp['num_stations']))
-        prev_station_obj_id = prev_obs_air_temp['station_obj_id']
-        new_station_obj_id = sorted(list(set(prev_station_obj_id) |
-                                         set(station_obj_id)))
-        print('# combined: {}'.format(len(new_station_obj_id)))
-        # Identify indices of previous and current object identifiers in the
-        # combined list.
-        # Using ".index" stuff is very slow.
-        new_station_from_prev = [new_station_obj_id.index(i)
-                                 for i in prev_station_obj_id]
-        new_station_from_curr = [new_station_obj_id.index(i)
-                                 for i in station_obj_id]
-        # print(len(new_station_from_prev))
-        # print(len(new_station_from_curr))
-        # print(new_station_from_prev[0:50])
-        # print(new_station_from_curr[0:50])
-        new_num_stations = len(new_station_obj_id)
-        prev_obs_in_obs = [prev_obs_datetime.index(i) for i in dt_in_both]
-        prev_obs = prev_obs_air_temp['values_deg_c'][:,prev_obs_in_obs]
-        # print(prev_obs_air_temp['values_deg_c'][:,
-        # print(len(obs_datetime))
-        # print(len(curr_obs_datetime))
-        # print(prev_obs_air_temp['values_deg_c'].shape)
-        # print(prev_obs.shape)
-        # print(curr_obs.shape)
-        # print(prev_obs.shape)
-        # print(len(new_station_from_prev))
-        # print(type(new_station_from_prev))
-        # print(len(obs_dt_from_prev_obs_dt))
-        # print(type(obs_dt_from_prev_obs_dt))
-        print(len(new_station_from_curr))
-        print(obs_dt_from_curr_obs_dt)
-        obs = np.ma.empty([new_num_stations, num_hours], dtype=float)
-        obs[:,:] = no_data_value
-        obs[:,:] = np.ma.masked
-        print(obs.shape)
-        si = 100
-        print(new_station_obj_id[si])
-        print(obs[si,:])
-        obs[np.ix_(new_station_from_prev, obs_dt_from_prev_obs_dt)] = \
-            prev_obs
-        print(obs[si,:])
-        obs[np.ix_(new_station_from_curr, obs_dt_from_curr_obs_dt)] = \
-            curr_obs
-        print(obs[si,:])
 
     return(obs_air_temp)
 
@@ -1332,6 +1425,7 @@ def get_prev_air_temp_obs(target_datetime,
     obs[0,:] = np.ma.masked
     for ind, row in df.iterrows():
         if row['obj_identifier'] != current_station_obj_id:
+            print(station_ind)
             station_ind += 1
             if station_ind > 0:
                 # Just finished all data for previous station.
