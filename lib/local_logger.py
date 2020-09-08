@@ -1,4 +1,9 @@
 #!/usr/bin/python3
+'''
+The init function creates a logging handler for the console that uses
+different formats for different log levels.
+See https://stackoverflow.com/questions/14844970
+'''
 
 import logging
 
