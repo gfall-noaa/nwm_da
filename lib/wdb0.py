@@ -472,8 +472,8 @@ def get_swe_obs_df(begin_datetime,
               'point.obs_swe.obj_identifier ' + \
               'AND value IS NOT NULL '
 
-    #print(bounding_box['min_lat'], bounding_box['max_lat'],
-    #      bounding_box['min_lon'], bounding_box['max_lon'])
+    print('from python', bounding_box['min_lat'], bounding_box['max_lat'],
+          bounding_box['min_lon'], bounding_box['max_lon'])
     if bounding_box is not None:
         sql_cmd = sql_cmd + \
                   'AND point.allstation.coordinates[1] >= ' + \
@@ -487,7 +487,7 @@ def get_swe_obs_df(begin_datetime,
 
     sql_cmd = sql_cmd + ' ORDER BY obj_identifier, date;'
 
-    #print('wdb0 query', sql_cmd)
+    print('wdb0 query', sql_cmd)
 
     if verbose:
         print('INFO: psql command "{}"'.format(sql_cmd))
