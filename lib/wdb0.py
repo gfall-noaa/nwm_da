@@ -941,7 +941,8 @@ def get_air_temp_obs(begin_datetime,
                      verbose=None,
                      prev_obs_air_temp=None,
                      read_pkl=True,
-                     write_pkl=True):
+                     write_pkl=True,
+                     station_obj_id=None):
 
     """
     Get hourly air temperature observations from the "web_data" database on
@@ -960,11 +961,14 @@ def get_air_temp_obs(begin_datetime,
         file_name = os.path.join(scratch_dir, file_name)
 
     # Only read data from a .pkl file if there is no bounding box.
-    if bounding_box is None and read_pkl is True:
+    if bounding_box is None and \
+       read_pkl is True and \
+       station_obj_id is None:
 
         if os.path.isfile(file_name):
 
             # Retrieve data from pkl file and return.
+            logger.debug('Fetching data from {}.'.format(file_name))
             file_obj = open(file_name, 'rb')
             obs_air_temp = pkl.load(file_obj)
             file_obj.close()
@@ -975,6 +979,11 @@ def get_air_temp_obs(begin_datetime,
     num_hours = time_range.days * 24 + time_range.seconds // 3600 + 1
     obs_datetime = [begin_datetime +
                     dt.timedelta(hours=i) for i in range(num_hours)]
+
+    # if prev_obs_air_temp is None:
+    #     logger.debug('none 01')
+    #     xxx = input()
+    # logger.debug(prev_obs_air_temp is not None)
 
     if prev_obs_air_temp is not None:
 
@@ -1000,7 +1009,19 @@ def get_air_temp_obs(begin_datetime,
                 [obs_datetime.index(i) for i in dt_in_both]
             if (obs_dt_from_prev_obs_dt[0] != 0) and \
                (obs_dt_from_prev_obs_dt[-1] != (num_hours - 1)):
+                logger.warning('Ignoring previous air temperature ' +
+                               'observations.')
                 prev_obs_air_temp = None
+            else:
+                logger.debug('Previous air temperature observations okay.')
+
+    # else:
+    #     logger.debug('No previous air temperature observations.')
+    #     logger.debug(prev_obs_air_temp)
+
+    # if prev_obs_air_temp is None:
+    #     logger.debug('none 02')
+    #     xxx = input()
 
     if prev_obs_air_temp is not None:
 
@@ -1048,6 +1069,10 @@ def get_air_temp_obs(begin_datetime,
         curr_num_hours = num_hours
         curr_obs_datetime = obs_datetime
 
+    # if prev_obs_air_temp is None:
+    #     logger.debug('none 03')
+    #     xxx = input()
+
     # Open the web database.
     conn_string = "host='wdb0.dmz.nohrsc.noaa.gov' dbname='web_data'"
     conn = psycopg2.connect(conn_string)
@@ -1055,26 +1080,50 @@ def get_air_temp_obs(begin_datetime,
     cursor = conn.cursor()
 
     # Define a SQL statement.
-    sql_cmd = 'SELECT ' + \
-              'point.allstation.obj_identifier, ' + \
-              'TRIM(point.allstation.station_id), ' + \
-              'TRIM(point.allstation.name), ' + \
-              'point.allstation.coordinates[0] as lon, ' + \
-              'point.allstation.coordinates[1] as lat, ' + \
-              'point.allstation.elevation, ' + \
-              'point.allstation.recorded_elevation, ' + \
-              'date, ' + \
-              'value AS obs_air_temp_deg_c ' + \
-              'FROM point.allstation, point.obs_airtemp ' + \
-              'WHERE date >= \'' + \
-              curr_begin_datetime.strftime('%Y-%m-%d %H:%M:%S') + \
-              '\' ' + \
-              'AND date <= \'' + \
-              curr_end_datetime.strftime('%Y-%m-%d %H:%M:%S') + \
-              '\' ' + \
-              'AND point.allstation.obj_identifier = ' + \
-              'point.obs_airtemp.obj_identifier ' + \
-              'AND value IS NOT NULL '
+    if station_obj_id is None:
+        sql_cmd = 'SELECT ' + \
+                  'point.allstation.obj_identifier, ' + \
+                  'TRIM(point.allstation.station_id), ' + \
+                  'TRIM(point.allstation.name), ' + \
+                  'point.allstation.coordinates[0] as lon, ' + \
+                  'point.allstation.coordinates[1] as lat, ' + \
+                  'point.allstation.elevation, ' + \
+                  'point.allstation.recorded_elevation, ' + \
+                  'date, ' + \
+                  'value AS obs_air_temp_deg_c ' + \
+                  'FROM point.allstation, point.obs_airtemp ' + \
+                  'WHERE date >= \'' + \
+                  curr_begin_datetime.strftime('%Y-%m-%d %H:%M:%S') + \
+                  '\' ' + \
+                  'AND date <= \'' + \
+                  curr_end_datetime.strftime('%Y-%m-%d %H:%M:%S') + \
+                  '\' ' + \
+                  'AND point.allstation.obj_identifier = ' + \
+                  'point.obs_airtemp.obj_identifier ' + \
+                  'AND value IS NOT NULL '
+    else:
+        sql_cmd = 'SELECT ' + \
+                  'point.allstation.obj_identifier, ' + \
+                  'TRIM(point.allstation.station_id), ' + \
+                  'TRIM(point.allstation.name), ' + \
+                  'point.allstation.coordinates[0] as lon, ' + \
+                  'point.allstation.coordinates[1] as lat, ' + \
+                  'point.allstation.elevation, ' + \
+                  'point.allstation.recorded_elevation, ' + \
+                  'date, ' + \
+                  'value AS obs_air_temp_deg_c ' + \
+                  'FROM point.allstation, point.obs_airtemp ' + \
+                  'WHERE point.allstation.obj_identifier = ' + \
+                  '\'{}\' '.format(station_obj_id) + \
+                  'AND date >= \'' + \
+                  curr_begin_datetime.strftime('%Y-%m-%d %H:%M:%S') + \
+                  '\' ' + \
+                  'AND date <= \'' + \
+                  curr_end_datetime.strftime('%Y-%m-%d %H:%M:%S') + \
+                  '\' ' + \
+                  'AND point.allstation.obj_identifier = ' + \
+                  'point.obs_airtemp.obj_identifier ' + \
+                  'AND value IS NOT NULL '
 
     if bounding_box is not None:
         sql_cmd = sql_cmd + \
@@ -1124,6 +1173,9 @@ def get_air_temp_obs(begin_datetime,
     curr_obs = np.ma.empty([1, curr_num_hours], dtype=float)
     curr_obs[0,:] = no_data_value
     curr_obs[0,:] = np.ma.masked
+    # if station_obj_id is not None:
+    #     logger.debug(df.dtypes)
+    #     yyy = input()
     for ind, row in df.iterrows():
         if row['obj_identifier'] != this_station_obj_id:
             station_ind += 1
@@ -1140,10 +1192,10 @@ def get_air_temp_obs(begin_datetime,
             curr_station_obj_id.append(row['obj_identifier'])
             curr_station_id.append(row['station_id'])
             curr_station_name.append(row['name'])
-            curr_station_lon.append(row['lon'])
-            curr_station_lat.append(row['lat'])
-            curr_station_elev.append(row['elevation'])
-            curr_station_rec_elev.append(row['recorded_elevation'])
+            curr_station_lon.append(np.float64(row['lon']))
+            curr_station_lat.append(np.float64(row['lat']))
+            curr_station_elev.append(np.int32(row['elevation']))
+            curr_station_rec_elev.append(np.int32(row['recorded_elevation']))
 
             this_station_obj_id = curr_station_obj_id[station_ind]
 
@@ -1156,19 +1208,21 @@ def get_air_temp_obs(begin_datetime,
     curr_num_stations = station_ind + 1
 
     # Place results in a dictionary.
+    if prev_obs_air_temp is not None:
+        logger.debug('Using previous air temp observations.')
     logger.debug('num_hours: {}'.format(num_hours))
     logger.debug('curr_num_hours: {}'.format(curr_num_hours))
     curr_obs_air_temp = {'num_stations': curr_num_stations,
-                    'num_hours': curr_num_hours,
-                    'station_obj_id': curr_station_obj_id,
-                    'station_id': curr_station_id,
-                    'station_name': curr_station_name,
-                    'station_lon': curr_station_lon,
-                    'station_lat': curr_station_lat,
-                    'station_elevation': curr_station_elev,
-                    'station_rec_elevation': curr_station_rec_elev,
-                    'obs_datetime': curr_obs_datetime,
-                    'values_deg_c': curr_obs}
+                         'num_hours': curr_num_hours,
+                         'station_obj_id': curr_station_obj_id,
+                         'station_id': curr_station_id,
+                         'station_name': curr_station_name,
+                         'station_lon': curr_station_lon,
+                         'station_lat': curr_station_lat,
+                         'station_elevation': curr_station_elev,
+                         'station_rec_elevation': curr_station_rec_elev,
+                         'obs_datetime': curr_obs_datetime,
+                         'values_deg_c': curr_obs}
 
     if prev_obs_air_temp is not None:
 
@@ -1234,17 +1288,17 @@ def get_air_temp_obs(begin_datetime,
         new_station_rec_elev[new_station_from_curr] = curr_station_rec_elev
         new_station_rec_elev = list(new_station_rec_elev)
 
-        si = 2000
-        for sc in range(si, si+16):
-            logger.info('{:>6d}  {:>16}  {:>20.20}  {:>9.4f}  {:>8.4f}  '.
-                        format(new_station_obj_id[sc],
-                               new_station_id[sc],
-                               new_station_name[sc],
-                               new_station_lon[sc],
-                               new_station_lat[sc]) +
-                        '{:>5d}  {:>5d}'.
-                        format(new_station_elev[sc],
-                               new_station_rec_elev[sc]))
+        # si = 2000
+        # for sc in range(si, si+16):
+        #     logger.info('{:>6d}  {:>16}  {:>20.20}  {:>9.4f}  {:>8.4f}  '.
+        #                 format(new_station_obj_id[sc],
+        #                        new_station_id[sc],
+        #                        new_station_name[sc],
+        #                        new_station_lon[sc],
+        #                        new_station_lat[sc]) +
+        #                 '{:>5d}  {:>5d}'.
+        #                 format(new_station_elev[sc],
+        #                        new_station_rec_elev[sc]))
 
         prev_obs_in_obs = [prev_obs_datetime.index(i) for i in dt_in_both]
         prev_obs = prev_obs_air_temp['values_deg_c'][:,prev_obs_in_obs]
@@ -1252,14 +1306,14 @@ def get_air_temp_obs(begin_datetime,
         obs = np.ma.empty([new_num_stations, num_hours], dtype=float)
         obs[:,:] = no_data_value
         obs[:,:] = np.ma.masked
-        logger.debug(new_station_obj_id[si])
-        logger.debug(obs[si,:])
+        # logger.debug(new_station_obj_id[si])
+        # logger.debug(obs[si,:])
         obs[np.ix_(new_station_from_prev, obs_dt_from_prev_obs_dt)] = \
             prev_obs
-        logger.debug(obs[si,:])
+        # logger.debug(obs[si,:])
         obs[np.ix_(new_station_from_curr, obs_dt_from_curr_obs_dt)] = \
             curr_obs
-        logger.debug(obs[si,:])
+        # logger.debug(obs[si,:])
 
         obs_air_temp = {'num_stations': new_num_stations,
                         'num_hours': num_hours,
@@ -1281,6 +1335,7 @@ def get_air_temp_obs(begin_datetime,
     # than the current date/time, as long as write_pkl is not set to False.
     lag = dt.datetime.utcnow() - end_datetime
     if bounding_box is None and \
+       station_obj_id is None and \
        lag > dt.timedelta(days=60) and \
        write_pkl is True:
         file_obj = open(file_name, 'wb')
