@@ -1012,8 +1012,8 @@ def get_air_temp_obs(begin_datetime,
                 logger.warning('Ignoring previous air temperature ' +
                                'observations.')
                 prev_obs_air_temp = None
-            else:
-                logger.debug('Previous air temperature observations okay.')
+            # else:
+            #     logger.debug('Previous air temperature observations okay.')
 
     # else:
     #     logger.debug('No previous air temperature observations.')
@@ -1138,8 +1138,7 @@ def get_air_temp_obs(begin_datetime,
 
     sql_cmd = sql_cmd + 'ORDER BY obj_identifier, date;'
 
-    if verbose:
-        logger.info('psql command "{}"'.format(sql_cmd))
+    logger.debug('psql command "{}"'.format(sql_cmd))
 
     cursor.execute(sql_cmd)
 
@@ -1341,8 +1340,7 @@ def get_air_temp_obs(begin_datetime,
         file_obj = open(file_name, 'wb')
         pkl.dump(obs_air_temp, file_obj)
         file_obj.close()
-        if verbose:
-            print('INFO: wrote query results to {}.'.format(file_name))
+        logger.debug('Wrote query results to {}.'.format(file_name))
 
     return(obs_air_temp)
 

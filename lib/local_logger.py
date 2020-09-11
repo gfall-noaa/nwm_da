@@ -9,9 +9,10 @@ import logging
 
 class MyLoggerFormatter(logging.Formatter):
 
-    debug_format = '%(filename)s(%(funcName)s), line %(lineno)d ' + \
-                   '%(levelname)s: %(message)s'
-    info_format = '%(message)s' # INFO looks like print.
+    debug_format = '%(levelname)s %(filename)s(%(funcName)s), ' + \
+                   'line %(lineno)d: %(message)s'
+    # info_format = '%(message)s' # INFO looks like print.
+    info_format = '%(levelname)s: %(message)s'
 
     def __init__(self):
         default_format = '%(filename)s(%(funcName)s) %(levelname)s: %(message)s'
