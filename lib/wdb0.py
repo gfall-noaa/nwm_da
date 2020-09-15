@@ -1209,8 +1209,8 @@ def get_air_temp_obs(begin_datetime,
     # Place results in a dictionary.
     if prev_obs_air_temp is not None:
         logger.debug('Using previous air temp observations.')
-    logger.debug('num_hours: {}'.format(num_hours))
-    logger.debug('curr_num_hours: {}'.format(curr_num_hours))
+    # logger.debug('num_hours: {}'.format(num_hours))
+    # logger.debug('curr_num_hours: {}'.format(curr_num_hours))
     curr_obs_air_temp = {'num_stations': curr_num_stations,
                          'num_hours': curr_num_hours,
                          'station_obj_id': curr_station_obj_id,
@@ -1251,68 +1251,81 @@ def get_air_temp_obs(begin_datetime,
         new_station_from_curr = [new_station_obj_id.index(i)
                                  for i in curr_station_obj_id]
 
-        # Create new station variable lists.
+        # Create new station variable arrays (these will be converted to
+        # lists).
         new_num_stations = len(new_station_obj_id)
 
         new_station_id = np.array([''] * new_num_stations, dtype=object)
         new_station_id[new_station_from_prev] = prev_station_id
         new_station_id[new_station_from_curr] = curr_station_id
-        new_station_id = list(new_station_id)
 
         new_station_name = np.array([''] * new_num_stations, dtype=object)
         new_station_name[new_station_from_prev] = prev_station_name
         new_station_name[new_station_from_curr] = curr_station_name
-        new_station_name = list(new_station_name)
 
         new_station_lon = np.array([no_data_value] * new_num_stations,
                                    dtype=np.float64)
         new_station_lon[new_station_from_prev] = prev_station_lon
         new_station_lon[new_station_from_curr] = curr_station_lon
-        new_station_lon = list(new_station_lon)
 
         new_station_lat = np.array([no_data_value] * new_num_stations,
                                    dtype=np.float64)
         new_station_lat[new_station_from_prev] = prev_station_lat
         new_station_lat[new_station_from_curr] = curr_station_lat
-        new_station_lat = list(new_station_lat)
 
         new_station_elev = np.array([0] * new_num_stations, dtype=np.int32)
         new_station_elev[new_station_from_prev] = prev_station_elev
         new_station_elev[new_station_from_curr] = curr_station_elev
-        new_station_elev = list(new_station_elev)
 
         new_station_rec_elev = np.array([0] * new_num_stations,
                                         dtype=np.int32)
         new_station_rec_elev[new_station_from_prev] = prev_station_rec_elev
         new_station_rec_elev[new_station_from_curr] = curr_station_rec_elev
-        new_station_rec_elev = list(new_station_rec_elev)
-
-        # si = 2000
-        # for sc in range(si, si+16):
-        #     logger.info('{:>6d}  {:>16}  {:>20.20}  {:>9.4f}  {:>8.4f}  '.
-        #                 format(new_station_obj_id[sc],
-        #                        new_station_id[sc],
-        #                        new_station_name[sc],
-        #                        new_station_lon[sc],
-        #                        new_station_lat[sc]) +
-        #                 '{:>5d}  {:>5d}'.
-        #                 format(new_station_elev[sc],
-        #                        new_station_rec_elev[sc]))
 
         prev_obs_in_obs = [prev_obs_datetime.index(i) for i in dt_in_both]
         prev_obs = prev_obs_air_temp['values_deg_c'][:,prev_obs_in_obs]
 
+        # Create the observation array and copy prev_obs and curr_obs into
+        # it.
         obs = np.ma.empty([new_num_stations, num_hours], dtype=float)
         obs[:,:] = no_data_value
         obs[:,:] = np.ma.masked
-        # logger.debug(new_station_obj_id[si])
-        # logger.debug(obs[si,:])
         obs[np.ix_(new_station_from_prev, obs_dt_from_prev_obs_dt)] = \
             prev_obs
-        # logger.debug(obs[si,:])
         obs[np.ix_(new_station_from_curr, obs_dt_from_curr_obs_dt)] = \
             curr_obs
-        # logger.debug(obs[si,:])
+
+        # It is possible, after combining prev_obs and curr_obs, to have all
+        # missing data for some stations. Remove those stations.
+        num_obs_by_station = obs.count(axis=1)
+        drop_ind = np.where(num_obs_by_station == 0)
+        keep_ind = np.where(num_obs_by_station > 0)
+        if len(keep_ind[0]) == 0:
+            logger.warning('Recombination of data yielded no results.')
+            return None
+        if len(keep_ind[0]) != new_num_stations:
+            logger.debug('Removing {} '.format(len(drop_ind[0])) +
+                         'non-reporting stations ' +
+                         '(of {}).'.format(new_num_stations))
+            obs = obs[keep_ind[0],:]
+            new_num_stations = len(keep_ind[0])
+            new_station_obj_id = [new_station_obj_id[i] for i in
+                                  keep_ind[0].tolist()]
+            # new_station_obj_id = list(np.array(new_station_obj_id)[keep_ind])
+            logger.debug('{} stations remain.'.format(new_num_stations))
+            new_station_id = new_station_id[keep_ind]
+            new_station_name = new_station_name[keep_ind]
+            new_station_lon = new_station_lon[keep_ind]
+            new_station_lat = new_station_lat[keep_ind]
+            new_station_elev = new_station_elev[keep_ind]
+            new_station_rec_elev = new_station_rec_elev[keep_ind]
+
+        new_station_id = new_station_id.tolist()
+        new_station_name = new_station_name.tolist()
+        new_station_lon = new_station_lon.tolist()
+        new_station_lat = new_station_lat.tolist()
+        new_station_elev = new_station_elev.tolist()
+        new_station_rec_elev = new_station_rec_elev.tolist()
 
         obs_air_temp = {'num_stations': new_num_stations,
                         'num_hours': num_hours,
@@ -1325,7 +1338,7 @@ def get_air_temp_obs(begin_datetime,
                         'station_rec_elevation': new_station_rec_elev,
                         'obs_datetime': obs_datetime,
                         'values_deg_c': obs}
-
+        
     else:
 
         obs_air_temp = curr_obs_air_temp

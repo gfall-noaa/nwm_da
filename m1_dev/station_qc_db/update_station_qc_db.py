@@ -424,7 +424,8 @@ def update_qc_db_metadata(qcdb,
         # Locate this object ID in the QC database.
         qcdb_ind = qcdb_sort_ind[qcdb_sort_count]
 
-        if verbose:
+        if verbose and sys.stdout.isatty():
+
             progress(qcdb_sort_count, len(wdb_df_rows_to_read),
                      status='Updating metadata')
 
@@ -2023,8 +2024,7 @@ def main():
         # Compare time series for a randomly chosen station to verify that
         # prev_obs_air_temp logic in wdb0.get_air_temp_obs works.
         si = random.randrange(wdb_prev_tair['num_stations'])
-        # if wdb_prev_tair['num_stations'] > 11496:
-        #     si = 11496
+            
         # logger.debug('Not passing wdb_prev_tair to wdb0.get_air_temp_obs.')
         random_tair_sample = \
             wdb0.get_air_temp_obs(obs_datetime -
