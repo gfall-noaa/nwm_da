@@ -3,6 +3,7 @@ swe_data_ana_plot <- function(dev_dir,
                               db_dir, db_start_ymdh, db_finish_ymdh,
                               csv_output_dir,
                               plot_output_dir,
+                              station_exclude_list_file,
                               fromDate, toDate,
                               target_hour, hr_range,
                               bounding_box,
@@ -161,7 +162,6 @@ swe_data_ana_plot <- function(dev_dir,
             # print(verbose)
             # print(fromDate)
             
-            
             list[nwm_swe, wdb_swe] <- get_data_via_py(nwm_base_db_path,
                                                       fromDate, 
                                                       toDate,
@@ -181,6 +181,7 @@ swe_data_ana_plot <- function(dev_dir,
             #wdb_swe <- wdb_swe %>% select(-name, -recorded_elevation) # get rid of these two columns
             
         }
+        
         
         #Now the nwm_swe/wdb_swe are ready either from reading the csv or queried from database
         nwm_swe$datetime <- strptime(as.character(nwm_swe$datetime),

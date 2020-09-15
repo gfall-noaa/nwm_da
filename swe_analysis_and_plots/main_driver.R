@@ -1,7 +1,12 @@
 #The main driver to call other functions to conduct data analysis and ploting
 
+#Get login info
+username <- Sys.getenv("LOGNAME")
+
 #Give the directory where the source code and functions are located
-dev_dir <- "/net/home/zzhang/dev/nwm_da/swe_analysis_and_plots/"
+#dev_dir <- "/net/home/zzhang/dev/nwm_da/swe_analysis_and_plots/"
+dev_dir <- paste0("/net/home/", username, "/dev/nwm_da/swe_analysis_and_plots/")
+
 ifelse (dir.exists(dev_dir), 
         source(paste0(dev_dir, "swe_data_and_plot.R")),
         message("Incorrect dev_dir path or file name"))
@@ -13,9 +18,10 @@ db_start_ymdh <- "2019100100"
 db_finish_ymdh <- "2020053123"
 
 #give directory where output csv files will be written
-csv_output_dir <- "/disks/scratch/zzhang/m3db/csv_output"
-plot_output_dir <- "/net/home/zzhang/dev/nwm_da/swe_analysis_and_plots/pngs"
+csv_output_dir <- paste0("/disks/scratch/", username, "/m3db/csv_output")
+plot_output_dir <- paste0("/net/home/", username, "/dev/nwm_da/swe_analysis_and_plots/pngs")
 
+station_exclude_list_file <- paste0(csv_output_dir, "/station_exclude_list.csv")
 #Manually give the analysis period.
 #fromDate <- "2019-12-01 12:00:00"
 # toDate <- "2019-11-30 12:00:00"
@@ -42,6 +48,7 @@ swe_data_ana_plot(dev_dir,
                   db_dir, db_start_ymdh, db_finish_ymdh,
                   csv_output_dir,
                   plot_output_dir,
+                  station_exclude_list_file,
                   fromDate, toDate,
                   target_hour, hr_range,
                   bounding_box,
