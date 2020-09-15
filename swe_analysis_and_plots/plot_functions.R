@@ -54,11 +54,20 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
   fill_val_coln <- "plot_cat"  # based on categorized values
   #valBreaksScaled <- scales::rescale(val_breaks, from=range(stats_df[,val_coln],
   #                                   na.rm=TRUE,finite=TRUE))
-  if (is.null(val_size_min_lim)) val_size_min_lim <- min(myData[,size_val_coln], na.rm=TRUE)
-  if (is.null(val_size_max_lim)) val_size_max_lim <- max(myData[,size_var_coln], na.rm=TRUE)
-  if (is.null(min_thresh_colr)) min_thresh_colr <- min(myData[, val_coln], na.rm=TRUE)
-  if (is.null(max_thresh_colr)) min_thresh_colr <- max(myData[, val_coln], na.rm=TRUE)
+  if (is.null(val_size_min_lim)) val_size_min_lim <- min(my_data[,size_val_coln], na.rm=TRUE)
+  if (is.null(val_size_max_lim)) {
+      val_size_max_lim <- max(my_data[,size_var_coln], na.rm=TRUE)
+  } else if (val_size_max_lim < max(my_data[,size_var_coln], na.rm=TRUE) ) {
+      message('Warning: Maximum data value is greater than the limit.')
+  }
+
+  if (is.null(min_thresh_colr)) min_thresh_colr <- min(my_data[, val_coln], na.rm=TRUE)
+  if (is.null(max_thresh_colr)) min_thresh_colr <- max(my_data[, val_coln], na.rm=TRUE)
   
+  #check for the val_size_max_lim
+  if (!is.null(val_size_min_lim)) {
+      
+  }
   
   # #Bias Map - test
   # gg_err <- ggmap::ggmap(bg_map) + 

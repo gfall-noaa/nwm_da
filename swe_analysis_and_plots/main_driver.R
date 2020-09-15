@@ -14,6 +14,7 @@ db_finish_ymdh <- "2020053123"
 
 #give directory where output csv files will be written
 csv_output_dir <- "/disks/scratch/zzhang/m3db/csv_output"
+plot_output_dir <- "/net/home/zzhang/dev/nwm_da/swe_analysis_and_plots/pngs"
 
 #Manually give the analysis period.
 #fromDate <- "2019-12-01 12:00:00"
@@ -40,6 +41,7 @@ verbose = NA
 swe_data_ana_plot(dev_dir,
                   db_dir, db_start_ymdh, db_finish_ymdh,
                   csv_output_dir,
+                  plot_output_dir,
                   fromDate, toDate,
                   target_hour, hr_range,
                   bounding_box,

@@ -2,6 +2,7 @@
 swe_data_ana_plot <- function(dev_dir,
                               db_dir, db_start_ymdh, db_finish_ymdh,
                               csv_output_dir,
+                              plot_output_dir,
                               fromDate, toDate,
                               target_hour, hr_range,
                               bounding_box,
@@ -134,7 +135,7 @@ swe_data_ana_plot <- function(dev_dir,
     } else {
         if (file.exists(nwm_csv_extracted_path) & file.exists(wdb_csv_extracted_path)) {
             
-            message("Extracted from original queried hourly data sets exist. Read them in ...")
+            message("Reading extracted nwm/wdb daily data as csv files ...")
             nwm_swe <- read.csv(nwm_csv_extracted_path)
             wdb_swe <- read.csv(wdb_csv_extracted_path)
             
@@ -237,26 +238,6 @@ swe_data_ana_plot <- function(dev_dir,
     abl_hit_pers <- acc_abl_com[[9]]
     abl_miss_pers <- acc_abl_com[[10]]
     
-    # #write them to csv files
-    # acc_pre <- "acc_stats_"
-    # acc_stats_name <- get_time_related_fname(acc_pre,
-    #                                          fromDate,
-    #                                          toDate,
-    #                                          target_hour,
-    #                                          hr_range)
-    # write.csv(acc_stats, acc_stats_name, row.names = FALSE)
-    # 
-    # abl_pre <- "abl_stats_"
-    # abl_stats_name <- get_time_related_fname(abl_pre,
-    #                                          fromDate,
-    #                                          toDate,
-    #                                          target_hour,
-    #                                          hr_range)
-    # write.csv(abl_stats, abl_stats_name, row.names = FALSE)
-    # 
-    
-    
-    
     
     #***********************************************************
     
@@ -303,17 +284,21 @@ swe_data_ana_plot <- function(dev_dir,
     val_breaks <- c(-Inf, -2.0, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 2.0, Inf)
     color_breaks <- c('#BF8F60', '#CF004B', '#F67100', '#FFD817', '#E6FFE6',
                       '#17D8FF', '#0071F6', '#4B00F6', '#BF60BF')
-    val_size_min_lim=0
-    val_size_max_lim=1000 #200
-    min_thresh_colr=0
-    max_thresh_colr=1000 #200
-    histlim=1000  #500
-    alpha_val=0.8
-    size_min_pt=0
-    size_max_pt=10  #has been 10
-    color_low="blue"
-    color_mid="white"
-    color_high="red"
+    val_size_min_lim <- 0
+    val_size_max_lim <- max(acc_stats$obs_swe_diff_sum,
+                            abl_stats$obs_swe_diff_sum,
+                            abl_stats_pers$obs_swe_diff_sum)
+    #val_size_max_lim=NA #1000 #200
+    min_thresh_colr <- 0
+    max_thresh_colr <- NA #1000 #200
+    histlim <- ceiling(max(nrow(acc_hit), nrow(abl_hit), nrow(abl_hit_pers))/2)
+    #histlim <- 1000  #500
+    alpha_val <- 0.8
+    size_min_pt <- 0
+    size_max_pt <- 10  #has been 10
+    color_low <- "blue"
+    color_mid <- "white"
+    color_high <- "red"
     plot_dpi <- 300
     map_width <- 7
     map_height <- 7
@@ -341,33 +326,37 @@ swe_data_ana_plot <- function(dev_dir,
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
     
     
-    gg_acc_dep <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
-                                  size_var_coln="obs_swe_diff_sum", val_coln="departure",
-                                  plot_title=plot_title, plot_subtitle=plot_subtitle,
-                                  x_label="Longitude", y_label="Latitude",
-                                  size_label=size_label,
-                                  #color_label="Acc\nDeparture",
-                                  color_label="ARCD",
-                                  hist_title="Accumulation Departure",
-                                  color_breaks,
-                                  size_min_pt=size_min_pt,
-                                  size_max_pt=size_max_pt,
-                                  color_low=color_low,
-                                  color_mid=color_mid, 
-                                  color_high=color_high,
-                                  val_size_min_lim=val_size_min_lim,
-                                  val_size_max_lim=val_size_max_lim,
-                                  min_thresh_colr=min_thresh_colr,
-                                  max_thresh_colr=max_thresh_colr,
-                                  val_breaks, alpha_val=alpha_val,
-                                  histlim=histlim)
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="departure",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    #color_label="Acc\nDeparture",
+                                    color_label="ARCD",
+                                    hist_title="Accumulation Departure",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid, 
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+                                   
+                                  
     
     mapPlotName <- formFileName("acc_departure_map_", fromDate, toDate, post)
-    ggsave(filename=mapPlotName, plot=gg_acc_dep[[1]], units="in",
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
            width=map_width, height=map_height, dpi=plot_dpi)
     
     barPlotName <- formFileName("acc_departure_distribution_", fromDate, toDate, post)
-    ggsave(filename=barPlotName, plot=gg_acc_dep[[2]], units="in",
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
     
     #
@@ -377,32 +366,40 @@ swe_data_ana_plot <- function(dev_dir,
     data_sub <- acc_hit
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
     
-    gg_acc_hit_aabias <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
-                                         size_var_coln="obs_swe_diff_sum", val_coln="aggbias",
-                                         plot_title=plot_title, plot_subtitle=plot_subtitle,
-                                         x_label="Longitude", y_label="Latitude",
-                                         size_label=size_label,
-                                         color_label="ARCB",
-                                         hist_title="Agg Acc Bias",
-                                         color_breaks,
-                                         size_min_pt=size_min_pt,
-                                         size_max_pt=size_max_pt,
-                                         color_low=color_low,
-                                         color_mid=color_mid, 
-                                         color_high=color_high,
-                                         val_size_min_lim=val_size_min_lim,
-                                         val_size_max_lim=val_size_max_lim,
-                                         min_thresh_colr=min_thresh_colr,
-                                         max_thresh_colr=max_thresh_colr,
-                                         val_breaks, alpha_val=alpha_val,
-                                         histlim=histlim)
+    #gg_acc_hit_aabias <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="aggbias",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="ARCB",
+                                    hist_title="Agg Acc Bias",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid, 
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+                                         
     mapPlotName <- formFileName("acc_hit_aabias_map_", fromDate, toDate, post)
-    ggsave(filename=mapPlotName, plot=gg_acc_hit_aabias[[1]], units="in",
+    barPlotName <- formFileName("acc_hit_aabias_distribution_", fromDate, toDate, post)
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    #ggsave(filename=mapPlotName, plot=gg_acc_hit_aabias[[1]], units="in",
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
            width=map_width, height=map_height, dpi=plot_dpi)
     
-    barPlotName <- formFileName("acc_hit_aabias_distribution_", fromDate, toDate, post)
-    ggsave(filename=barPlotName, plot=gg_acc_hit_aabias[[2]], units="in",
+    #ggsave(filename=barPlotName, plot=gg_acc_hit_aabias[[2]], units="in",
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
+
+ 
     
     #
     #-----------------------------------------------------------
@@ -410,31 +407,33 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Accumulation Error Map"
     data_sub <- acc_miss
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
-    gg_acc_miss_aaerror <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
-                                           size_var_coln="obs_swe_diff_sum", val_coln="aggerror",
-                                           plot_title=plot_title, plot_subtitle=plot_subtitle,
-                                           x_label="Longitude", y_label="Latitude",
-                                           size_label=size_label,
-                                           color_label="ARCE",
-                                           hist_title="Agg Acc Error",
-                                           color_breaks,
-                                           size_min_pt=size_min_pt,
-                                           size_max_pt=size_max_pt,
-                                           color_low=color_low,
-                                           color_mid=color_mid, 
-                                           color_high=color_high,
-                                           val_size_min_lim=val_size_min_lim,
-                                           val_size_max_lim=val_size_max_lim,
-                                           min_thresh_colr=min_thresh_colr,
-                                           max_thresh_colr=max_thresh_colr,
-                                           val_breaks, alpha_val=alpha_val,
-                                           histlim=histlim)
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="aggerror",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="ARCE",
+                                    hist_title="Agg Acc Error",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid, 
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+                                           
     mapPlotName <- formFileName("acc_miss_aabias_map_", fromDate, toDate, post)
-    ggsave(filename=mapPlotName, plot=gg_acc_miss_aaerror[[1]], units="in",
-           width=map_width, height=map_height, dpi=plot_dpi)
-    
     barPlotName <- formFileName("acc_miss_aaerror_distribution_", fromDate, toDate, post)
-    ggsave(filename=barPlotName, plot=gg_acc_miss_aaerror[[2]], units="in",
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
     
     #-----------------------------------------------------------
@@ -442,63 +441,70 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Ablation Departure Map"
     data_sub <- abl_stats
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
-    gg_abl_dep <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
-                                  size_var_coln="obs_swe_diff_sum", val_coln="departure",
-                                  plot_title=plot_title, plot_subtitle=plot_subtitle,
-                                  x_label="Longitude", y_label="Latitude",
-                                  size_label=size_label,
-                                  color_label="ARBD",
-                                  hist_title="Ablation Departure",
-                                  color_breaks,
-                                  size_min_pt=size_min_pt,
-                                  size_max_pt=size_max_pt,
-                                  color_low=color_low,
-                                  color_mid=color_mid, 
-                                  color_high=color_high,
-                                  val_size_min_lim=val_size_min_lim,
-                                  val_size_max_lim=val_size_max_lim,
-                                  min_thresh_colr=min_thresh_colr,
-                                  max_thresh_colr=max_thresh_colr,
-                                  val_breaks, alpha_val=alpha_val,
-                                  histlim=histlim)
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="departure",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="ARBD",
+                                    hist_title="Ablation Departure",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid, 
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+                                  
     
     mapPlotName <- formFileName("abl_departure_map_", fromDate, toDate, post)
-    ggsave(filename=mapPlotName, plot=gg_abl_dep[[1]], units="in",
-           width=map_width, height=map_height, dpi=plot_dpi)
-    
     barPlotName <- formFileName("abl_departure_distribution_", fromDate, toDate, post)
-    ggsave(filename=barPlotName, plot=gg_abl_dep[[2]], units="in",
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
+    
+    
+
     #-----------------------------------------------------------
     # Aggregate Ablation Bias  --- based on new matrix
     plot_title <- "Aggregate Ablation Bias Map"
     data_sub <- abl_hit
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
-    gg_abl_hit_aabias <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
-                                         size_var_coln="obs_swe_diff_sum", val_coln="aggbias",
-                                         plot_title=plot_title, plot_subtitle=plot_subtitle,
-                                         x_label="Longitude", y_label="Latitude",
-                                         size_label=size_label,
-                                         color_label="ARBB",
-                                         hist_title="Agg Abl Bias",
-                                         color_breaks,
-                                         size_min_pt=size_min_pt,
-                                         size_max_pt=size_max_pt,
-                                         color_low=color_low,
-                                         color_mid=color_mid, 
-                                         color_high=color_high,
-                                         val_size_min_lim=val_size_min_lim,
-                                         val_size_max_lim=val_size_max_lim,
-                                         min_thresh_colr=min_thresh_colr,
-                                         max_thresh_colr=max_thresh_colr,
-                                         val_breaks, alpha_val=alpha_val,
-                                         histlim=histlim)
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="aggbias",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="ARBB",
+                                    hist_title="Agg Abl Bias",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid, 
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+                                         
     mapPlotName <- formFileName("abl_hit_arbb_map_", fromDate, toDate, post)
-    ggsave(filename=mapPlotName, plot=gg_abl_hit_aabias[[1]], units="in",
-           width=map_width, height=map_height, dpi=plot_dpi)
-    
     barPlotName <- formFileName("abl_hit_arbb_distribution_", fromDate, toDate, post)
-    ggsave(filename=barPlotName, plot=gg_abl_hit_aabias[[2]], units="in",
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
     
     #-----------------------------------------------------------
@@ -506,94 +512,103 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Ablation Error Map"
     data_sub <- abl_miss
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
-    gg_abl_miss_aaerror <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
-                                           size_var_coln="obs_swe_diff_sum", val_coln="aggerror",
-                                           plot_title=plot_title, plot_subtitle=plot_subtitle,
-                                           x_label="Longitude", y_label="Latitude",
-                                           size_label=size_label,
-                                           color_label="ARBE",
-                                           hist_title="Agg Abl Error",
-                                           color_breaks,
-                                           size_min_pt=size_min_pt,
-                                           size_max_pt=size_max_pt,
-                                           color_low=color_low,
-                                           color_mid=color_mid, 
-                                           color_high=color_high,
-                                           val_size_min_lim=val_size_min_lim,
-                                           val_size_max_lim=val_size_max_lim,
-                                           min_thresh_colr=min_thresh_colr,
-                                           max_thresh_colr=max_thresh_colr,
-                                           val_breaks, alpha_val=alpha_val,
-                                           histlim=histlim)
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="aggerror",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="ARBE",
+                                    hist_title="Agg Abl Error",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid, 
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+                                           
     mapPlotName <- formFileName("abl_miss_arbe_map_", fromDate, toDate, post)
-    ggsave(filename=mapPlotName, plot=gg_abl_miss_aaerror[[1]], units="in",
-           width=map_width, height=map_height, dpi=plot_dpi)
-    
     barPlotName <- formFileName("abl_miss_arbe_distribution_", fromDate, toDate, post)
-    ggsave(filename=barPlotName, plot=gg_abl_miss_aaerror[[2]], units="in",
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
+    
     #-----------------------------------------------------------
     # Aggregate Ablation Departure  --- under persistent condition
     plot_title <- "Aggregate Ablation Departure Map Under Persistent Condition"
     data_sub <- abl_stats_pers
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
-    gg_abl_dep <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
-                                  size_var_coln="obs_swe_diff_sum", val_coln="departure",
-                                  plot_title=plot_title, plot_subtitle=plot_subtitle,
-                                  x_label="Longitude", y_label="Latitude",
-                                  size_label=size_label,
-                                  color_label="ARBD",
-                                  hist_title="Ablation Departure (Persistent)",
-                                  color_breaks,
-                                  size_min_pt=size_min_pt,
-                                  size_max_pt=size_max_pt,
-                                  color_low=color_low,
-                                  color_mid=color_mid, 
-                                  color_high=color_high,
-                                  val_size_min_lim=val_size_min_lim,
-                                  val_size_max_lim=val_size_max_lim,
-                                  min_thresh_colr=min_thresh_colr,
-                                  max_thresh_colr=max_thresh_colr,
-                                  val_breaks, alpha_val=alpha_val,
-                                  histlim=histlim)
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="departure",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="ARBD",
+                                    hist_title="Ablation Departure (Persistent)",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid, 
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+                                  
     
     mapPlotName <- formFileName("abl_departure_map_pers_", fromDate, toDate, post)
-    ggsave(filename=mapPlotName, plot=gg_abl_dep[[1]], units="in",
-           width=map_width, height=map_height, dpi=plot_dpi)
-    
     barPlotName <- formFileName("abl_departure_distribution_pers_", fromDate, toDate, post)
-    ggsave(filename=barPlotName, plot=gg_abl_dep[[2]], units="in",
+    
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
     #-----------------------------------------------------------
     # Aggregate Ablation Bias  --- based on new matrix
     plot_title <- "Aggregate Ablation Bias Map Under Persistent Condition"
     data_sub <- abl_hit_pers
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
-    gg_abl_hit_aabias <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
-                                         size_var_coln="obs_swe_diff_sum", val_coln="aggbias",
-                                         plot_title=plot_title, plot_subtitle=plot_subtitle,
-                                         x_label="Longitude", y_label="Latitude",
-                                         size_label=size_label,
-                                         color_label="ARBB",
-                                         hist_title="Agg Abl Bias (Persistent)",
-                                         color_breaks,
-                                         size_min_pt=size_min_pt,
-                                         size_max_pt=size_max_pt,
-                                         color_low=color_low,
-                                         color_mid=color_mid, 
-                                         color_high=color_high,
-                                         val_size_min_lim=val_size_min_lim,
-                                         val_size_max_lim=val_size_max_lim,
-                                         min_thresh_colr=min_thresh_colr,
-                                         max_thresh_colr=max_thresh_colr,
-                                         val_breaks, alpha_val=alpha_val,
-                                         histlim=histlim)
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="aggbias",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="ARBB",
+                                    hist_title="Agg Abl Bias (Persistent)",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid, 
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+                                         
     mapPlotName <- formFileName("abl_hit_arbb_map_pers_", fromDate, toDate, post)
-    ggsave(filename=mapPlotName, plot=gg_abl_hit_aabias[[1]], units="in",
-           width=map_width, height=map_height, dpi=plot_dpi)
-    
     barPlotName <- formFileName("abl_hit_arbb_distribution_pers_", fromDate, toDate, post)
-    ggsave(filename=barPlotName, plot=gg_abl_hit_aabias[[2]], units="in",
+ 
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
     
     #-----------------------------------------------------------
@@ -601,31 +616,34 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Ablation Error Map Under Persistent Condition"
     data_sub <- abl_miss_pers
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
-    gg_abl_miss_aaerror <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
-                                           size_var_coln="obs_swe_diff_sum", val_coln="aggerror",
-                                           plot_title=plot_title, plot_subtitle=plot_subtitle,
-                                           x_label="Longitude", y_label="Latitude",
-                                           size_label=size_label,
-                                           color_label="ARBE",
-                                           hist_title="Agg Abl Error (Persistent)",
-                                           color_breaks,
-                                           size_min_pt=size_min_pt,
-                                           size_max_pt=size_max_pt,
-                                           color_low=color_low,
-                                           color_mid=color_mid, 
-                                           color_high=color_high,
-                                           val_size_min_lim=val_size_min_lim,
-                                           val_size_max_lim=val_size_max_lim,
-                                           min_thresh_colr=min_thresh_colr,
-                                           max_thresh_colr=max_thresh_colr,
-                                           val_breaks, alpha_val=alpha_val,
-                                           histlim=histlim)
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="aggerror",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="ARBE",
+                                    hist_title="Agg Abl Error (Persistent)",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid, 
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+                                           
     mapPlotName <- formFileName("abl_miss_arbe_map_pers_", fromDate, toDate, post)
-    ggsave(filename=mapPlotName, plot=gg_abl_miss_aaerror[[1]], units="in",
-           width=map_width, height=map_height, dpi=plot_dpi)
-    
     barPlotName <- formFileName("abl_miss_arbe_distribution_pers_", fromDate, toDate, post)
-    ggsave(filename=barPlotName, plot=gg_abl_miss_aaerror[[2]], units="in",
+
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
     #-----------------------------------------------------------
     message("Done\n")
