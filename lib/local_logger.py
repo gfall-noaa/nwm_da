@@ -15,7 +15,7 @@ class MyLoggerFormatter(logging.Formatter):
     info_format = '%(levelname)s: %(message)s'
 
     def __init__(self):
-        default_format = '%(filename)s(%(funcName)s) %(levelname)s: %(message)s'
+        default_format = '%(levelname)s %(filename)s(%(funcName)s): %(message)s'
         super().__init__(fmt=default_format, datefmt=None, style='%')
 
     def format(self, record):
