@@ -219,6 +219,12 @@ swe_data_ana_plot <- function(dev_dir,
         
     }
     
+    #Get rid of data for stations in the excluding file
+    #exc_id <- "PORQ1"
+    excluded_ids <- read.csv(station_exclude_list_file)
+    `%notin%` <- Negate(`%in%`)
+    wdb_com <- wdb_com %>% filter(station_id %notin% excluded_ids$station_id)
+    nwm_com <- nwm_com %>% filter(obj_identifier %in% wdb_com$obj_identifier)
     
     #Further calculate statistics based on the processed nwm_com and wdb_com
     
@@ -238,6 +244,10 @@ swe_data_ana_plot <- function(dev_dir,
     abl_stats_pers <- acc_abl_com[[8]]
     abl_hit_pers <- acc_abl_com[[9]]
     abl_miss_pers <- acc_abl_com[[10]]
+    
+    #How to find the obj_id for stations that have the maximum obs_swe_diff_sum value
+    #abl_stats %>% filter(obs_swe_diff_sum==max(obs_swe_diff_sum))
+    exc_obj_id <- (abl_stats %>% filter(obs_swe_diff_sum==max(obs_swe_diff_sum)))$obj_identifier
     
     
     #***********************************************************
