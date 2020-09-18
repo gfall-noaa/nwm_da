@@ -1,5 +1,6 @@
 #The main driver to call other functions to conduct data analysis and ploting
 
+
 #Get login info
 username <- Sys.getenv("LOGNAME")
 
@@ -12,7 +13,12 @@ ifelse (dir.exists(dev_dir),
         message("Incorrect dev_dir path or file name"))
 
 #Give the directory where the m3 databases are located
-db_dir <- "/net/scratch/zzhang/m3db/western_us/"  #for Western USA case
+db_dir <- "/net/scratch/zzhang/m3db/western_us2/"  #for Western USA case
+if (!dir.exists(db_dir)) {
+    stop("Incorrect database directory:  ", db_dir)
+    #Within rstudio: Code -> Source, it will stop at the first stop statement
+    # Or just click the Source button above the soirce window
+}
 #db_dir <- "/net/scratch/fall/m3db/yearly"
 db_start_ymdh <- "2019100100"
 db_finish_ymdh <- "2020053123"

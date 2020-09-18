@@ -247,7 +247,11 @@ swe_data_ana_plot <- function(dev_dir,
     
     #How to find the obj_id for stations that have the maximum obs_swe_diff_sum value
     #abl_stats %>% filter(obs_swe_diff_sum==max(obs_swe_diff_sum))
-    exc_obj_id <- (abl_stats %>% filter(obs_swe_diff_sum==max(obs_swe_diff_sum)))$obj_identifier
+    exc_obj_id_abl <- (abl_stats %>% 
+                           filter(obs_swe_diff_sum==max(obs_swe_diff_sum)))$obj_identifier
+    
+    exc_obj_id_acc <- (acc_stats %>% 
+                           filter(obs_swe_diff_sum==max(obs_swe_diff_sum)))$obj_identifier
     
     
     #***********************************************************
