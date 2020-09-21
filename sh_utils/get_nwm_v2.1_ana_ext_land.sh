@@ -12,7 +12,7 @@
 # ftp://ftp.ncep.noaa.gov/pub/data/nccf/com/para/com/nwm/para/nwm.20190220/analysis_assim_extend/
 
 EMAIL=Gregory.Fall@noaa.gov
-BUSY_FILE=ARCHIVE_NWM_ANA_EXT_BUSY
+BUSY_FILE=ARCHIVE_NWM_V2.1_ANA_EXT_BUSY
 MAX_INSTANCES=1
 
 # Source common functions.
@@ -71,8 +71,8 @@ else
   fi
 fi
 
-REMOTE_HOST="nomads.ncep.noaa.gov"
-REMOTE_DIR="pub/data/nccf/com/para/com/nwm/para"
+REMOTE_HOST="para.nomads.ncep.noaa.gov"
+REMOTE_DIR="pub/data/nccf/com/nwm/para"
 
 HOURS_BACK=72
 
