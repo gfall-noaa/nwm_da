@@ -56,8 +56,8 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
   #                                   na.rm=TRUE,finite=TRUE))
   if (is.null(val_size_min_lim)) val_size_min_lim <- min(my_data[,size_val_coln], na.rm=TRUE)
   if (is.null(val_size_max_lim)) {
-      val_size_max_lim <- max(my_data[,size_var_coln], na.rm=TRUE)
-  } else if (val_size_max_lim < max(my_data[,size_var_coln], na.rm=TRUE) ) {
+      val_size_max_lim <- max(my_data[, size_var_coln], na.rm=TRUE)
+  } else if (val_size_max_lim < max(my_data[, size_var_coln], na.rm=TRUE)) {
       message('Warning: Maximum data value is greater than the limit.')
   }
 

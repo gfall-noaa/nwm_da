@@ -7,6 +7,7 @@ swe_data_ana_plot <- function(dev_dir,
                               fromDate, toDate,
                               target_hour, hr_range,
                               bounding_box,
+                              min_obs_ndays,
                               no_data_value,
                               verbose) {
     
@@ -229,7 +230,10 @@ swe_data_ana_plot <- function(dev_dir,
     #Further calculate statistics based on the processed nwm_com and wdb_com
     
     #Snow accumulation and ablation analysis
-    acc_abl_com <- accumulation_ablation_analysis(nwm_com, wdb_com)
+    acc_abl_com <- 
+        acc_abl_analysis(nwm_com,
+                         wdb_com)
+                                       
     
     swe_acc_abl_com <- acc_abl_com[[1]]
     
@@ -300,9 +304,9 @@ swe_data_ana_plot <- function(dev_dir,
     color_breaks <- c('#BF8F60', '#CF004B', '#F67100', '#FFD817', '#E6FFE6',
                       '#17D8FF', '#0071F6', '#4B00F6', '#BF60BF')
     val_size_min_lim <- 0
-    val_size_max_lim <- max(acc_stats$obs_swe_diff_sum,
-                            abl_stats$obs_swe_diff_sum,
-                            abl_stats_pers$obs_swe_diff_sum)
+    val_size_max_lim <- max(max(acc_stats$obs_swe_diff_sum, na.rm=TRUE),
+                            max(abl_stats$obs_swe_diff_sum, na.rm=TRUE),
+                            max(abl_stats_pers$obs_swe_diff_sum, na.rm=TRUE))
     #val_size_max_lim=NA #1000 #200
     min_thresh_colr <- 0
     max_thresh_colr <- NA #1000 #200
@@ -339,6 +343,7 @@ swe_data_ana_plot <- function(dev_dir,
     # data_sub <- subset(acc_stats, subset = obs_sum >= min_swe_sum_val)
     
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
+    if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
     
     
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
@@ -380,6 +385,7 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Accumulation Bias Map"
     data_sub <- acc_hit
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
+    if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
     
     #gg_acc_hit_aabias <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
@@ -422,6 +428,7 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Accumulation Error Map"
     data_sub <- acc_miss
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
+    if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="aggerror",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
@@ -456,6 +463,7 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Ablation Departure Map"
     data_sub <- abl_stats
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
+    if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="departure",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
@@ -493,6 +501,7 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Ablation Bias Map"
     data_sub <- abl_hit
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
+    if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="aggbias",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
@@ -527,6 +536,7 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Ablation Error Map"
     data_sub <- abl_miss
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
+    if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="aggerror",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
@@ -561,6 +571,7 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Ablation Departure Map Under Persistent Condition"
     data_sub <- abl_stats_pers
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
+    if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="departure",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
@@ -596,6 +607,7 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Ablation Bias Map Under Persistent Condition"
     data_sub <- abl_hit_pers
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
+    if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="aggbias",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
@@ -631,6 +643,7 @@ swe_data_ana_plot <- function(dev_dir,
     plot_title <- "Aggregate Ablation Error Map Under Persistent Condition"
     data_sub <- abl_miss_pers
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
+    if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="aggerror",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
