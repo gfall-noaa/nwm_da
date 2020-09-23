@@ -460,7 +460,10 @@ acc_abl_scores <- function(swe_acc_abl_com,
   events <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
       filter(!is.na(wdb_swe_diff)) %>% 
       summarise(num_events=n())
-    
+  
+  obs_ndays <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
+      filter(!is.na(obs_swe_mm)) %>% 
+      summarise(obs_ndays=n())  
     
   #Aggregate Accumulation/Ablation When wdb_swe_diff > 0 or wdb_swe_diff < 0
   swe_sum <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
@@ -481,7 +484,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
               obs_sum=sum(obs_swe_mm), num_wdb_diff=n())
   
   stats <- cbind(stats, swe_sum[, "obs_swe_diff_sum"])
-  
+  stats <- merge(stats, obs_ndays, by="obj_identifier", all = T) #Add this column
   #for hit case:
   hit <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
     filter(if (acc_abl_option > 0) wdb_swe_diff>0 & nwm_swe_diff>0
@@ -509,6 +512,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
   
   #Add the total number of events (having obs swe) to the table as a new column (num_events)
   hit_new <- merge(hit_new, events, by="obj_identifier", all = T) #Add this column
+  hit_new <- merge(hit_new,obs_ndays, by="obj_identifier", all = T) #Add this column
   hit_new <- hit_new %>% subset(!is.na(obs_swe_diff_sum))  #Get rid of NA case for obs_swe_diff_sum
   
  
@@ -536,6 +540,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
   
   #Add the total number of events (having obs swe) to the table as a new column (num_events)
   miss_new <- merge(miss_new, events, by="obj_identifier", all = T) #Add this column
+  miss_new <- merge(miss_new, obs_ndays, by="obj_identifier", all = T) #Add this column
   miss_new <- miss_new %>% subset(!is.na(obs_swe_diff_sum))  #Get rid of NA case for obs_swe_diff_sum
   
   
@@ -577,7 +582,8 @@ acc_abl_scores <- function(swe_acc_abl_com,
 }
 #--------------------------------------------------------------------------          
 #--------------------------------------------------------------------------
-accumulation_ablation_analysis <- function(nwm_com, wdb_com) {
+acc_abl_analysis <- function(nwm_com,
+                             wdb_com) {
   # #Determine the cases of accumulations and ablations for each obj_id
   # wdb_tmp <- wdb_com %>% filter(obj_identifier==11929 | obj_identifier==48099) %>% 
   #   group_by(obj_identifier) %>% mutate(wdb_swe_diff=obs_swe_mm-lag(obs_swe_mm))
@@ -585,7 +591,11 @@ accumulation_ablation_analysis <- function(nwm_com, wdb_com) {
   # nwm_tmp <- nwm_com %>% filter(obj_identifier==11929 | obj_identifier==48099) %>%
   #   group_by(obj_identifier) %>% mutate(nwm_swe_diff=swe-lag(swe))
   library(lubridate)
+    
+  # Exclude stations that don't have enough data (<min_obs_ndays)
   
+    
+    
   wdb_com$datetime <- ymd_hms(wdb_com$datetime)
   wdb_tmp <- wdb_com %>% group_by(obj_identifier) %>% 
     mutate(wdb_swe_diff = case_when(month(datetime)==month(lag(datetime)) &
@@ -645,6 +655,7 @@ accumulation_ablation_analysis <- function(nwm_com, wdb_com) {
                                  ~ 1,
                                  TRUE ~ 0))
   
+
   #write to csv file for now  -- need a dynamic name
   #write.csv(swe_acc_abl_com, "swe_accum_ablation.csv", row.names = FALSE)
   rm(wdb_tmp, nwm_tmp)
