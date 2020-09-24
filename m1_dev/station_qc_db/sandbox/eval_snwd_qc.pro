@@ -308,24 +308,24 @@ FUNCTION GET_WDB_SNOW_DEPTH_FOR_TARGET, target_obs_date_YYYYMMDDHH, $
 end
 
 
-PRO GET_SNWD_WRIE_DATA, obs_date_Julian, $
-                        prev_hours_wrie, $
-                        station_obj_id, $
-                        qcdb_nc_id, $
-                        qcdb_ti, $
-                        qcdb_si, $
-                        sample_num_hours, $
-                        snwd_sample, $
-                        snwd_sample_qc
+PRO GET_SNWD_DATA_AND_QC, obs_date_Julian, $
+                          prev_hours, $
+                          station_obj_id, $
+                          qcdb_nc_id, $
+                          qcdb_ti, $
+                          qcdb_si, $
+                          sample_num_hours, $
+                          snwd_sample, $
+                          snwd_sample_qc
 
-  sample_start_date_Julian = obs_date_Julian - DOUBLE(prev_hours_wrie) / 24.0D
+  sample_start_date_Julian = obs_date_Julian - DOUBLE(prev_hours) / 24.0D
   sample_start_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(sample_start_date_Julian)
   sample_finish_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
   snwd_sample = $
       GET_WDB_OBS_SNOW_DEPTH_FOR_RANGE(sample_start_YYYYMMDDHH, $
                                        sample_finish_YYYYMMDDHH, $
                                        STATION_OBJ_ID = station_obj_id)
-  sample_t1_1 = (qcdb_ti - prev_hours_wrie) > 0
+  sample_t1_1 = (qcdb_ti - prev_hours) > 0
   sample_num_hours = qcdb_ti - sample_t1_1 + 1
   NCDF_VARGET, qcdb_nc_id, $
                'snow_depth_qc', $
@@ -336,7 +336,6 @@ PRO GET_SNWD_WRIE_DATA, obs_date_Julian, $
   RETURN
 
 end
-
 
 PRO SHOW_SNWD_WRIE_DATA, site_str, $
                          time_str, $
@@ -353,15 +352,15 @@ PRO SHOW_SNWD_WRIE_DATA, site_str, $
                          snwd_sample, $
                          snwd_sample_qc
 
-  GET_SNWD_WRIE_DATA, obs_date_Julian, $
-                      prev_hours_wrie, $
-                      station_obj_id, $
-                      qcdb_nc_id, $
-                      qcdb_ti, $
-                      qcdb_si, $
-                      sample_num_hours, $
-                      snwd_sample, $
-                      snwd_sample_qc
+  GET_SNWD_DATA_AND_QC, obs_date_Julian, $
+                        prev_hours_wrie, $
+                        station_obj_id, $
+                        qcdb_nc_id, $
+                        qcdb_ti, $
+                        qcdb_si, $
+                        sample_num_hours, $
+                        snwd_sample, $
+                        snwd_sample_qc
   
   PRINT, '  ' + $
          site_str + ' - ' + $
@@ -390,21 +389,21 @@ PRO SHOW_SNWD_WRIE_DATA, site_str, $
 end
 
 
-PRO GET_SNWD_TAIR_DATA, obs_date_Julian, $
-                        prev_hours_tair, $
-                        station_obj_id, $
-                        tair_sample
+;; PRO GET_SNWD_TAIR_DATA, obs_date_Julian, $
+;;                         prev_hours_tair, $
+;;                         station_obj_id, $
+;;                         tair_sample
 
-  sample_start_date_Julian = obs_date_Julian - DOUBLE(prev_hours_tair) / 24.0D
-  sample_start_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(sample_start_date_Julian)
-  sample_finish_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
-  snwd_sample = $
-      GET_WDB_OBS_AIR_TEMP_FOR_RANGE(sample_start_YYYYMMDDHH, $
-                                     sample_finish_YYYYMMDDHH, $
-                                     STATION_OBJ_ID = station_obj_id)
-  RETURN
+;;   sample_start_date_Julian = obs_date_Julian - DOUBLE(prev_hours_tair) / 24.0D
+;;   sample_start_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(sample_start_date_Julian)
+;;   sample_finish_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
+;;   snwd_sample = $
+;;       GET_WDB_OBS_AIR_TEMP_FOR_RANGE(sample_start_YYYYMMDDHH, $
+;;                                      sample_finish_YYYYMMDDHH, $
+;;                                      STATION_OBJ_ID = station_obj_id)
+;;   RETURN
 
-end
+;; end
 
 
 PRO SHOW_SNWD_TAIR_DATA, site_str, $
@@ -422,17 +421,15 @@ PRO SHOW_SNWD_TAIR_DATA, site_str, $
                          snwd_sample, $
                          snwd_sample_qc
 
-; Use GET_SNWD_WRIE_DATA to fetch snow depth data and corresponding QC
-; data for comparison with air temperature data.
-  GET_SNWD_WRIE_DATA, obs_date_Julian, $
-                      prev_hours_tair, $
-                      station_obj_id, $
-                      qcdb_nc_id, $
-                      qcdb_ti, $
-                      qcdb_si, $
-                      sample_num_hours, $
-                      snwd_sample, $
-                      snwd_sample_qc
+  GET_SNWD_DATA_AND_QC, obs_date_Julian, $
+                        prev_hours_tair, $
+                        station_obj_id, $
+                        qcdb_nc_id, $
+                        qcdb_ti, $
+                        qcdb_si, $
+                        sample_num_hours, $
+                        snwd_sample, $
+                        snwd_sample_qc
   
   PRINT, '  ' + $
          site_str + ' - ' + $
@@ -452,6 +449,7 @@ PRO SHOW_SNWD_TAIR_DATA, site_str, $
   tair_sample_str = STRCRA(tair_sample.obs_value_deg_c)
   ind = WHERE(tair_sample.obs_value_deg_c eq ndv, count)
   if (count gt 0) then tair_sample_str[ind] = '-'
+
   snwd_sample_str = STRCRA(snwd_sample.obs_value_cm)
   ind = WHERE(snwd_sample.obs_value_cm eq ndv, count)
   if (count gt 0) then snwd_sample_str[ind] = '-'
@@ -473,6 +471,192 @@ PRO SHOW_SNWD_TAIR_DATA, site_str, $
   RETURN
 
 end
+
+
+
+PRO GET_SNWD_PRCP_DATA, obs_date_Julian, $
+                        prev_hours_wrie, $
+                        station_obj_id, $
+                        qcdb_nc_id, $
+                        qcdb_ti, $
+                        qcdb_si, $
+                        sample_num_hours, $
+                        snwd_sample, $
+                        snwd_sample_qc
+
+
+
+
+  
+  sample_start_date_Julian = obs_date_Julian - DOUBLE(prev_hours_wrie) / 24.0D
+  sample_start_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(sample_start_date_Julian)
+  sample_finish_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
+  snwd_sample = $
+      GET_WDB_OBS_SNOW_DEPTH_FOR_RANGE(sample_start_YYYYMMDDHH, $
+                                       sample_finish_YYYYMMDDHH, $
+                                       STATION_OBJ_ID = station_obj_id)
+  sample_t1_1 = (qcdb_ti - prev_hours_wrie) > 0
+  sample_num_hours = qcdb_ti - sample_t1_1 + 1
+  NCDF_VARGET, qcdb_nc_id, $
+               'snow_depth_qc', $
+               snwd_sample_qc, $
+               COUNT = [sample_num_hours, 1], $
+               OFFSET = [sample_t1_1, qcdb_si]
+
+  RETURN
+
+end
+
+PRO SHOW_SNWD_PRCP_DATA, station_obj_id, $
+                         time_str, $
+                         obs_str, $
+                         mdl_str, $
+                         obs_date_Julian, $
+                         duration_hrs_prcp, $
+                         qcdb_nc_id, $
+                         qcdb_ti, $
+                         qcdb_si, $
+                         ndv
+
+  GET_SNWD_DATA_AND_QC, obs_date_Julian, $
+                        duration_hrs_prcp, $
+                        station_obj_id, $
+                        qcdb_nc_id, $
+                        qcdb_ti, $
+                        qcdb_si, $
+                        sample_qc_hrs, $
+                        snwd_sample, $
+                        snwd_sample_qc
+
+  site_str = snwd_sample.station_id + $
+             ' (' + STRCRA(station_obj_id) + ')' + $
+             ' (' + STRCRA(snwd_sample.station_type) + ')'
+
+  PRINT, '    ' + $
+         site_str + ' - ' + $
+         time_str + ' - ' + $
+         ' obs ' + obs_str + ', ' + $
+         ' mdl ' + mdl_str
+
+; Basic logic check - the last snow depth obs we just fetched should be the
+; one we are interested in.
+  if (snwd_sample.obs_value_cm[duration_hrs_prcp] eq ndv) then STOP
+
+; Pad QC data with 9999 for sample data falling outside the database.
+  if (sample_qc_hrs lt (duration_hrs_prcp + 1)) then begin
+      snwd_sample_qc = $
+          [REPLICATE(9999, duration_hrs_prcp + 1 - sample_qc_hrs), $
+           snwd_sample_qc]
+  endif
+  if (snwd_sample_qc[duration_hrs_prcp] eq 0) then STOP ; basic logic check
+
+  prcp_sample = GET_WDB_OBS_PRECIP(JULIAN_TO_YYYYMMDDHH(obs_date_Julian), $
+                                   duration_hrs_prcp, $
+                                   NDV = ndv, $
+                                   STATION_OBJ_ID = station_obj_id)
+
+  prcp_sample_str = STRCRA(prcp_sample.obs_value_mm)
+
+  snwd_sample_str = STRCRA(snwd_sample.obs_value_cm)
+  ind = WHERE(snwd_sample.obs_value_cm eq ndv, count)
+  if (count gt 0) then snwd_sample_str[ind] = '-'
+  ind = WHERE(snwd_sample_qc ne 0, count)
+  if (count gt 0) then $
+      snwd_sample_str[ind] = snwd_sample_str[ind] + $
+                             '(qc=' + STRCRA(snwd_sample_qc[ind]) + ')'
+
+; Get indices of snow depth obs that meet two conditions:
+;   - not a no data value
+;   - has no QC flag set, or is from a time outside the database
+  ok_ind = WHERE((snwd_sample.obs_value_cm[0:duration_hrs_prcp - 1] ne ndv) $
+                 and $
+                 ((snwd_sample_qc[0:duration_hrs_prcp - 1] eq 0) or $
+                  (snwd_sample_qc[0:duration_hrs_prcp - 1] eq 9999)), $
+                 ok_count)
+  if (ok_count eq 0) then begin
+      PRINT, '    WARNING: unable to evaluate this report, probably ' + $
+             'because reference observations were subsequently ' + $
+             'flagged, probably by the gap test.'
+      PRINT, '    Press a key to return and continue the evaluation.'
+      move = GET_KBRD(1)
+      RETURN
+  endif
+
+  ref_snwd_ind = MIN(ok_ind)
+  ref_snwd = snwd_sample.obs_value_cm[ref_snwd_ind]
+  ref_date_Julian = obs_date_Julian - $
+                    DOUBLE(duration_hrs_prcp - ref_snwd_ind) / 24.0D
+  obs_date_str = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
+  ref_date_str = JULIAN_TO_YYYYMMDDHH(ref_date_Julian)
+
+  PRINT, '    depth change ' + $
+         STRCRA(snwd_sample.obs_value_cm[duration_hrs_prcp] - ref_snwd) + $
+         ' cm ' + $
+         '(' + STRCRA(ref_snwd) + ' to ' + $
+         STRCRA(snwd_sample.obs_value_cm[duration_hrs_prcp]) + ', ', $
+         ref_date_str + ' to ' + obs_date_str + '), ' + $
+         'precip amount ' + prcp_sample_str + ' mm'
+
+; Generate a URL for a NSA time series.
+  web_start_date_Julian = obs_date_Julian - $
+                          DOUBLE(duration_hrs_prcp) / 24.0D - $
+                          1.5D
+  web_start_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_start_date_Julian)
+  web_finish_date_Julian = obs_date_Julian + 1.5D
+  web_finish_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_finish_date_Julian)
+  url = 'https://www.nohrsc.noaa.gov/interactive/html/graph.html' + $
+        '?station=' + prcp_sample.station_id + $
+        '&w=800&h=600&o=a&uc=0' + $
+        '&by=' + STRMID(web_start_date_YYYYMMDDHH, 0, 4) + $
+        '&bm=' + STRMID(web_start_date_YYYYMMDDHH, 4, 2) + $
+        '&bd=' + STRMID(web_start_date_YYYYMMDDHH, 6, 2) + $
+        '&bh=' + STRMID(web_start_date_YYYYMMDDHH, 8, 2) + $
+        '&ey=' + STRMID(web_finish_date_YYYYMMDDHH, 0, 4) + $
+        '&em=' + STRMID(web_finish_date_YYYYMMDDHH, 4, 2) + $
+        '&ed=' + STRMID(web_finish_date_YYYYMMDDHH, 6, 2) + $
+        '&eh=' + STRMID(web_finish_date_YYYYMMDDHH, 8, 2) + $
+        '&data=0&units=1&region=us'
+  PRINT, '    time series URL:'
+  PRINT, '    ' + url
+
+; Generate a URL for a map of SWE observations.
+  obs_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
+  width = 1200
+  height = 675
+  dy = 1.0D
+  dx = dy * DOUBLE(width) / DOUBLE(height)
+
+  url = 'https://www.nohrsc.noaa.gov/interactive/html/map.html' + $
+        '?ql=station&zoom=&zoom7.x=16&zoom7.y=10' + $
+        '&loc=Latitude%2CLongitude%3B+City%2CST%3B+or+Station+ID' + $
+        '&var=precip_obs_5_h' + $
+        '&dy=' + STRMID(obs_date_YYYYMMDDHH, 0, 4) + $
+        '&dm=' + STRMID(obs_date_YYYYMMDDHH, 4, 2) + $
+        '&dd=' + STRMID(obs_date_YYYYMMDDHH, 6, 2) + $
+        '&dh=' + STRMID(obs_date_YYYYMMDDHH, 8, 2) + $
+        '&snap=1&o6=1&o9=1&o12=1&lbl=l&o13=1&mode=pan&extents=us' + $
+        '&min_x=' + STRCRA(prcp_sample.longitude - 0.5D * dx) + $
+        '&min_y=' + STRCRA(prcp_sample.latitude - 0.5D * dy) + $
+        '&max_x=' + STRCRA(prcp_sample.longitude + 0.5D * dx) + $
+        '&max_y=' + STRCRA(prcp_sample.latitude + 0.5D * dy) + $
+        '&coord_x=' + STRCRA(prcp_sample.longitude) + $
+        '&coord_y=' + STRCRA(prcp_sample.latitude) + $
+        '&zbox_n=&zbox_s=&zbox_e=&zbox_w=&metric=1&bgvar=dem' + $
+        ;; '&shdvar=shading' + $
+        '&width=' + STRCRA(width) + $
+        '&height=' + STRCRA(height) + $
+        '&nw=' + STRCRA(width) + $
+        '&nh=' + STRCRA(height) + $
+        '&h_o=0&font=0&js=1&uc=0'
+  PRINT, '    observation map URL:'
+  PRINT, '    ' + url
+  PRINT, '    ' + snwd_sample_str
+
+  RETURN
+
+end
+
+
 
 
 
@@ -510,7 +694,9 @@ end
 ; start of the database, and a little before the end of the database,
 ; to accommodate padding set by num_hrs_pad_prev and
 ; num_hrs_pad_post.
-  start_date_YYYYMMDDHH = '2019120100'
+;  start_date_YYYYMMDDHH = '2019100200'
+  start_date_YYYYMMDDHH = '2019112500'
+  start_date_YYYYMMDDHH = '2019122200'
   finish_date_YYYYMMDDHH = '2020060100'
 
   finish_date_Julian = YYYYMMDDHH_TO_JULIAN(finish_date_YYYYMMDDHH)
@@ -595,18 +781,19 @@ end
   if (N_ELEMENTS(qc_test_names) ne N_ELEMENTS(qc_test_bits)) then STOP
 
 ; Produce false alarm debugging information for a specific test.
-  debug_test_name = 'streak'
-  ;; debug_test_name = 'world_record_increase_exceedance'
-  ;; debug_test_name = 'temperature_consistency'
-  ;; debug_test_name = 'snowfall_consistency'
+  ;; eval_test_name = 'streak'
+  ;; eval_test_name = 'world_record_increase_exceedance'
+  ;; eval_test_name = 'temperature_consistency'
+  ;; eval_test_name = 'snowfall_consistency'
+  eval_test_name = 'precip_consistency'
 
-  debug_test_ind = !NULL
+  eval_test_ind = !NULL
   ti = 0
   for tc = 0, N_ELEMENTS(qc_test_names) - 1 do begin
       if (qc_test_names[tc] eq 'naught') then CONTINUE
       if (qc_test_names[tc] eq 'anomaly') then CONTINUE
       if (qc_test_names[tc] eq 'rate') then CONTINUE
-      if (qc_test_names[tc] eq debug_test_name) then debug_test_ind = ti
+      if (qc_test_names[tc] eq eval_test_name) then eval_test_ind = ti
       ti++
   endfor
 
@@ -836,345 +1023,353 @@ end
               ;;     STOP
               ;; endif
 
-              if (snwd_qc_checked[eval_window_ti, qcdb_si] ne 0) then begin
+              if (snwd_qc_checked[eval_window_ti, qcdb_si] eq 0) then CONTINUE
 
-;                 Decode QC value.
-                  qc_str = ''
-                  qc_val = snwd_qc[eval_window_ti, qcdb_si]
-                  qc_val_str = STRING(qc_val, FORMAT = '(B)')
+;             Decode QC value.
+              qc_str = ''
+              qc_val = snwd_qc[eval_window_ti, qcdb_si]
+              qc_val_str = STRING(qc_val, FORMAT = '(B)')
+              
+;             Replace whitespace padding in qc_val_str with zero padding for
+;             higher bits.
+              STR_REPLACE, qc_val_str, ' ', '0'
 
-;                 Replace whitespace padding in qc_val_str with zero padding
-;                 for higher bits.
-                  STR_REPLACE, qc_val_str, ' ', '0'
-
-;                 Initialize inventories for flags.
-                  if NOT(ISA(inventory)) then begin
-;                     Count QC tests and initialize test inventories.
-                      inv_ind = 0
-                      num_qc_tests = 0
-                      for tc = 0, N_ELEMENTS(qc_test_names) - 1 do begin
-                          if (qc_test_names[tc] eq 'naught') then CONTINUE
-                          if (qc_test_names[tc] eq 'anomaly') then CONTINUE
-                          if (qc_test_names[tc] eq 'rate') then CONTINUE
-                          num_qc_tests++
-                      endfor
-                      inventory = LONARR(num_qc_tests)
-                      ;; inventory_multiple = LONARR(num_qc_tests)
-                      inventory_fa = LONARR(num_qc_tests)
-                      inventory_pfa = LONARR(num_qc_tests)
-                      inventory_hit = LONARR(num_qc_tests)
-                      solo_inventory = LONARR(num_qc_tests)
-                      solo_inventory_fa = LONARR(num_qc_tests)
-                      solo_inventory_pfa = LONARR(num_qc_tests)
-                      solo_inventory_hit = LONARR(num_qc_tests)
-                      count_fa = 0
-                      count_pfa = 0
-                      count_hit = 0
-                  endif
+;             Initialize inventories for flags.
+              if NOT(ISA(inventory)) then begin
+;                 Count QC tests and initialize test inventories.
                   inv_ind = 0
-                  this_inventory = LONARR(num_qc_tests)
+                  num_qc_tests = 0
                   for tc = 0, N_ELEMENTS(qc_test_names) - 1 do begin
                       if (qc_test_names[tc] eq 'naught') then CONTINUE
                       if (qc_test_names[tc] eq 'anomaly') then CONTINUE
                       if (qc_test_names[tc] eq 'rate') then CONTINUE
-                      qc_bit_str = STRMID(qc_val_str, qc_test_bits[tc], 1, $
-                                          /REVERSE_OFFSET)
-                      if (qc_str ne '') then $
-                          qc_str = qc_str + '|' + qc_bit_str $
-                      else $
-                          qc_str = qc_bit_str
-                      if (qc_bit_str eq '1') then $
-                          this_inventory[inv_ind] = this_inventory[inv_ind] + 1
-                      inv_ind++
+                      num_qc_tests++
                   endfor
-                  
-;                 Identify "solo" flags. If any test is the only one
-;                 to flag a report, note this using solo_ti and
-;                 solo_inventory.
-
-                  solo_ti = -1
-                  for tc = 0, num_qc_tests - 1 do begin
-                      if ((this_inventory[tc] eq 1) and $
-                          (TOTAL(this_inventory) eq 1)) then begin
-                          solo_ti = tc
-                          solo_inventory[tc] = solo_inventory[tc] + 1
-                      endif
-                  endfor
-
-;                 Increment the full inventory
-                  inventory = inventory + this_inventory
-
-                  if (snwd_qc[eval_window_ti, qcdb_si] ne 0) then begin
-
-;                     This observation has been flagged by at least one
-;                     test. Use abs_diff to decide if this flag is a likely
-;                     false alarm, possible false alarm, or hit. A "hit" means
-;                     that the observation has been properly flagged.
-
-;                     Judge the QC flag/s based on the difference
-;                     between the observed and modeld (SNODAS) snow
-;                     depth.
-
-                      case 1 of
-                          (abs_diff[wdb_si] ge 0.0) and $
-                              (abs_diff[wdb_si] lt abs_diff_thresh_cm[0]): $
-                              begin
-                              ; likely false alarm
-                              inventory_fa = inventory_fa + this_inventory
-                              if (solo_ti ne -1) then $
-                                  solo_inventory_fa[solo_ti] = $
-                                  solo_inventory_fa[solo_ti] + 1
-
-                              if (ISA(debug_test_ind) and $
-                                  (this_inventory[debug_test_ind] eq 1) and $
-                                  (debug_test_name eq 'streak')) then begin
-
-                                  prev_hours = 360
-
-                                  PRINT, '"' + debug_test_name + $
-                                         '" test likely false alarm:'
-                                  PRINT, '  ' + $
-                                         site_str + '(' + $
-                                         STRCRA(station_obj_id) + $
-                                         ') - ' + $
-                                         time_str + ' -' + $
-                                         ' obs ' + obs_str + ', ' + $
-                                         ' mdl ' + mdl_str
-                                  PRINT, '  qcdb_si = ' + $
-                                         STRCRA(qcdb_si) + $
-                                         ', qcdb_ti = ' + $
-                                         STRCRA(qcdb_ti)
-                                      ;; PRINT, '  ', $
-                                      ;;        snwd_qc[0:$
-                                      ;;                num_hrs_pad_prev + $
-                                      ;;                num_hrs_pad_post, $
-                                      ;;                qcdb_si]
-                                      ; Get obs and QC for 15 days.
-                                  ;; obs_date_Julian = $
-                                  ;;     qcdb_time_start_Julian + $
-                                  ;;     DOUBLE(qcdb_ti) / 24.0D
-                                  sample_start_date_Julian = $
-                                      obs_date_Julian - $
-                                      DOUBLE(prev_hours) / 24.0D
-                                  sample_start_YYYYMMDDHH = $
-                                      JULIAN_TO_YYYYMMDDHH( $
-                                      sample_start_date_Julian)
-                                  sample_finish_YYYYMMDDHH = $
-                                      JULIAN_TO_YYYYMMDDHH( $
-                                      obs_date_Julian)
-                                  snwd_sample = $
-                                      GET_WDB_OBS_SNOW_DEPTH_FOR_RANGE( $
-                                      sample_start_YYYYMMDDHH, $
-                                      sample_finish_YYYYMMDDHH, $
-                                      STATION_OBJ_ID = station_obj_id)
-                                  sample_t1_1 = $
-                                      (qcdb_ti - prev_hours) > 0
-                                  sample_num_hours = $
-                                      qcdb_ti - sample_t1_1 + 1
-                                  NCDF_VARGET, qcdb_nc_id, $
-                                               'snow_depth_qc', $
-                                               snwd_sample_qc, $
-                                               COUNT = [sample_num_hours, $
-                                                        1], $
-                                               OFFSET = [sample_t1_1, $
-                                                         qcdb_si]
-                                      ;if (sample_t1_1 gt 0) then STOP
-                                  snwd_sample_str = $
-                                      STRCRA(snwd_sample.obs_value_cm)
-                                  ind = WHERE(snwd_sample.obs_value_cm eq $
-                                              ndv, count)
-                                  if (count gt 0) then $
-                                      snwd_sample_str[ind] = '-'
-                                      ;; print, snwd_sample_str
-                                      ;; foo = snwd_sample_str ne '-'
-                                  ind = WHERE(snwd_sample_qc ne 0, count)
-                                  if (count gt 0) then $
-                                      snwd_sample_str[ind] = '-'
-                                  if (sample_num_hours gt prev_hours) then $
-                                      begin
-                                      PRINT, snwd_sample_str
-                                      PRINT, obs_str, ' (', $
-                                             snwd_sample.station_type + ')'
-                                  endif
-                              endif
-
-                              if (ISA(debug_test_ind) and $
-                                  (this_inventory[debug_test_ind] eq 1) and $
-                                  (debug_test_name eq $
-                                   'world_record_increase_exceedance')) $
-                              then begin
-
-                                  PRINT, '"' + debug_test_name + $
-                                         '" test likely false alarm:'
-
-                                  prev_hours_wrie = 24
-                                  SHOW_SNWD_WRIE_DATA, site_str, $
-                                                       time_str, $
-                                                       obs_str, $
-                                                       mdl_str, $
-                                                       obs_date_Julian, $
-                                                       prev_hours_wrie, $
-                                                       station_obj_id, $
-                                                       qcdb_nc_id, $
-                                                       qcdb_ti, $
-                                                       qcdb_si, $
-                                                       ndv, $
-                                                       snwd_sample, $
-                                                       snwd_sample_qc
-
-                              endif
-
-
-                              if (ISA(debug_test_ind) and $
-                                  (this_inventory[debug_test_ind] eq 1) and $
-                                  (debug_test_name eq $
-                                   'temperature_consistency')) $
-                              then begin
-
-                                  PRINT, '"' + debug_test_name + $
-                                         '" test likely false alarm:'
-
-                                  prev_hours_tair = 24
-                                  SHOW_SNWD_TAIR_DATA, site_str, $
-                                                       time_str, $
-                                                       obs_str, $
-                                                       mdl_str, $
-                                                       obs_date_Julian, $
-                                                       prev_hours_tair, $
-                                                       station_obj_id, $
-                                                       qcdb_nc_id, $
-                                                       qcdb_ti, $
-                                                       qcdb_si, $
-                                                       ndv, $
-                                                       snwd_sample, $
-                                                       snwd_sample_qc
-
-                              endif
-
-                              if (ISA(debug_test_ind) and $
-                                  (this_inventory[debug_test_ind] eq 1) and $
-                                  (debug_test_name eq $
-                                   'snowfall_consistency')) $
-                              then begin
-
-                                  prev_hours = 24
-
-                                  PRINT, '"' + debug_test_name + $
-                                         '" test likely false alarm:'
-                                  PRINT, '  ' + $
-                                         site_str + $
-                                         '(' + STRCRA(station_obj_id) + $
-                                         ') - ' + $
-                                         time_str + ' -' + $
-                                         ' obs ' + obs_str_in + ', ' + $
-                                         ' mdl ' + mdl_str_in
-                                  PRINT, '  qcdb_si = ' + $
-                                         STRCRA(qcdb_si) + $
-                                         ', qcdb_ti = ' + $
-                                         STRCRA(qcdb_ti)
-                                  sample_start_date_Julian = $
-                                      obs_date_Julian - $
-                                      DOUBLE(prev_hours) / 24.0D
-                                  sample_start_YYYYMMDDHH = $
-                                      JULIAN_TO_YYYYMMDDHH( $
-                                      sample_start_date_Julian)
-                                  sample_finish_YYYYMMDDHH = $
-                                      JULIAN_TO_YYYYMMDDHH( $
-                                      obs_date_Julian)
-                                  snwd_sample = $
-                                      GET_WDB_OBS_SNOW_DEPTH_FOR_RANGE( $
-                                      sample_start_YYYYMMDDHH, $
-                                      sample_finish_YYYYMMDDHH, $
-                                      STATION_OBJ_ID = station_obj_id)
-                                  sample_t1_1 = $
-                                      (qcdb_ti - prev_hours) > 0
-                                  sample_num_hours = $
-                                      qcdb_ti - sample_t1_1 + 1
-                                  NCDF_VARGET, qcdb_nc_id, $
-                                               'snow_depth_qc', $
-                                               snwd_sample_qc, $
-                                               COUNT = [sample_num_hours, $
-                                                        1], $
-                                               OFFSET = [sample_t1_1, $
-                                                         qcdb_si]
-                                      ;if (sample_t1_1 gt 0) then STOP
-                                  snwd_sample_str = $
-                                      STRCRA(snwd_sample.obs_value_cm / 2.54)
-                                  ind = WHERE(snwd_sample.obs_value_cm eq $
-                                              ndv, count)
-                                  if (count gt 0) then $
-                                      snwd_sample_str[ind] = '-'
-                                  ind = WHERE(snwd_sample_qc ne 0, count)
-                                  if (count gt 0) then $
-                                      snwd_sample_str[ind] = '-'
-                                  if (sample_num_hours gt prev_hours) then $
-                                      begin
-                                      PRINT, snwd_sample_str
-                                      PRINT, obs_str_in, ' (', $
-                                             snwd_sample.station_type + ')'
-                                  endif
-                                  move = GET_KBRD(1)
-
-                              endif
-
-                              count_fa++
-
-                          end
-                          
-                          (abs_diff[wdb_si] ge abs_diff_thresh_cm[0]) and $
-                              (abs_diff[wdb_si] lt abs_diff_thresh_cm[1]): begin
-                              ; possible false alarm
-                              inventory_pfa = inventory_pfa + this_inventory
-                              if (solo_ti ne -1) then $
-                                  solo_inventory_pfa[solo_ti] = $
-                                  solo_inventory_pfa[solo_ti] + 1
-
-                              if (ISA(debug_test_ind) and $
-                                  (this_inventory[debug_test_ind] eq 1) and $
-                                  (debug_test_name eq $
-                                   'world_record_increase_exceedance')) $
-                              then begin
-
-                                  PRINT, '"' + debug_test_name + $
-                                         '" test possible false alarm:'
-
-                                  prev_hours_wrie = 24
-                                  SHOW_SNWD_WRIE_DATA, site_str, $
-                                                       time_str, $
-                                                       obs_str, $
-                                                       mdl_str, $
-                                                       obs_date_Julian, $
-                                                       prev_hours_wrie, $
-                                                       station_obj_id, $
-                                                       qcdb_nc_id, $
-                                                       qcdb_ti, $
-                                                       qcdb_si, $
-                                                       ndv, $
-                                                       snwd_sample, $
-                                                       snwd_sample_qc
-
-                              endif
-
-                              count_pfa++
-
-                          end
-                         
-                          else: begin
-                              ; hit
-                              inventory_hit = inventory_hit + this_inventory
-                              if (solo_ti ne -1) then $
-                                  solo_inventory_hit[solo_ti] = $
-                                  solo_inventory_hit[solo_ti] + 1
-                              count_hit++
-                          end
-                      endcase
-
-                  endif
-
+                  inventory = LONARR(num_qc_tests)
+                  ;; inventory_multiple = LONARR(num_qc_tests)
+                  inventory_fa = LONARR(num_qc_tests)
+                  inventory_pfa = LONARR(num_qc_tests)
+                  inventory_hit = LONARR(num_qc_tests)
+                  solo_inventory = LONARR(num_qc_tests)
+                  solo_inventory_fa = LONARR(num_qc_tests)
+                  solo_inventory_pfa = LONARR(num_qc_tests)
+                  solo_inventory_hit = LONARR(num_qc_tests)
+                  count_fa = 0
+                  count_pfa = 0
+                  count_hit = 0
               endif
+              inv_ind = 0
+              this_inventory = LONARR(num_qc_tests)
+              for tc = 0, N_ELEMENTS(qc_test_names) - 1 do begin
+                  if (qc_test_names[tc] eq 'naught') then CONTINUE
+                  if (qc_test_names[tc] eq 'anomaly') then CONTINUE
+                  if (qc_test_names[tc] eq 'rate') then CONTINUE
+                  qc_bit_str = STRMID(qc_val_str, qc_test_bits[tc], 1, $
+                                      /REVERSE_OFFSET)
+                  if (qc_str ne '') then $
+                      qc_str = qc_str + '|' + qc_bit_str $
+                  else $
+                      qc_str = qc_bit_str
+                  if (qc_bit_str eq '1') then $
+                      this_inventory[inv_ind] = this_inventory[inv_ind] + 1
+                  inv_ind++
+              endfor
+                  
+;             Identify "solo" flags. If any test is the only one to flag a
+;             report, note this using solo_ti and solo_inventory.
+
+              solo_ti = -1
+              for tc = 0, num_qc_tests - 1 do begin
+                  if ((this_inventory[tc] eq 1) and $
+                      (TOTAL(this_inventory) eq 1)) then begin
+                      solo_ti = tc
+                      solo_inventory[tc] = solo_inventory[tc] + 1
+                  endif
+              endfor
+
+;             Increment the full inventory
+              inventory = inventory + this_inventory
+
+              if (snwd_qc[eval_window_ti, qcdb_si] eq 0) then CONTINUE
+
+;             This observation has been flagged by at least one test. Use
+;             abs_diff to decide if this flag is a likely false alarm,
+;             possible false alarm, or hit. A "hit" means that the observation
+;             has been properly flagged.
+
+;             Judge the QC flag/s based on the difference between the observed
+;             and modeld (SNODAS) snow depth.
+
+              case 1 of
+                  (abs_diff[wdb_si] ge 0.0) and $
+                      (abs_diff[wdb_si] lt abs_diff_thresh_cm[0]): $
+                      begin
+                      ; likely false alarm
+                      inventory_fa = inventory_fa + this_inventory
+                      if (solo_ti ne -1) then $
+                          solo_inventory_fa[solo_ti] = $
+                          solo_inventory_fa[solo_ti] + 1
+
+
+                      if (ISA(eval_test_ind) and $
+                          (this_inventory[eval_test_ind] eq 1) and $
+                          (eval_test_name eq 'streak')) then begin
+
+                          prev_hours = 360
+
+                          PRINT, '"' + eval_test_name + $
+                                 '" test likely false alarm:'
+                          PRINT, '  ' + $
+                                 site_str + '(' + $
+                                 STRCRA(station_obj_id) + $
+                                 ') - ' + $
+                                 time_str + ' -' + $
+                                 ' obs ' + obs_str + ', ' + $
+                                 ' mdl ' + mdl_str
+                          PRINT, '  qcdb_si = ' + $
+                                 STRCRA(qcdb_si) + $
+                                 ', qcdb_ti = ' + $
+                                 STRCRA(qcdb_ti)
+                          sample_start_date_Julian = $
+                              obs_date_Julian - $
+                              DOUBLE(prev_hours) / 24.0D
+                          sample_start_YYYYMMDDHH = $
+                              JULIAN_TO_YYYYMMDDHH( $
+                              sample_start_date_Julian)
+                          sample_finish_YYYYMMDDHH = $
+                              JULIAN_TO_YYYYMMDDHH( $
+                              obs_date_Julian)
+                          snwd_sample = $
+                              GET_WDB_OBS_SNOW_DEPTH_FOR_RANGE( $
+                              sample_start_YYYYMMDDHH, $
+                              sample_finish_YYYYMMDDHH, $
+                              STATION_OBJ_ID = station_obj_id)
+                          sample_t1_1 = $
+                              (qcdb_ti - prev_hours) > 0
+                          sample_qc_hrs = $
+                              qcdb_ti - sample_t1_1 + 1
+                          NCDF_VARGET, qcdb_nc_id, $
+                                       'snow_depth_qc', $
+                                       snwd_sample_qc, $
+                                       COUNT = [sample_qc_hrs, $
+                                                1], $
+                                       OFFSET = [sample_t1_1, $
+                                                 qcdb_si]
+                          snwd_sample_str = $
+                              STRCRA(snwd_sample.obs_value_cm)
+                          ind = WHERE(snwd_sample.obs_value_cm eq $
+                                      ndv, count)
+                          if (count gt 0) then $
+                              snwd_sample_str[ind] = '-'
+                          ind = WHERE(snwd_sample_qc ne 0, count)
+                          if (count gt 0) then $
+                              snwd_sample_str[ind] = '-'
+                          if (sample_qc_hrs gt prev_hours) then $
+                              begin
+                              PRINT, snwd_sample_str
+                              PRINT, obs_str, ' (', $
+                                     snwd_sample.station_type + ')'
+                          endif
+                      endif
+
+                      if (ISA(eval_test_ind) and $
+                          (this_inventory[eval_test_ind] eq 1) and $
+                          (eval_test_name eq $
+                           'world_record_increase_exceedance')) $
+                      then begin
+
+                          PRINT, '"' + eval_test_name + $
+                                 '" test likely false alarm:'
+
+                          prev_hours_wrie = 24
+                          SHOW_SNWD_WRIE_DATA, site_str, $
+                                               time_str, $
+                                               obs_str, $
+                                               mdl_str, $
+                                               obs_date_Julian, $
+                                               prev_hours_wrie, $
+                                               station_obj_id, $
+                                               qcdb_nc_id, $
+                                               qcdb_ti, $
+                                               qcdb_si, $
+                                               ndv, $
+                                               snwd_sample, $
+                                               snwd_sample_qc
+
+                      endif
+
+                      if (ISA(eval_test_ind) and $
+                          (this_inventory[eval_test_ind] eq 1) and $
+                          (eval_test_name eq $
+                           'temperature_consistency')) $
+                      then begin
+
+                          PRINT, '"' + eval_test_name + $
+                                 '" test likely false alarm:'
+
+                          prev_hours_tair = 24
+                          SHOW_SNWD_TAIR_DATA, site_str, $
+                                               time_str, $
+                                               obs_str, $
+                                               mdl_str, $
+                                               obs_date_Julian, $
+                                               prev_hours_tair, $
+                                               station_obj_id, $
+                                               qcdb_nc_id, $
+                                               qcdb_ti, $
+                                               qcdb_si, $
+                                               ndv, $
+                                               snwd_sample, $
+                                               snwd_sample_qc
+
+                      endif
+
+                      if (ISA(eval_test_ind) and $
+                          (this_inventory[eval_test_ind] eq 1) and $
+                          (eval_test_name eq $
+                           'snowfall_consistency')) $
+                      then begin
+
+                          prev_hours = 24
+
+                          PRINT, '"' + eval_test_name + $
+                                 '" test likely false alarm:'
+                          PRINT, '  ' + $
+                                 site_str + $
+                                 '(' + STRCRA(station_obj_id) + $
+                                 ') - ' + $
+                                 time_str + ' -' + $
+                                 ' obs ' + obs_str_in + ', ' + $
+                                 ' mdl ' + mdl_str_in
+                          PRINT, '  qcdb_si = ' + $
+                                 STRCRA(qcdb_si) + $
+                                 ', qcdb_ti = ' + $
+                                 STRCRA(qcdb_ti)
+                          sample_start_date_Julian = $
+                              obs_date_Julian - $
+                              DOUBLE(prev_hours) / 24.0D
+                          sample_start_YYYYMMDDHH = $
+                              JULIAN_TO_YYYYMMDDHH( $
+                              sample_start_date_Julian)
+                          sample_finish_YYYYMMDDHH = $
+                              JULIAN_TO_YYYYMMDDHH( $
+                              obs_date_Julian)
+                          snwd_sample = $
+                              GET_WDB_OBS_SNOW_DEPTH_FOR_RANGE( $
+                              sample_start_YYYYMMDDHH, $
+                              sample_finish_YYYYMMDDHH, $
+                              STATION_OBJ_ID = station_obj_id)
+                          sample_t1_1 = $
+                              (qcdb_ti - prev_hours) > 0
+                          sample_qc_hrs = $
+                              qcdb_ti - sample_t1_1 + 1
+                          NCDF_VARGET, qcdb_nc_id, $
+                                       'snow_depth_qc', $
+                                       snwd_sample_qc, $
+                                       COUNT = [sample_qc_hrs, $
+                                                1], $
+                                       OFFSET = [sample_t1_1, $
+                                                 qcdb_si]
+                                      ;if (sample_t1_1 gt 0) then STOP
+                          snwd_sample_str = $
+                              STRCRA(snwd_sample.obs_value_cm / 2.54)
+                          ind = WHERE(snwd_sample.obs_value_cm eq $
+                                      ndv, count)
+                          if (count gt 0) then $
+                              snwd_sample_str[ind] = '-'
+                          ind = WHERE(snwd_sample_qc ne 0, count)
+                          if (count gt 0) then $
+                              snwd_sample_str[ind] = '-'
+                          if (sample_qc_hrs gt prev_hours) then $
+                              begin
+                              PRINT, snwd_sample_str
+                              PRINT, obs_str_in, ' (', $
+                                     snwd_sample.station_type + ')'
+                          endif
+                          move = GET_KBRD(1)
+                          
+                      endif
+
+                      count_fa++
+
+                  end
+                          
+                  (abs_diff[wdb_si] ge abs_diff_thresh_cm[0]) and $
+                      (abs_diff[wdb_si] lt abs_diff_thresh_cm[1]): begin
+                              ; possible false alarm
+                      inventory_pfa = inventory_pfa + this_inventory
+                      if (solo_ti ne -1) then $
+                          solo_inventory_pfa[solo_ti] = $
+                          solo_inventory_pfa[solo_ti] + 1
+
+                      if (ISA(eval_test_ind) and $
+                          (this_inventory[eval_test_ind] eq 1) and $
+                          (eval_test_name eq $
+                           'world_record_increase_exceedance')) $
+                      then begin
+
+                          PRINT, '"' + eval_test_name + $
+                                 '" test possible false alarm:'
+
+                          prev_hours_wrie = 24
+                          SHOW_SNWD_WRIE_DATA, site_str, $
+                                               time_str, $
+                                               obs_str, $
+                                               mdl_str, $
+                                               obs_date_Julian, $
+                                               prev_hours_wrie, $
+                                               station_obj_id, $
+                                               qcdb_nc_id, $
+                                               qcdb_ti, $
+                                               qcdb_si, $
+                                               ndv, $
+                                               snwd_sample, $
+                                               snwd_sample_qc
+
+                      endif
+
+                      if (ISA(eval_test_ind) and $
+                          (this_inventory[eval_test_ind] eq 1) and $
+                          (eval_test_name eq 'precip_consistency')) $
+                      then begin
+
+                          PRINT, '  "' + eval_test_name + $
+                                 '" test possible false alarm:'
+
+                          duration_hrs_prcp = 24
+                          SHOW_SNWD_PRCP_DATA, station_obj_id, $
+                                               time_str, $
+                                               obs_str, $
+                                               mdl_str, $
+                                               obs_date_Julian, $
+                                               duration_hrs_prcp, $
+                                               qcdb_nc_id, $
+                                               qcdb_ti, $
+                                               qcdb_si, $
+                                               ndv
+
+                          PRINT, '  press a key' & move = GET_KBRD(1)
+                          if (STRLOWCASE(move) eq 's') then GOTO, NEXT_DATE
+
+                      endif
+
+                      count_pfa++
+
+                  end
+                         
+                  else: begin
+                                ; hit
+                      inventory_hit = inventory_hit + this_inventory
+                      if (solo_ti ne -1) then $
+                          solo_inventory_hit[solo_ti] = $
+                          solo_inventory_hit[solo_ti] + 1
+                      count_hit++
+                  end
+              endcase
 
           endfor
 
+NEXT_DATE:
           date_Julian = date_Julian + DOUBLE(cluster_gap_hours) / 24.0D
 
       endfor
