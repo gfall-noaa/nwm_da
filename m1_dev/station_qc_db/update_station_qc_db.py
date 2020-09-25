@@ -1734,15 +1734,27 @@ def main():
 
     streak_value_threshold = 0.1
 
-    # Switch for flagging low values in tests involving snow depth change.
+    # The switches below should all be set to False if you never want to flag
+    # observations that are not the primay subject of a particular test. Any
+    # of these, if set to True, will cause secondary or reference observations
+    # to be flagged, often hours or days after they have themselves been
+    # initially the subject of the corresponding test.
+  
+    # Switches for flagging low values in tests involving snow depth change.
     flag_sd_change_wre_low_value = False
     flag_sd_change_tair_low_value = False # Affects spatial test as well.
     flag_sd_change_snfl_low_value = False
     flag_sd_change_prcp_low_value = False # Affects ratio test as well.
 
-    # Switch for flagging low values in tests involving swe change.
+    # Switch for flagging secondary values in the snow depth gap test.
+    flag_snwd_gap_sec_values = False
+    
+    # Switches for flagging low values in tests involving SWE change.
     flag_swe_change_wre_low_value = False
     flag_swe_change_prcp_low_value = False
+
+    # Switch for flagging secondary values in the SWE gap test.
+    flag_swe_gap_sec_values = False
 
     # Debugging.
     debug_station_id = None
@@ -2018,7 +2030,7 @@ def main():
                                   obs_datetime,
                                   scratch_dir=args.pkl_dir,
                                   verbose=args.verbose,
-                                  read_pkl=False,
+                                  read_pkl=True,
                                   prev_obs_air_temp=wdb_prev_tair)
 
         # Compare time series for a randomly chosen station to verify that
@@ -2732,9 +2744,10 @@ def main():
                                               verbose=args.verbose)
 
                     if ts_flag_ind is None:
-                        print('ERROR: snow depth gap check failed ' +
-                              'for station {} '.format(site_snwd_station_id) +
-                              '({}).'.format(site_snwd_obj_id))
+                        logger.error('Snow depth gap check failed ' +
+                                     'for station {} '.
+                                     format(site_snwd_station_id) +
+                                     '({}).'.format(site_snwd_obj_id))
                         qcdb.close()
                         sys.exit(1)
 
@@ -2777,14 +2790,12 @@ def main():
                                          'time {}.'.
                                          format(flagged_obs_datetime))
 
-                            # Make sure the value is not flagged.
+                            # Make sure the value is not already flagged.
                             if qcdb_snwd_qc_flag[qcdb_si, ts_ind_db] & \
                                (1 << qc_bit) != 0:
-                                print('ERROR: (PROGRAMMING) ' +
-                                      'reference value was ' +
-                                      'previously flagged and should ' +
-                                      'not have been used.',
-                                      file=sys.stderr)
+                                logger.error('(PROGRAMMING) Value was ' +
+                                             'previously flagged and ' +
+                                             'should not have been used.')
                                 qcdb.close()
                                 sys.exit(1)
 
@@ -2800,49 +2811,35 @@ def main():
                                                                ts_ind_db] &
                                              (1 << qc_bit)))
 
-                            # Turn on the QC bit for this value.
-                            qcdb_snwd_qc_flag[qcdb_si, ts_ind_db] = \
-                                qcdb_snwd_qc_flag[qcdb_si,ts_ind_db] | \
-                                (1 << qc_bit)
+                            if ts_ind_db == qcdb_ti or \
+                               flag_snwd_gap_sec_values is True:
 
-                            # Identify the previous value as having been
-                            # through this check, even though this is
-                            # only indirectly the case. Most likely it has
-                            # already been tested, and passed, but in the
-                            # current context it is being flagged.
-                            # if debug_this_station:
-                            #     print('***** qc_checked future-before: ' +
-                            #           '{}, {}'.
-                            #           format(ts_ind_db,
-                            #                  qcdb_snwd_qc_chkd[qcdb_si,
-                            #                                    ts_ind_db] & \
-                            #                  (1 << qc_bit)))
-                            qcdb_snwd_qc_chkd[qcdb_si, ts_ind_db] = \
-                                qcdb_snwd_qc_chkd[qcdb_si, ts_ind_db] \
-                                | (1 << qc_bit)
-                            # if debug_this_station:
-                            #     print('***** qc_checked future-after: {}'.
-                            #           format(qcdb_snwd_qc_chkd[qcdb_si,
-                            #                                    ts_ind_db] & \
-                            #                  (1 << qc_bit)))
+                                # Turn on the QC bit for this value.
+                                qcdb_snwd_qc_flag[qcdb_si, ts_ind_db] = \
+                                    qcdb_snwd_qc_flag[qcdb_si,ts_ind_db] | \
+                                    (1 << qc_bit)
 
-                            num_flagged_sd_gap_this_time += 1
-                            num_flagged_sd_gap += 1
+                                # Identify the value as having been
+                                # through this check, even though this is
+                                # only indirectly the case when
+                                # ts_ind_db != qcdb_ti and
+                                # flag_snwd_gap_sec_values is True.
+                                # In that situation, most likely the
+                                # observation has already been tested, and
+                                # passed, but in the current context it is
+                                # being flagged.
+                                qcdb_snwd_qc_chkd[qcdb_si, ts_ind_db] = \
+                                    qcdb_snwd_qc_chkd[qcdb_si, ts_ind_db] \
+                                    | (1 << qc_bit)
+
+                                num_flagged_sd_gap_this_time += 1
+                                num_flagged_sd_gap += 1
 
                     # Turn on the QC checked bit for this test, regardless of
                     # whether the observation was flagged.
-                    # if debug_this_station:
-                    #     print('***** qc_checked before: {}, {}'.
-                    #           format(qcdb_ti,
-                    #                  qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & \
-                    #                  (1 << qc_bit)))
                     qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] = \
                         qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] \
                         | (1 << qc_bit)
-                    # if debug_this_station:
-                    #     print('***** qc_checked after: {}'.
-                    #           format(qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & \
-                    #                  (1 << qc_bit)))
 
                 else:
 
@@ -4408,13 +4405,12 @@ def main():
                                          'time {}.'.
                                          format(flagged_obs_datetime))
 
-                            # Make sure the value is not flagged.
+                            # Make sure the value is not already flagged.
                             if qcdb_swe_qc_flag[qcdb_si, ts_ind_db] & \
                                (1 << qc_bit) != 0:
-                                logger.error('(PROGRAMMING) ' +
-                                             'reference value was ' +
-                                             'previously flagged and should ' +
-                                             'not have been used.')
+                                logger.error('(PROGRAMMING) Value was ' +
+                                             'previously flagged and ' +
+                                             'should not have been used.')
                                 qcdb.close()
                                 sys.exit(1)
 
@@ -4430,49 +4426,35 @@ def main():
                                                               ts_ind_db] &
                                              (1 << qc_bit)))
 
-                            # Turn on the QC bit for this value.
-                            qcdb_swe_qc_flag[qcdb_si, ts_ind_db] = \
-                                qcdb_swe_qc_flag[qcdb_si,ts_ind_db] | \
-                                (1 << qc_bit)
-                            
-                            # Identify the previous value as having been
-                            # through this check, even though this is
-                            # only indirectly the case. Most likely it has
-                            # already been tested, and passed, but in the
-                            # current context it is being flagged.
-                            # if debug_this_station:
-                            #     print('***** qc_checked future-before: ' +
-                            #           '{}, {}'.
-                            #           format(ts_ind_db,
-                            #                  qcdb_swe_qc_chkd[qcdb_si,
-                            #                                    ts_ind_db] & \
-                            #                  (1 << qc_bit)))
-                            qcdb_swe_qc_chkd[qcdb_si, ts_ind_db] = \
-                                qcdb_swe_qc_chkd[qcdb_si, ts_ind_db] \
-                                | (1 << qc_bit)
-                            # if debug_this_station:
-                            #     print('***** qc_checked future-after: {}'.
-                            #           format(qcdb_swe_qc_chkd[qcdb_si,
-                            #                                    ts_ind_db] & \
-                            #                  (1 << qc_bit)))
+                            if ts_ind_db == qcdb_ti or \
+                               flag_swe_gap_sec_values is True:
 
-                            num_flagged_swe_gap_this_time += 1
-                            num_flagged_swe_gap += 1
+                                # Turn on the QC bit for this value.
+                                qcdb_swe_qc_flag[qcdb_si, ts_ind_db] = \
+                                    qcdb_swe_qc_flag[qcdb_si,ts_ind_db] | \
+                                    (1 << qc_bit)
+
+                                # Identify the value as having been
+                                # through this check, even though this is
+                                # only indirectly the case when
+                                # ts_ind_db != qcdb_ti and
+                                # flag_swe_gap_sec_values is True.
+                                # In that situation, most likely the
+                                # observation has already been tested, and
+                                # passed, but in the current context it is
+                                # being flagged.
+                                qcdb_swe_qc_chkd[qcdb_si, ts_ind_db] = \
+                                    qcdb_swe_qc_chkd[qcdb_si, ts_ind_db] \
+                                    | (1 << qc_bit)
+
+                                num_flagged_swe_gap_this_time += 1
+                                num_flagged_swe_gap += 1
 
                     # Turn on the QC checked bit for this test, regardless of
                     # whether the observation was flagged.
-                    # if debug_this_station:
-                    #     print('***** qc_checked before: {}, {}'.
-                    #           format(qcdb_ti,
-                    #                  qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & \
-                    #                  (1 << qc_bit)))
                     qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] = \
                         qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] \
                         | (1 << qc_bit)
-                    # if debug_this_station:
-                    #     print('***** qc_checked after: {}'.
-                    #           format(qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & \
-                    #                  (1 << qc_bit)))
 
                 else:
 
