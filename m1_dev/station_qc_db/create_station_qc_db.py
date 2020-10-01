@@ -139,9 +139,16 @@ def main():
               '_to_' + \
               opt.finish_datetime.strftime('%Y%m%d%H') + \
               '.nc'
+
+    created_datetime = dt.datetime.utcnow()
     nc_out = Dataset(os.path.join(opt.db_dir, db_file),
                      'w', format='NETCDF4', clobber=True)
 
+    # Define the created_datetime attribute.
+    date_format = '%Y-%m-%d %H:%M:%S UTC'
+    nc_out.setncattr_string('created_datetime',
+                            created_datetime.strftime(date_format))
+    
     # Define the "last update datetime" attribute.
     nc_out.setncattr_string('last_datetime_updated',
                             '1970-01-01 00:00:00 UTC')
