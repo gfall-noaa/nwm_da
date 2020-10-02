@@ -761,19 +761,19 @@ end
   num_hrs_pad_prev = 2
   num_hrs_pad_post = 2
   step_size_days = 0.0
-  full_run = 1
+  ;; full_run = 1
 
   if ((num_hrs_pad_prev + num_hrs_pad_post) ge cluster_gap_hours) then begin
       ERR_MSG, 'Invalid padding values.'
       STOP
   endif
-  sav_file = 'eval_swe_qc_' + $
-             start_date_YYYYMMDDHH + '_to_' + finish_date_YYYYMMDDHH + '.sav'
-  if NOT(full_run) then begin
-      RESTORE, sav_file
-      full_run = 0
-      GOTO, SKIP
-  endif
+  ;; sav_file = 'eval_swe_qc_' + $
+  ;;            start_date_YYYYMMDDHH + '_to_' + finish_date_YYYYMMDDHH + '.sav'
+  ;; if NOT(full_run) then begin
+  ;;     RESTORE, sav_file
+  ;;     full_run = 0
+  ;;     GOTO, SKIP
+  ;; endif
 
 ; Identify the QC database.
   qcdb_dir = '/net/scratch/fall/m1_dev'
@@ -906,7 +906,7 @@ end
 ;     flags an observation within the current cluster
       inventory = !NULL
       hit_count = 0L ; hits
-      fa_count = 0L ; false alarms
+      lfa_count = 0L ; false alarms
       pfa_count = 0L ; possible false alarms
 
       date_total = 0.0D
@@ -1599,239 +1599,240 @@ end
   endwhile ; loop over clusters
 
 
-SKIP:
-  if full_run then SAVE, /ALL, FILENAME = sav_file
+;; SKIP:
+;;   if full_run then SAVE, /ALL, FILENAME = sav_file
 
+;;   true
+;; ; For plotting.
+;;   char_size = 1.0
+;;   sym_size = 1.0
+;;   other_col = 80
+;;   fill_col = 220
+;;   far_sym = -5
+;;   pfar_sym = -8
+;;   pos = [0.1, 0.25, 0.9, 0.75]
+;;   USERSYM, [-1, 1, 0, -1], [1, 1, -1, 1], THICK = 2
 
-; For plotting.
-  char_size = 1.0
-  sym_size = 1.0
-  other_col = 80
-  fill_col = 220
-  far_sym = -5
-  pfar_sym = -8
-  pos = [0.1, 0.25, 0.9, 0.75]
-  USERSYM, [-1, 1, 0, -1], [1, 1, -1, 1], THICK = 2
+;; ; Show a time series of all false alarm ratios.
 
-; Show a time series of all false alarm ratios.
+;;   ti = 0
 
-  ti = 0
+;;   for tc = 0, N_ELEMENTS(qc_test_names) - 1 do begin
 
-  for tc = 0, N_ELEMENTS(qc_test_names) - 1 do begin
+;;       if (qc_test_names[tc] eq 'naught') then CONTINUE
+;;       if (qc_test_names[tc] eq 'anomaly') then CONTINUE
+;;       if (qc_test_names[tc] eq 'rate') then CONTINUE
 
-      if (qc_test_names[tc] eq 'naught') then CONTINUE
-      if (qc_test_names[tc] eq 'anomaly') then CONTINUE
-      if (qc_test_names[tc] eq 'rate') then CONTINUE
+;;       dummy = LABEL_DATE(DATE_FORMAT = '%Y!C%M-%D')
 
-      dummy = LABEL_DATE(DATE_FORMAT = '%Y!C%M-%D')
+;;       ind = WHERE((pFar[*, ti] ne -1.0) and $
+;;                   (FAR[*, ti] ne -1.0) and $
+;;                   (solo_freq[*, ti] ne -1.0), count)
+;;       if (count eq 0) then begin
+;;           PRINT, 'No results for "' + qc_test_names[tc] + '" test'
+;;           ti++
+;;           CONTINUE
+;;       endif
 
-      ind = WHERE((pFar[*, ti] ne -1.0) and $
-                  (FAR[*, ti] ne -1.0) and $
-                  (solo_freq[*, ti] ne -1.0), count)
-      if (count eq 0) then begin
-          PRINT, 'No results for "' + qc_test_names[tc] + '" test'
-          ti++
-          CONTINUE
-      endif
+;;       TVLCT, red, grn, blu, /GET
+;;       red[other_col] = 150
+;;       grn[other_col] = 0
+;;       blu[other_col] = 0
 
-      TVLCT, red, grn, blu, /GET
-      red[other_col] = 150
-      grn[other_col] = 0
-      blu[other_col] = 0
+;;       SET_PLOT, 'PS'
+;;       plot_file = 'eval_snwd_qc' + $
+;;                   '_' + start_date_YYYYMMDDHH + '_to_' + $
+;;                   finish_date_YYYYMMDDHH + $
+;;                   '_' + qc_test_names[tc]
+;;       DEVICE, /COLOR, FILE = plot_file + '.ps'
+;;       TVLCT, red, grn, blu
+;;       !P.Font = 1 ; TrueType
+;;       DEVICE, SET_FONT = 'DejaVuSans', /TT_FONT
 
-      SET_PLOT, 'PS'
-      plot_file = 'eval_snwd_qc' + $
-                  '_' + start_date_YYYYMMDDHH + '_to_' + $
-                  finish_date_YYYYMMDDHH + $
-                  '_' + qc_test_names[tc]
-      DEVICE, /COLOR, FILE = plot_file + '.ps'
-      TVLCT, red, grn, blu
-      !P.Font = 1 ; TrueType
-      DEVICE, SET_FONT = 'DejaVuSans', /TT_FONT
+;;       PLOT, cluster_mean_date_Julian[ind], $
+;;             pFAR[ind, ti], $
+;;             THICK = 2, XTHICK = 2, YTHICK = 2, CHARTHICK = 2, $
+;;             YRANGE = [0.0, 1.0], $
+;;             ;; PSYM = pfar_sym, $
+;;             TITLE = 'FAR for v0.1.0 "' + qc_test_names[tc] + '" test!C ', $
+;;             XTICKFORMAT = 'LABEL_DATE', XTICKUNITS = 'Time', $
+;;             YTITLE = 'False Alarm Ratio', $
+;;             POS  = pos, $
+;;             YSTYLE = 8, $
+;;             CHARSIZE = char_size, $
+;;             /NODATA
+;; ;            SYMSIZE = sym_size, $
+;; ;            /NOCLIP
 
-      PLOT, cluster_mean_date_Julian[ind], $
-            pFAR[ind, ti], $
-            THICK = 2, XTHICK = 2, YTHICK = 2, CHARTHICK = 2, $
-            YRANGE = [0.0, 1.0], $
-            ;; PSYM = pfar_sym, $
-            TITLE = 'FAR for v0.1.0 "' + qc_test_names[tc] + '" test!C ', $
-            XTICKFORMAT = 'LABEL_DATE', XTICKUNITS = 'Time', $
-            YTITLE = 'False Alarm Ratio', $
-            POS  = pos, $
-            YSTYLE = 8, $
-            CHARSIZE = char_size, $
-            /NODATA
-;            SYMSIZE = sym_size, $
-;            /NOCLIP
+;;       POLYFILL, [cluster_mean_date_Julian[ind[0]], $
+;;                  cluster_mean_date_Julian[ind], $
+;;                  REVERSE(cluster_mean_date_Julian[ind])], $
+;;                 [FAR[ind[0], ti], $
+;;                  pFAR[ind, ti], $
+;;                  REVERSE(FAR[ind, ti])], $
+;;                 COLOR = fill_col
 
-      POLYFILL, [cluster_mean_date_Julian[ind[0]], $
-                 cluster_mean_date_Julian[ind], $
-                 REVERSE(cluster_mean_date_Julian[ind])], $
-                [FAR[ind[0], ti], $
-                 pFAR[ind, ti], $
-                 REVERSE(FAR[ind, ti])], $
-                COLOR = fill_col
+;;       OPLOT, cluster_mean_date_Julian[ind], pFAR[ind, ti], $
+;;              PSYM = pfar_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
 
-      OPLOT, cluster_mean_date_Julian[ind], pFAR[ind, ti], $
-             PSYM = pfar_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
+;;       OPLOT, cluster_mean_date_Julian[ind], FAR[ind, ti], $
+;;              PSYM = far_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
 
-      OPLOT, cluster_mean_date_Julian[ind], FAR[ind, ti], $
-             PSYM = far_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
+;;       PLOT, cluster_mean_date_Julian, $
+;;             num_flagged_obs[*, ti], $
+;;             POS = pos, $
+;;             XTICKUNITS = 'Time', $
+;;             XSTYLE = 4, YSTYLE = 4, $
+;;             /NODATA, /NOERASE
 
-      PLOT, cluster_mean_date_Julian, $
-            num_flagged_obs[*, ti], $
-            POS = pos, $
-            XTICKUNITS = 'Time', $
-            XSTYLE = 4, YSTYLE = 4, $
-            /NODATA, /NOERASE
+;;       OPLOT, cluster_mean_date_Julian, $
+;;              num_flagged_obs[*, ti], $
+;;              THICK = 2, LINESTYLE = 2, COLOR = other_col, /NOCLIP
 
-      OPLOT, cluster_mean_date_Julian, $
-             num_flagged_obs[*, ti], $
-             THICK = 2, LINESTYLE = 2, COLOR = other_col, /NOCLIP
+;;       AXIS, YAXIS = 1, YTITLE = '# Flagged', CHARSIZE = char_size, $
+;;             YTHICK = 2, CHARTHICK = 2, COLOR = other_col
 
-      AXIS, YAXIS = 1, YTITLE = '# Flagged', CHARSIZE = char_size, $
-            YTHICK = 2, CHARTHICK = 2, COLOR = other_col
+;; ;     Legend.
+;;       x1Leg = 0.62
+;;       x2Leg = 0.72
+;;       yLeg = 0.70
+;;       yNudge = 0.01
+;;       xBreak = 0.02
+;;       yBreak = 0.05
+;;       POLYFILL, [x1Leg, x1Leg, x2Leg, x2Leg, x1Leg], $
+;;                 [yLeg - yBreak, yLeg, yLeg, yLeg - yBreak, yLeg - yBreak], $
+;;                 COLOR = fill_col, /NORMAL
+;;       PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
+;;              PSYM = pfar_sym, SYMSIZE = sym_size, THICK = 2
+;;       XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Possible FAR', /NORMAL, $
+;;               CHARSIZE = char_size, CHARTHICK = 2
+;;       yLeg = yLeg - yBreak
+;;       PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
+;;              PSYM = far_sym, SYMSIZE = sym_size, THICK = 2
+;;       XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Likely FAR', /NORMAL, $
+;;               CHARSIZE = char_size, CHARTHICK = 2
+;;       yLeg = yLeg - yBreak
+;;       PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
+;;              LINESTYLE = 2, COLOR = other_col, THICK = 2
+;;       XYOUTS, x2Leg + xBreak, yLeg - yNudge, '# Flagged', /NORMAL, $
+;;               CHARSIZE = char_size, CHARTHICK = 2, COLOR = other_col
 
-;     Legend.
-      x1Leg = 0.62
-      x2Leg = 0.72
-      yLeg = 0.70
-      yNudge = 0.01
-      xBreak = 0.02
-      yBreak = 0.05
-      POLYFILL, [x1Leg, x1Leg, x2Leg, x2Leg, x1Leg], $
-                [yLeg - yBreak, yLeg, yLeg, yLeg - yBreak, yLeg - yBreak], $
-                COLOR = fill_col, /NORMAL
-      PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
-             PSYM = pfar_sym, SYMSIZE = sym_size, THICK = 2
-      XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Possible FAR', /NORMAL, $
-              CHARSIZE = char_size, CHARTHICK = 2
-      yLeg = yLeg - yBreak
-      PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
-             PSYM = far_sym, SYMSIZE = sym_size, THICK = 2
-      XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Likely FAR', /NORMAL, $
-              CHARSIZE = char_size, CHARTHICK = 2
-      yLeg = yLeg - yBreak
-      PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
-             LINESTYLE = 2, COLOR = other_col, THICK = 2
-      XYOUTS, x2Leg + xBreak, yLeg - yNudge, '# Flagged', /NORMAL, $
-              CHARSIZE = char_size, CHARTHICK = 2, COLOR = other_col
+;;       DEVICE, /CLOSE
+;;       cmd = 'pstopng ' + plot_file + '.ps'
+;;       SPAWN, cmd, EXIT_STATUS = status
+;;       if (status ne 0) then STOP
+;;       cmd = 'mogrify -trim -border 4% -bordercolor white ' + plot_file + '.png'
+;;       SPAWN, cmd, EXIT_STATUS = status
+;;       if (status ne 0) then STOP
 
-      DEVICE, /CLOSE
-      cmd = 'pstopng ' + plot_file + '.ps'
-      SPAWN, cmd, EXIT_STATUS = status
-      if (status ne 0) then STOP
-      cmd = 'mogrify -trim -border 4% -bordercolor white ' + plot_file + '.png'
-      SPAWN, cmd, EXIT_STATUS = status
-      if (status ne 0) then STOP
+;;       ;; SET_PLOT, 'X'
+;;       ;; WSET_OR_WINDOW, 2
+;;       SET_PLOT, 'PS'
+;;       plot_file = 'eval_snwd_qc' + $
+;;                   '_' + start_date_YYYYMMDDHH + '_to_' + $
+;;                   finish_date_YYYYMMDDHH + $
+;;                   '_' + qc_test_names[tc] + '_solo'
+;;       DEVICE, /COLOR, FILE = plot_file + '.ps'
+;;       TVLCT, red, grn, blu
+;;       !P.Font = 1 ; TrueType
+;;       DEVICE, SET_FONT = 'DejaVuSans', /TT_FONT
 
-      ;; SET_PLOT, 'X'
-      ;; WSET_OR_WINDOW, 2
-      SET_PLOT, 'PS'
-      plot_file = 'eval_snwd_qc' + $
-                  '_' + start_date_YYYYMMDDHH + '_to_' + $
-                  finish_date_YYYYMMDDHH + $
-                  '_' + qc_test_names[tc] + '_solo'
-      DEVICE, /COLOR, FILE = plot_file + '.ps'
-      TVLCT, red, grn, blu
-      !P.Font = 1 ; TrueType
-      DEVICE, SET_FONT = 'DejaVuSans', /TT_FONT
+;;       PLOT, cluster_mean_date_Julian[ind], $
+;;             solo_freq[ind, ti], $
+;;             THICK = 2, XTHICK = 2, YTHICK = 2, CHARTHICK = 2, $
+;;             YRANGE = [0.0, 1.0], $
+;;             LINESTYLE = 3, $
+;; ;            PSYM = far_sym, $ 
+;;             TITLE = 'Solo Frequency / FAR for v0.1.0 "' + $
+;;                     qc_test_names[tc] + '" test!C ', $
+;;             XTICKFORMAT = 'LABEL_DATE', XTICKUNITS = 'Time', $
+;;             YTITLE = 'Solo Frequency / FAR', $
+;;             POS = pos, $
+;;             YSTYLE = 8, $
+;;             CHARSIZE = char_size, $
+;;             SYMSIZE = sym_size, $
+;;             /NOCLIP
 
-      PLOT, cluster_mean_date_Julian[ind], $
-            solo_freq[ind, ti], $
-            THICK = 2, XTHICK = 2, YTHICK = 2, CHARTHICK = 2, $
-            YRANGE = [0.0, 1.0], $
-            LINESTYLE = 3, $
-;            PSYM = far_sym, $ 
-            TITLE = 'Solo Frequency / FAR for v0.1.0 "' + $
-                    qc_test_names[tc] + '" test!C ', $
-            XTICKFORMAT = 'LABEL_DATE', XTICKUNITS = 'Time', $
-            YTITLE = 'Solo Frequency / FAR', $
-            POS = pos, $
-            YSTYLE = 8, $
-            CHARSIZE = char_size, $
-            SYMSIZE = sym_size, $
-            /NOCLIP
+;;       ; num_solo_flagged_obs / solo_freq = num_flagged_obs
 
-      ; num_solo_flagged_obs / solo_freq = num_flagged_obs
+;;       ind = WHERE((solo_FAR[*, ti] ne -1.0) and $
+;;                   (solo_pFAR[*, ti] ne -1.0), count)
+;;       if (count ne 0) then begin
+;;           POLYFILL, [cluster_mean_date_Julian[ind[0]], $
+;;                      cluster_mean_date_Julian[ind], $
+;;                      REVERSE(cluster_mean_date_Julian[ind])], $
+;;                     [solo_FAR[ind[0], ti], $
+;;                      solo_pFAR[ind, ti], $
+;;                      REVERSE(solo_FAR[ind, ti])], $
+;;                     COLOR = fill_col
+;;           OPLOT, cluster_mean_date_Julian[ind], $
+;;                  solo_FAR[ind, ti], $
+;;                  PSYM = far_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
+;;           OPLOT, cluster_mean_date_Julian[ind], $
+;;                  solo_pFAR[ind, ti], $
+;;                  PSYM = pfar_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
+;;       endif
 
-      ind = WHERE((solo_FAR[*, ti] ne -1.0) and $
-                  (solo_pFAR[*, ti] ne -1.0), count)
-      if (count ne 0) then begin
-          POLYFILL, [cluster_mean_date_Julian[ind[0]], $
-                     cluster_mean_date_Julian[ind], $
-                     REVERSE(cluster_mean_date_Julian[ind])], $
-                    [solo_FAR[ind[0], ti], $
-                     solo_pFAR[ind, ti], $
-                     REVERSE(solo_FAR[ind, ti])], $
-                    COLOR = fill_col
-          OPLOT, cluster_mean_date_Julian[ind], $
-                 solo_FAR[ind, ti], $
-                 PSYM = far_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
-          OPLOT, cluster_mean_date_Julian[ind], $
-                 solo_pFAR[ind, ti], $
-                 PSYM = pfar_sym, THICK = 2, SYMSIZE = sym_size, /NOCLIP
-      endif
+;;       PLOT, cluster_mean_date_Julian, $
+;;             num_solo_flagged_obs[*, ti], $
+;;             POS = pos, $
+;;             XTICKUNITS = 'Time', $
+;;             XSTYLE = 4, YSTYLE = 4, $
+;;             /NODATA, /NOERASE
 
-      PLOT, cluster_mean_date_Julian, $
-            num_solo_flagged_obs[*, ti], $
-            POS = pos, $
-            XTICKUNITS = 'Time', $
-            XSTYLE = 4, YSTYLE = 4, $
-            /NODATA, /NOERASE
+;;       OPLOT, cluster_mean_date_Julian, $
+;;              num_solo_flagged_obs[*, ti], $
+;;              THICK = 2, LINESTYLE = 2, COLOR = other_col
 
-      OPLOT, cluster_mean_date_Julian, $
-             num_solo_flagged_obs[*, ti], $
-             THICK = 2, LINESTYLE = 2, COLOR = other_col
+;;       AXIS, YAXIS = 1, YTITLE = '# Solo-Flagged', CHARSIZE = char_size, $
+;;             YTHICK = 2, CHARTHICK = 2, COLOR = other_col
 
-      AXIS, YAXIS = 1, YTITLE = '# Solo-Flagged', CHARSIZE = char_size, $
-            YTHICK = 2, CHARTHICK = 2, COLOR = other_col
+;; ;     Legend
+;;       x1Leg = 0.58
+;;       x2Leg = 0.68
+;;       yLeg = 0.70
+;;       yNudge = 0.01
+;;       xBreak = 0.02
+;;       yBreak = 0.05
+;;       POLYFILL, [x1Leg, x1Leg, x2Leg, x2Leg, x1Leg], $
+;;                 [yLeg - yBreak, yLeg, yLeg, yLeg - yBreak, yLeg - yBreak], $
+;;                 COLOR = fill_col, /NORMAL
+;;       PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
+;;              PSYM = pfar_sym, SYMSIZE = sym_size, THICK = 2
+;;       XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Possible Solo FAR', /NORMAL, $
+;;               CHARSIZE = char_size, CHARTHICK = 2
+;;       yLeg = yLeg - yBreak
+;;       PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
+;;              PSYM = far_sym, SYMSIZE = sym_size, THICK = 2
+;;       XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Likely Solo FAR', /NORMAL, $
+;;               CHARSIZE = char_size, CHARTHICK = 2
+;;       yLeg = yLeg - yBreak
+;;       PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
+;;              LINESTYLE = 3, THICK = 2
+;;       XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Solo Frequency', /NORMAL, $
+;;               CHARSIZE = char_size, CHARTHICK = 2
+;;       yLeg = yLeg - yBreak
+;;       PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
+;;              LINESTYLE = 2, COLOR = other_col, THICK = 2
+;;       XYOUTS, x2Leg + xBreak, yLeg - yNudge, '# Solo-Flagged', /NORMAL, $
+;;               CHARSIZE = char_size, CHARTHICK = 2, COLOR = other_col
 
-;     Legend
-      x1Leg = 0.58
-      x2Leg = 0.68
-      yLeg = 0.70
-      yNudge = 0.01
-      xBreak = 0.02
-      yBreak = 0.05
-      POLYFILL, [x1Leg, x1Leg, x2Leg, x2Leg, x1Leg], $
-                [yLeg - yBreak, yLeg, yLeg, yLeg - yBreak, yLeg - yBreak], $
-                COLOR = fill_col, /NORMAL
-      PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
-             PSYM = pfar_sym, SYMSIZE = sym_size, THICK = 2
-      XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Possible Solo FAR', /NORMAL, $
-              CHARSIZE = char_size, CHARTHICK = 2
-      yLeg = yLeg - yBreak
-      PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
-             PSYM = far_sym, SYMSIZE = sym_size, THICK = 2
-      XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Likely Solo FAR', /NORMAL, $
-              CHARSIZE = char_size, CHARTHICK = 2
-      yLeg = yLeg - yBreak
-      PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
-             LINESTYLE = 3, THICK = 2
-      XYOUTS, x2Leg + xBreak, yLeg - yNudge, 'Solo Frequency', /NORMAL, $
-              CHARSIZE = char_size, CHARTHICK = 2
-      yLeg = yLeg - yBreak
-      PLOTS, [x1Leg, x2Leg], [yLeg, yLeg], /NORMAL, $
-             LINESTYLE = 2, COLOR = other_col, THICK = 2
-      XYOUTS, x2Leg + xBreak, yLeg - yNudge, '# Solo-Flagged', /NORMAL, $
-              CHARSIZE = char_size, CHARTHICK = 2, COLOR = other_col
+;;       DEVICE, /CLOSE
+;;       cmd = 'pstopng ' + plot_file + '.ps'
+;;       SPAWN, cmd, EXIT_STATUS = status
+;;       if (status ne 0) then STOP
+;;       cmd = 'mogrify -trim -border 4% -bordercolor white ' + plot_file + '.png'
+;;       SPAWN, cmd, EXIT_STATUS = status
+;;       if (status ne 0) then STOP
 
-      DEVICE, /CLOSE
-      cmd = 'pstopng ' + plot_file + '.ps'
-      SPAWN, cmd, EXIT_STATUS = status
-      if (status ne 0) then STOP
-      cmd = 'mogrify -trim -border 4% -bordercolor white ' + plot_file + '.png'
-      SPAWN, cmd, EXIT_STATUS = status
-      if (status ne 0) then STOP
+;;       ;; if (tc ne N_ELEMENTS(qc_test_names) - 1) then $
+;;       ;;     move = GET_KBRD(1)
 
-      ;; if (tc ne N_ELEMENTS(qc_test_names) - 1) then $
-      ;;     move = GET_KBRD(1)
+;;       ti++
 
-      ti++
+;;   endfor
 
-  endfor
-
-  if full_run then NCDF_CLOSE, qcdb_nc_id
+  ;; if full_run then
+  NCDF_CLOSE, qcdb_nc_id
 
 end
