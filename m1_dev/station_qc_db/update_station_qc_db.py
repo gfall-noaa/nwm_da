@@ -237,10 +237,10 @@ def find_nearest_neighbors(lat1,
 
 
 def dist_crude_euclidian(lat1, lon1, lat2, lon2):
-    """
+    '''
     Calculate a crude euclidian distance on the Earth between
     latitude/longitude locations. Inputs should be numpy arrays or scalars.
-    """
+    '''
     gc_wgs84_semi_minor_km = 6356.752314245
     gc_wgs84_semi_major_km = 6378.1370
     gdc_deg_to_rad = math.pi / 180.0
@@ -261,9 +261,9 @@ def dist_crude_euclidian(lat1, lon1, lat2, lon2):
 
 def station_qc_db_copy(database_path,
                        verbose=None):
-    """
+    '''
     Make a temporary copy of the QC database.
-    """
+    '''
 
     logger = logging.getLogger()
 
@@ -287,11 +287,11 @@ def station_qc_db_copy(database_path,
 
 
 def progress(count, total, status=''):
-    """
+    '''
     Progress bar:  
     Copied from
     https://gist.github.com/vladignatyev/06860ec2040cb497f0f3
-    """
+    '''
     bar_len = 60
     filled_len = int(round(bar_len * count / float(total)))
 
@@ -304,9 +304,9 @@ def progress(count, total, status=''):
 
 def timedelta_to_int_hours(delta_time):
 
-    """
+    '''
     Converts a datetime timedelta object to an integer number of hours.
-    """
+    '''
 
     delta_time_hours = delta_time.days * 24 + \
                        delta_time.seconds // 3600
@@ -486,10 +486,10 @@ def update_qc_db_metadata(qcdb,
 
 
 def qc_durre_snwd_wre(value_cm):
-    """
+    '''
     Basic integrity checks:
     Snow depth world record exceedance.
-    """
+    '''
     threshold_value = 1146.0
     if value_cm < 0.0 or value_cm > threshold_value:
         return True
@@ -506,9 +506,9 @@ def qc_check_snwd_wre(site_snwd_val_cm,
                       qcdb_ti,
                       qcdb_snwd_qc_chkd,
                       qcdb_snwd_qc_flag):
-    """
+    '''
     Wrapper function for the snow depth world record exceedance check.
-    """
+    '''
 
     logger = logging.getLogger()
     if not qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
@@ -528,16 +528,28 @@ def qc_check_snwd_wre(site_snwd_val_cm,
         qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] = \
             qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] \
             | (1 << qc_bit)
+    else:
+        # Test has already been performed.
+        flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
+        if flag_value == 0:
+            flag_str = 'not flagged'
+        else:
+            flag_str = 'flagged'
+        logger.debug('Check "{}" '.format(qc_test_name) +
+                     'already done for site {} ({}) '.
+                     format(site_snwd_station_id, site_snwd_obj_id) +
+                     'value {} ({})'.format(site_snwd_val_cm, flag_str))
+
     return qcdb_snwd_qc_chkd, qcdb_snwd_qc_flag
 
 
-def qc_durre_snwd_change_wre(snow_depth_value_cm,
-                             prev_sd_value_cm,
-                             prev_sd_qc):
-    """
+def qc_durre_snwd_inc_wre(snow_depth_value_cm,
+                          prev_sd_value_cm,
+                          prev_sd_qc):
+    '''
     Basic integrity checks:
     Snow depth increase world record exceedance.
-    """
+    '''
 
     threshold_sd_increase_cm = 192.5
 
@@ -564,27 +576,28 @@ def qc_durre_snwd_change_wre(snow_depth_value_cm,
         return False, ref_ind
 
 
-def qc_check_snwd_change_wre(site_snwd_val_cm,
-                             site_snwd_obj_id,
-                             site_snwd_station_id,
-                             qc_test_name,
-                             qc_bit,
-                             qcdb_si,
-                             qcdb_ti,
-                             qcdb_snwd_qc_chkd,
-                             qcdb_snwd_qc_flag,
-                             wdb_prev_snwd_val_cm,
-                             wdb_prev_snwd_si,
-                             num_hrs_prev_snwd,
-                             num_hrs_wre,
-                             qcdb_prev_snwd_qc_flag,
-                             flag_sd_change_wre_low_value,
-                             qcdb_var_time,
-                             qcdb_var_time_units):
-    """
+def qc_check_snwd_inc_wre(site_snwd_val_cm,
+                          site_snwd_obj_id,
+                          site_snwd_station_id,
+                          qc_test_name,
+                          qc_bit,
+                          qcdb,
+                          qcdb_si,
+                          qcdb_ti,
+                          qcdb_snwd_qc_chkd,
+                          qcdb_snwd_qc_flag,
+                          wdb_prev_snwd_val_cm,
+                          wdb_prev_snwd_si,
+                          num_hrs_prev_snwd,
+                          num_hrs_wre,
+                          qcdb_prev_snwd_qc_flag,
+                          flag_snwd_inc_wre_low_val,
+                          qcdb_var_time,
+                          qcdb_var_time_units):
+    '''
     Wrapper function for the world record exceedance check for increase in
     snow depth.
-    """
+    '''
 
     logger = logging.getLogger()
 
@@ -593,19 +606,18 @@ def qc_check_snwd_change_wre(site_snwd_val_cm,
     if (wdb_prev_snwd_si is not None) and \
        (not (qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit))):
 
-        # Test has not been performed for this observation.
+        # Test has not been performed for this observation, and previous data
+        # are available.
 
-        # Note that there are three indices for locating this
-        # station:
-        # 1. wdb_snwd_si    = the station index in
-        #                     wdb_snwd_val_cm
-        # 2. qcdb_si        = the station index in the QC database
-        #                     which is covered by these arrays:
-        #                     qcdb_prev_snwd_qc_flag
-        #                     qcdb_snwd_qc_chkd
-        #                     qcdb_snwd_qc_flag
-        # 3. wdb_prev_snwd_si = the station index in
-        #                     prev_sd and wdb_prev_snwd_obj_id
+        # Note that there are two indices for locating this station:
+        # 1. qcdb_si          = the station index in the QC database, which
+        #                       applies to:
+        #                       qcdb_prev_snwd_qc_flag
+        #                       qcdb_snwd_qc_chkd
+        #                       qcdb_snwd_qc_flag
+        # 2. wdb_prev_snwd_si = the station index in previous snow depth
+        #                       observations, which applies to:
+        #                       wdb_prev_snwd_val_cm
 
         prev_snwd_ti = num_hrs_prev_snwd - num_hrs_wre
 
@@ -616,13 +628,13 @@ def qc_check_snwd_change_wre(site_snwd_val_cm,
             qcdb_prev_snwd_qc_flag[qcdb_si, prev_snwd_ti:]
 
         flag, ref_ind = \
-            qc_durre_snwd_change_wre(site_snwd_val_cm,
-                                     site_prev_snwd_val_cm,
-                                     site_prev_snwd_qc)
+            qc_durre_snwd_inc_wre(site_snwd_val_cm,
+                                  site_prev_snwd_val_cm,
+                                  site_prev_snwd_qc)
 
         if flag:
 
-            logger.debug('Flagging snow depth change ' + 
+            logger.debug('Flagging snow depth increase ' + 
                          '{} '.format(site_prev_snwd_val_cm[ref_ind]) +
                          'to {} '.format(site_snwd_val_cm) +
                          'at station {} '.format(site_snwd_station_id) +
@@ -633,21 +645,20 @@ def qc_check_snwd_change_wre(site_snwd_val_cm,
             qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] = \
                 qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
 
-            if flag_sd_change_wre_low_value:
+            if flag_snwd_inc_wre_low_val:
 
                 # Flag previous (low) value as well if that time fits into the
                 # database.
                 ref_ind_db = qcdb_ti - num_hrs_wre + ref_ind
                 if ref_ind_db >= 0:
-                    ref_datetime = \
-                        num2date(qcdb_var_time[0] + ref_ind_db,
-                                 units=qcdb_var_time_units,
-                                 only_use_cftime_datetimes=False)
+                    ref_datetime = num2date(qcdb_var_time[0] + ref_ind_db,
+                                            units=qcdb_var_time_units,
+                                            only_use_cftime_datetimes=False)
                     logger.debug('Also flagging low-valued ' +
                                  'observation {} at {}.'.
                                  format(site_prev_snwd_val_cm[ref_ind],
                                         ref_datetime))
-                    # First make sure the previous value is not flagged.
+                    # Make sure the previous value is not flagged.
                     if qcdb_snwd_qc_flag[qcdb_si, ref_ind_db] & \
                        (1 << qc_bit) != 0:
                         logger.error('(PROGRAMMING) ' +
@@ -676,17 +687,19 @@ def qc_check_snwd_change_wre(site_snwd_val_cm,
 
     else:
 
-        # Test has already been performed.
-        flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
-        if flag_value == 0:
-            flag_str = 'not flagged'
-        else:
-            flag_str = 'flagged'
-        logger.debug('Check "{}" '.format(qc_test_name) +
-                     'already done for site {} ({}) '.
-                     format(site_snwd_station_id, site_snwd_obj_id) +
-                     'value {} ({})'.format(site_snwd_val_cm, flag_str))
+        if qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
+            # Test has already been performed.
+            flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
+            if flag_value == 0:
+                flag_str = 'not flagged'
+            else:
+                flag_str = 'flagged'
+            logger.debug('Check "{}" '.format(qc_test_name) +
+                         'already done for site {} ({}) '.
+                         format(site_snwd_station_id, site_snwd_obj_id) +
+                         'value {} ({})'.format(site_snwd_val_cm, flag_str))
+        
     return qcdb_snwd_qc_chkd, qcdb_snwd_qc_flag
 
 
@@ -694,10 +707,10 @@ def qc_durre_snwd_streak(snow_depth_value_cm,
                          prev_sd_value_cm,
                          prev_sd_qc,
                          streak_value_threshold=None):
-    """
+    '''
     Basic integrity checks:
     Snow depth streak check.
-    """
+    '''
     if streak_value_threshold is None:
         streak_value_threshold = 0.1
     streak_min_consecutive = 10
@@ -736,9 +749,9 @@ def qc_check_snwd_streak(site_snwd_val_cm,
                          num_hrs_prev_snwd,
                          num_hrs_streak,
                          qcdb_prev_snwd_qc_flag):
-    """
+    '''
     Wrapper function for the snow depth streak check.
-    """
+    '''
 
     logger = logging.getLogger()
 
@@ -747,7 +760,18 @@ def qc_check_snwd_streak(site_snwd_val_cm,
     if (wdb_prev_snwd_si is not None) and \
        (not (qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit))):
 
-        # Test has not been performed for this observation.
+        # Test has not been performed for this observation, and previous data
+        # are available.
+
+        # Note that there are two indices for locating this station:
+        # 1. qcdb_si          = the station index in the QC database, which
+        #                       applies to:
+        #                       qcdb_prev_snwd_qc_flag
+        #                       qcdb_snwd_qc_chkd
+        #                       qcdb_snwd_qc_flag
+        # 2. wdb_prev_snwd_si = the station index in previous snow depth
+        #                       observations, which applies to:
+        #                       wdb_prev_snwd_val_cm
 
         prev_snwd_ti = num_hrs_prev_snwd - num_hrs_streak
 
@@ -780,22 +804,24 @@ def qc_check_snwd_streak(site_snwd_val_cm,
 
     else:
 
-        # Test has already been performed.
-        flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
-        if flag_value == 0:
-            flag_str = 'not flagged'
-        else:
-            flag_str = 'flagged'
-        logger.debug('Check "{}" '.format(qc_test_name) +
-                     'already done for site {} ({}) '.
-                     format(site_snwd_station_id, site_snwd_obj_id) +
-                     'value {} ({})'.format(site_snwd_val_cm, flag_str))
+        if qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
+
+            # Test has already been performed.
+            flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
+            if flag_value == 0:
+                flag_str = 'not flagged'
+            else:
+                flag_str = 'flagged'
+            logger.debug('Check "{}" '.format(qc_test_name) +
+                         'already done for site {} ({}) '.
+                         format(site_snwd_station_id, site_snwd_obj_id) +
+                         'value {} ({})'.format(site_snwd_val_cm, flag_str))
 
     return qcdb_snwd_qc_chkd, qcdb_snwd_qc_flag
 
         
 def obs_rate_category(obs, min_sub_period_proportion=0.5, verbose=False):
-    """
+    '''
     Given a list of hourly observations in the form of a numpy masked
     array, determine the "rate category" that indicates how frequently
     observations are available, using the following five categories:
@@ -808,7 +834,7 @@ def obs_rate_category(obs, min_sub_period_proportion=0.5, verbose=False):
 
     A given criteron must be met on average, but also consistently,
     or the next "lower" criterion is considered.
-    """
+    '''
     qa_period_hours = len(obs)
 
     # ind = np.where(obs.mask == False)
@@ -852,7 +878,7 @@ def obs_rate_category(obs, min_sub_period_proportion=0.5, verbose=False):
         num_sub_periods_met = 0
         for spc in range(num_qa_sub_periods):
             oc1 = spc * qa_sub_period_hours
-a            oc2 = oc1 + qa_sub_period_hours
+            oc2 = oc1 + qa_sub_period_hours
             qa_sub_period_obs = obs[oc1:oc2]
             qa_sub_period_num_reports = \
                 len(np.where(qa_sub_period_obs.mask == False)[0])
@@ -1025,16 +1051,12 @@ def qc_durre_snwd_gap(snow_depth_value_cm,
     return ts_flag_ind, ref_obs
 
 
-
-
-
-
-
 def qc_check_snwd_gap(site_snwd_val_cm,
                       site_snwd_obj_id,
                       site_snwd_station_id,
                       qc_test_name,
                       qc_bit,
+                      qcdb,
                       qcdb_si,
                       qcdb_ti,
                       qcdb_snwd_qc_chkd,
@@ -1044,13 +1066,16 @@ def qc_check_snwd_gap(site_snwd_val_cm,
                       num_hrs_prev_snwd,
                       num_hrs_gap,
                       qcdb_prev_snwd_qc_flag,
+                      flag_snwd_gap_sec_values,
+                      qcdb_var_time,
+                      qcdb_var_time_units,
                       check_climatology=True,
                       snwd_clim_med_cm=None,
                       snwd_clim_max_cm=None,
                       snwd_clim_iqr_cm=None):
-    """
+    '''
     Wrapper function for the snow depth gap check.
-    """
+    '''
 
     logger = logging.getLogger()
 
@@ -1060,6 +1085,16 @@ def qc_check_snwd_gap(site_snwd_val_cm,
        (not (qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit))):
 
         # Test has not been performed for this observation.
+
+        # Note that there are two indices for locating this station:
+        # 1. qcdb_si          = the station index in the QC database, which
+        #                       applies to:
+        #                       qcdb_prev_snwd_qc_flag
+        #                       qcdb_snwd_qc_chkd
+        #                       qcdb_snwd_qc_flag
+        # 2. wdb_prev_snwd_si = the station index in previous snow depth
+        #                       observations, which applies to:
+        #                       wdb_prev_snwd_val_cm
 
         prev_snwd_ti = num_hrs_prev_snwd - num_hrs_gap
 
@@ -1152,18 +1187,19 @@ def qc_check_snwd_gap(site_snwd_val_cm,
 
     else:
 
-        # Test has already been performed.
-        flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
-        if flag_value == 0:
-            flag_str = 'not flagged'
-        else:
-            flag_str = 'flagged'
-        logger.debug('Check "{}" '.format(qc_test_name) +
-                     'already done for site {} ({}) '.
-                     format(site_snwd_station_id,
-                            site_snwd_obj_id) +
-                     'value {} ({})'.
-                     format(site_snwd_val_cm, flag_str))
+        if qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
+
+            # Test has already been performed.
+            flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
+            if flag_value == 0:
+                flag_str = 'not flagged'
+            else:
+                flag_str = 'flagged'
+            logger.debug('Check "{}" '.format(qc_test_name) +
+                         'already done for site {} ({}) '.
+                         format(site_snwd_station_id, site_snwd_obj_id) +
+                         'value {} ({})'.
+                         format(site_snwd_val_cm, flag_str))
 
     return qcdb_snwd_qc_chkd, qcdb_snwd_qc_flag
 
@@ -1172,12 +1208,12 @@ def qc_durre_snwd_tair(snow_depth_value_cm,
                        prev_sd_value_cm,
                        prev_sd_qc,
                        prev_at_value_deg_c):
-    """
+    '''
     Internal and temporal consistency checks on temperature
     (Durre 2010, Table 3):
     Snow-temperature consistency check,
     variant "SNWD" (for changes in snow depth.)
-    """
+    '''
 
     # In Durre (2010), the test is described this way:
     #
@@ -1217,18 +1253,190 @@ def qc_durre_snwd_tair(snow_depth_value_cm,
         return False, ref_ind
 
 
+def qc_check_snwd_inc_tair(site_snwd_val_cm,
+                           site_snwd_obj_id,
+                           site_snwd_station_id,
+                           qc_test_name,
+                           qc_bit,
+                           qcdb,
+                           qcdb_si,
+                           qcdb_ti,
+                           qcdb_snwd_qc_chkd,
+                           qcdb_snwd_qc_flag,
+                           qcdb_obj_id_var, # only here for error check
+                           wdb_prev_snwd_si,
+                           wdb_prev_snwd_val_cm,
+                           wdb_prev_snwd_obj_id, # only here for error check
+                           num_hrs_prev_snwd,
+                           wdb_prev_tair_si,
+                           wdb_prev_tair_val_deg_c,
+                           num_hrs_tair,
+                           qcdb_prev_snwd_qc_flag,
+                           flag_snwd_inc_tair_low_val,
+                           qcdb_var_time,
+                           qcdb_var_time_units):
+    '''
+    Wrapper function for the snow depth increase / temperature consistency
+    check.
+    '''
+
+    logger = logging.getLogger()
+
+    # Check is only performed if preceding snow depth data are available,
+    # preceding air temperature data are avilable, and the test has not been
+    # performed yet.
+    if (wdb_prev_snwd_si is not None) and \
+       (wdb_prev_tair_si is not None) and \
+       (not (qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit))):
+
+        # Test has not been performed for this observation.
+
+        # Note that there are three indices for locating this station:
+        # 1. qcdb_si          = the station index in the QC database, which
+        #                       applies to:
+        #                       qcdb_prev_snwd_qc_flag
+        #                       qcdb_snwd_qc_chkd
+        #                       qcdb_snwd_qc_flag
+        # 2. wdb_prev_snwd_si = the station index in previous snow depth
+        #                       observations, which applies to:
+        #                       wdb_prev_snwd_val_cm
+        # 3. wdb_prev_tair_si = the station index in previous air temperature
+        #                       observations, which applies to:
+
+
+        # Programming check. Remove this at some point.
+        # logger.debug('{}'.format(qcdb_obj_id_var.shape))
+        # logger.debug('{}'.format(site_snwd_obj_id))
+        # logger.debug('{}'.format(len(wdb_prev_snwd_obj_id)))
+        # logger.debug('{}'.format(wdb_prev_snwd_si))
+        if (qcdb_obj_id_var[qcdb_si] != site_snwd_obj_id or
+            wdb_prev_snwd_obj_id[wdb_prev_snwd_si] != site_snwd_obj_id):
+            logger.error('(PROGRAMMING) Object ID mismatch.')
+            qcdb.close()
+            sys.exit(1)
+
+        prev_snwd_ti = num_hrs_prev_snwd - num_hrs_tair
+
+        site_prev_snwd_val_cm = \
+            wdb_prev_snwd_val_cm[wdb_prev_snwd_si, prev_snwd_ti:]
+
+        # Programming check. Remove this at some point.
+        if len(site_prev_snwd_val_cm) != num_hrs_tair:
+            logger.error('(PROGRAMMING) Previous snow depth time index ' + \
+                         'is incorrect.')
+            qcdb.close()
+            sys.exit(1)
+        
+        site_prev_snwd_qc = \
+            qcdb_prev_snwd_qc_flag[qcdb_si, prev_snwd_ti:]
+
+        # Programming check. Remove this at some point.
+        if len(site_prev_snwd_qc) != num_hrs_tair:
+            logger.error('(PROGRAMMING) Previous snow depth QC time ' + \
+                         'index is incorrect.')
+            qcdb.close()
+            sys.exit(1)
+
+        site_prev_tair_val_deg_c = wdb_prev_tair_val_deg_c[wdb_prev_tair_si, :]
+
+        # Programming check. Remove this at some point.
+        if len(site_prev_tair_val_deg_c) != num_hrs_tair + 1:
+            logger.error('(PROGRAMMING) Previous air temperature time ' + \
+                         'index is incorrect.')
+            qcdb.close()
+            sys.exit(1)
+
+        flag, ref_ind = \
+            qc_durre_snwd_tair(site_snwd_val_cm,
+                               site_prev_snwd_val_cm,
+                               site_prev_snwd_qc,
+                               site_prev_tair_val_deg_c)
+
+        if flag:
+
+            # Demote to debug after testing.
+            logger.info('Flagging snow depth increase ' +
+                         '{} '.format(site_prev_snwd_val_cm[ref_ind]) +
+                         'to {} '.format(site_snwd_val_cm) +
+                         'at station {} '.format(site_snwd_station_id) +
+                         '({}) '.format(site_snwd_obj_id) +
+                         '("{}").'.format(qc_test_name))
+
+            # Turn on the QC bit for this test.
+            qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] = \
+                qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
+
+            if flag_snwd_inc_tair_low_val:
+
+                # Flag previous value as well if that time fits into the
+                # database.
+                ref_ind_db = qcdb_ti - num_hrs_tair + ref_ind
+                if ref_ind_db >= 0:
+                    ref_datetime = num2date(qcdb_var_time[0] + ref_ind_db,
+                                            units=qcdb_var_time_units,
+                                            only_use_cftime_datatimes=False)
+                    logger.debug('Also flagging low-valued ' +
+                                 'observation {} at {}.'.
+                                 format(site_prev_snwd_val_cm[ref_ind],
+                                        ref_datetime))
+                    # Make sure the previous value is not flagged.
+                    if qcdb_snwd_qc_flag[qcdb_si, ref_ind_db] & \
+                       (1 << qc_bit) != 0:
+                        logger.error('(PROGRAMMING) ' +
+                                     'reference value was ' +
+                                     'previously flagged and ' +
+                                     'should not have been used.')
+                        qcdb.close()
+                        sys.exit(1)
+                    # Flag the previous value.
+                    qcdb_snwd_qc_flag[qcdb_si, ref_ind_db] = \
+                        qcdb_snwd_qc_flag[qcdb_si, ref_ind_db] | (1 << qc_bit)
+                    # Identify the previous value as having been through this
+                    # check, even though this is only indirectly the
+                    # case. Most likely it has already been tested, and
+                    # passed, but now is associated with the later problematic
+                    # report.
+                    qcdb_snwd_qc_chkd[qcdb_si, ref_ind_db] = \
+                        qcdb_snwd_qc_chkd[qcdb_si, ref_ind_db] | (1 << qc_bit)
+
+        if flag is not None:
+
+            # Turn on the QC checked bit for this test, regardless of whether
+            # the observation was flagged.
+            qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] = \
+                qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] | (1 << qc_bit)
+
+    else:
+
+        if qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
+
+            # Test has already been performed.
+            flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
+            if flag_value == 0:
+                flag_str = 'not flagged'
+            else:
+                flag_str = 'flagged'
+            logger.debug('Check "{}" '.format(qc_test_name) +
+                         'already done for site {} ({}) '.
+                         format(site_snwd_station_id, site_snwd_obj_id) +
+                         'value {} ({})'.
+                         format(site_snwd_val_cm, flag_str))
+
+    return qcdb_snwd_qc_chkd, qcdb_snwd_qc_flag
+
+
 def qc_durre_snwd_snfl(site_snwd_val_cm,
                        site_prev_snwd_val,
                        prev_sd_qc,
                        site_snfl_val_cm):
-    """
+    '''
     Internal and temporal consistency checks (Durre 2010, Table 3):
     Snowfall--snow depth consistency check
     site_snwd_val_cm - snow depth value being QCed
     site_prev_snwd_val - previous snow depth values (time series)
     prev_sd_qc - QC flags for previous snow depth values (time series)
     site_snfl_val_cm - snowfall accumulation
-    """
+    '''
 
     # Forgiveness for snow depth change exceeding reported snowfall;
     # 6.0 cm = 2.36 inches, which will prevent any round-off problems with
@@ -1366,11 +1574,11 @@ def qc_durre_snwd_tair_spatial(snow_depth_value_cm,
                                prev_sd_value_cm,
                                prev_sd_qc,
                                nhood_tair_deg_c):
-    """
+    '''
     Spatial snow-temperature consistency check for changes in snow depth,
     using neighborhood temperature reports.
     nhood_tair_deg_c rows represent neighbors, columns represent times.
-    """
+    '''
 
     # Determine the number of hours of preceding data.
     num_prev_hours = prev_sd_value_cm.shape[0]
@@ -1416,12 +1624,12 @@ def qc_durre_snwd_tair_spatial(snow_depth_value_cm,
 
 
 def qc_durre_swe_wre(value_mm):
-    """
+    '''
     Basic integrity checks:
     swe world record exceedance.
     Uses the snow depth threshold from Durre (2010), but in mm instead of cm
     (implicit 10:1 ratio).
-    """
+    '''
     threshold_value = 1146.0
     if value_mm < 0.0 or value_mm > threshold_value:
         return True
@@ -1432,12 +1640,12 @@ def qc_durre_swe_wre(value_mm):
 def qc_durre_swe_change_wre(swe_value_mm,
                             prev_swe_value_mm,
                             prev_swe_qc):
-    """
+    '''
     Basic integrity checks:
     swe increase world record exceedance.
     Uses the snow depth threshold from Durre (2010), but in mm instead of cm
     (implicit 10:1 ratio).
-    """
+    '''
 
     threshold_swe_increase_mm = 192.5
 
@@ -1466,10 +1674,10 @@ def qc_durre_swe_streak(swe_value_mm,
                         prev_swe_value_mm,
                         prev_swe_qc,
                         streak_value_threshold=None):
-    """
+    '''
     Basic integrity checks:
     swe streak check.
-    """
+    '''
     if streak_value_threshold is None:
         streak_value_threshold = 0.1
     streak_min_consecutive = 10
@@ -1698,9 +1906,9 @@ def qc_durre_swe_prcp_ratio(site_swe_val_mm,
 
 
 def parse_args():
-    """
+    '''
     Parse command line arguments.
-    """
+    '''
     help_message = 'Update quality control information for station ' + \
                    'observations in the NOHRSC web database.'
     default_pkl_dir = os.path.join('/net/scratch', os.getlogin())
@@ -1774,10 +1982,10 @@ def parse_args():
 
 
 def main():
-    """
+    '''
     Update quality control information for station observations in the
     NOHRSC web database.
-    """
+    '''
 
     # Initialize logger.
     logger = local_logger.init(logging.WARNING)
@@ -1787,7 +1995,6 @@ def main():
     # Read command line arguments.
     args = parse_args()
     if args is None:
-        #print('ERROR: Failed to parse command line.', file=sys.stderr)
         logger.error('Failed to parse command line.')
         sys.exit(1)
 
@@ -1795,8 +2002,6 @@ def main():
         logger.setLevel(logging.DEBUG)
         
     if not os.path.exists(args.database_path):
-        # print('ERROR: {} not found.'.format(args.database_path),
-        #       file=sys.stderr)
         logger.error('{} not found.'.format(args.database_path))
         sys.exit(1)
 
@@ -1829,26 +2034,23 @@ def main():
     try:
         qcdb_var_time = qcdb.variables['time']
     except:
-        print('ERROR: Database file {} '.format(args.database_path) +
-              'has no "time" variable.',
-              file=sys.stderr)
+        logger.error('Database file {} '.format(args.database_path) +
+                     'has no "time" variable.')
         qcdb.close()
-        exit(1)
+        sys.exit(1)
     if (len(qcdb_var_time.dimensions) != 1 or
         qcdb_var_time.dimensions[0] != 'time'):
-        print('ERROR: Database file {} '.format(args.database_path) +
-              '"time" variable has unexpected structure.',
-              file=sys.stderr)
+        logger.error('Database file {} '.format(args.database_path) +
+                     '"time" variable has unexpected structure.')
         qcdb.close()
-        exit(1)
+        sys.exit(1)
     try:
         qcdb_var_time_units = qcdb_var_time.getncattr('units')
     except:
-        print('ERROR: Database file {} '.format(args.database_path) +
-              '"time" variable has no "units" attribute.',
-              file=sys.stderr)
+        logger.error('Database file {} '.format(args.database_path) +
+              '"time" variable has no "units" attribute.')
         qcdb.close()
-        exit(1)
+        sys.exit(1)
 
 #    var_station_obj_id = qcdb.variables['station_obj_identifier']
 
@@ -1856,18 +2058,17 @@ def main():
     try:
         qcdb_var_station_obj_id = qcdb.variables['station_obj_identifier']
     except:
-        print('ERROR: Database file {} '.format(args.database_path) +
-              'has no "station_obj_identifier" variable.',
-              file=sys.stderr)
+        logger.error('Database file {} '.format(args.database_path) +
+                     'has no "station_obj_identifier" variable.')
         qcdb.close()
-        exit(1)
+        sys.exit(1)
     if (len(qcdb_var_station_obj_id.dimensions) != 1 or
         qcdb_var_station_obj_id.dimensions[0] != 'station'):
-        print('ERROR: Database file {} '.format(args.database_path) +
-              '"station_obj_identifier" variable has unexpected structure.',
-              file=sys.stderr)
+        logger.error('Database file {} '.format(args.database_path) +
+                     '"station_obj_identifier" variable has ' +
+                     'unexpected structure.')
         qcdb.close()
-        exit(1)
+        sys.exit(1)
 
     # Get the start/end datetimes of the QC database.
     qcdb_start_datetime = num2date(qcdb_var_time[0],
@@ -1881,9 +2082,8 @@ def main():
     try:
         last_dt_updated_str = qcdb.getncattr('last_datetime_updated')
     except:
-        print('ERROR: Database file {} '.format(args.database_path) +
-              'has no "last_datetime_updated" attribute.',
-              file=sys.stderr)
+        logger.error('Database file {} '.format(args.database_path) +
+                     'has no "last_datetime_updated" attribute.')
         qcdb.close()
         sys.exit(1)
     qcdb_last_datetime_updated = \
@@ -1905,9 +2105,8 @@ def main():
         last_station_update_str = \
             qcdb.getncattr('last_station_update_datetime')
     except:
-        print('ERROR: Database file {} '.format(args.database_path) +
-              'has no "last_station_update_datetime" attribute.',
-              file=sys.stderr)
+        logger.error('Database file {} '.format(args.database_path) +
+                     'has no "last_station_update_datetime" attribute.')
         qcdb.close()
         sys.exit(1)
     last_station_update_datetime = \
@@ -2018,26 +2217,23 @@ def main():
             wdb_col_list_str = wdb_col_list_str + ', ' + allstation_column_name
         wdb_col_list.append(allstation_column_name)
     if obj_id_found is False:
-        print('ERROR: No variable in {}'.format(args.database_path) + 
-              ' using the "station" dimension has an ' +
-              '"allstation_column_name" attribute of "obj_identifier".',
-              file=sys.stderr)
+        logger.error('No variable in {}'.format(args.database_path) + 
+                     ' using the "station" dimension has an ' +
+                     '"allstation_column_name" attribute of "obj_identifier".')
         qcdb.close()
-        exit(1)
+        sys.exit(1)
     if qcdb_lon_var is None:
-        print('ERROR: No variable in {}'.format(args.database_path) + 
-              ' using the "station" dimension has an ' +
-              '"allstation_column_name" attribute of "longitude".',
-              file=sys.stderr)
+        logger.error('No variable in {}'.format(args.database_path) + 
+                     ' using the "station" dimension has an ' +
+                     '"allstation_column_name" attribute of "longitude".')
         qcdb.close()
-        exit(1)
+        sys.exit(1)
     if qcdb_lat_var is None:
-        print('ERROR: No variable in {}'.format(args.database_path) + 
-              ' using the "station" dimension has an ' +
-              '"allstation_column_name" attribute of "latitude".',
-              file=sys.stderr)
+        logger.error('No variable in {}'.format(args.database_path) + 
+                     ' using the "station" dimension has an ' +
+                     '"allstation_column_name" attribute of "latitude".')
         qcdb.close()
-        exit(1)
+        sys.exit(1)
 
     #############################################################
     # Switch from the original QC database to a temporary copy. #
@@ -2053,14 +2249,6 @@ def main():
                      .format(temp_database_path))
         sys.exit(1)
     temp_database_exists = True
-
-
-
-
-
-
-
-
 
     # Decide whether or not to update metadata.
     if last_station_update_str == '1970-01-01 00:00:00 UTC':
@@ -2086,18 +2274,12 @@ def main():
                               qcdb_station_vars,
                               wdb_col_list,
                               verbose=args.verbose)
-    # else:
-    #     print('time since metadata update:')
-    #     print(time_since_metadata_update)
-    #     print('hours since metadata update is {}'.format(hours_since_metadata_update))
-    #     qcdb.close()
-    #     exit(1)
 
     # Set parameters.
     num_hrs_wre = 24
     num_hrs_streak = 15 * 24
     num_hrs_gap = 15 * 24
-    num_hrs_prev_tair = 24
+    num_hrs_tair = 24
     num_hrs_snowfall = 24
     num_hrs_prcp = 24
 
@@ -2108,12 +2290,12 @@ def main():
     # of these, if set to True, will cause secondary or reference observations
     # to be flagged, often hours or days after they have themselves been
     # initially the subject of the corresponding test.
-  
+
     # Switches for flagging low values in tests involving snow depth change.
-    flag_sd_change_wre_low_value = False
-    flag_sd_change_tair_low_value = False # Affects spatial test as well.
-    flag_sd_change_snfl_low_value = False
-    flag_sd_change_prcp_low_value = False # Affects ratio test as well.
+    flag_snwd_inc_wre_low_val = False
+    flag_snwd_inc_tair_low_val = False # Affects spatial test as well.
+    flag_snwd_inc_snfl_low_val = False
+    flag_snwd_inc_prcp_low_val = False # Affects ratio test as well.
 
     # Switch for flagging secondary values in the snow depth gap test.
     flag_snwd_gap_sec_values = False
@@ -2137,10 +2319,10 @@ def main():
 
     num_stations_added = 0
     num_flagged_snwd_wre = 0
-    num_flagged_snwd_change_wre = 0
+    num_flagged_snwd_inc_wre = 0
     num_flagged_snwd_streak = 0
     num_flagged_snwd_gap = 0
-    num_flagged_sd_at_cons = 0
+    num_flagged_snwd_inc_tair = 0
     num_flagged_sd_sf_cons = 0
     num_flagged_sd_pr_cons = 0
     num_flagged_sd_at_spatial_cons = 0
@@ -2173,9 +2355,7 @@ def main():
         # SNOW DEPTH QC BEGIN #
         #######################
 
-
         # Get snow depth and other observations used for snow depth QC.
-
 
         # Get all snow depth data for this datetime.
         t1 = dt.datetime.utcnow()
@@ -2200,7 +2380,7 @@ def main():
         num_hrs_prev_snwd = max(num_hrs_wre,
                                 num_hrs_streak,
                                 num_hrs_gap,
-                                num_hrs_prev_tair,
+                                num_hrs_tair,
                                 num_hrs_snowfall,
                                 num_hrs_prcp)
 
@@ -2278,8 +2458,7 @@ def main():
         # Programming check.
         if qcdb_prev_snwd_qc_flag.shape[1] + num_pad_hours != \
            num_hrs_prev_snwd:
-            print('ERROR: (programming) miscalculation of num_pad_hours.',
-                  file=sys.stderr)
+            logger.error('(PROGRAMMING) Miscalculation of num_pad_hours.')
             qcdb.close()
             sys.exit(1)
 
@@ -2394,7 +2573,7 @@ def main():
 
         wdb_prev_tair = \
             wdb0.get_air_temp_obs(obs_datetime -
-                                  dt.timedelta(hours=num_hrs_prev_tair),
+                                  dt.timedelta(hours=num_hrs_tair),
                                   obs_datetime,
                                   scratch_dir=args.pkl_dir,
                                   verbose=args.verbose,
@@ -2408,7 +2587,7 @@ def main():
         # logger.debug('Not passing wdb_prev_tair to wdb0.get_air_temp_obs.')
         random_tair_sample = \
             wdb0.get_air_temp_obs(obs_datetime -
-                                  dt.timedelta(hours=num_hrs_prev_tair),
+                                  dt.timedelta(hours=num_hrs_tair),
                                   obs_datetime,
                                   verbose=args.verbose,
                                   station_obj_id=\
@@ -2437,7 +2616,7 @@ def main():
         current_datetime = dt.datetime.utcnow()
         if wdb_prev_tair_fetch_datetimes is None:
             wdb_prev_tair_fetch_datetimes = \
-                np.array([current_datetime] * (num_hrs_prev_tair + 1))
+                np.array([current_datetime] * (num_hrs_tair + 1))
             # wdb_prev_tair_fetch_elapsed = \
             #     (current_datetime - wdb_prev_tair_fetch_datetimes). \
             #     astype('timedelta64[ms]')
@@ -2483,7 +2662,7 @@ def main():
 
         # Extract previous air temperature values and station object
         # identifiers, for convenience (shorter variable names).
-        wdb_prev_tair_val = wdb_prev_tair['values_deg_c']
+        wdb_prev_tair_val_deg_c = wdb_prev_tair['values_deg_c']
         wdb_prev_tair_obj_id = wdb_prev_tair['station_obj_id']
 
         # Find neighboring indices from wdb_prev_tair for each snow depth
@@ -2504,10 +2683,10 @@ def main():
         # Initialize counters for the current time.
         # num_stations_added_this_time = 0
         num_flagged_snwd_wre_this_time = 0
-        num_flagged_snwd_change_wre_this_time = 0
+        num_flagged_snwd_inc_wre_this_time = 0
         num_flagged_snwd_streak_this_time = 0
         num_flagged_snwd_gap_this_time = 0
-        num_flagged_sd_at_cons_this_time = 0
+        num_flagged_snwd_inc_tair_this_time = 0
         num_flagged_sd_sf_cons_this_time = 0
         num_flagged_sd_pr_cons_this_time = 0
         num_flagged_sd_at_spatial_cons_this_time = 0
@@ -2568,12 +2747,12 @@ def main():
                 cursor.close()
                 conn.close()
                 if len(wdb_station_meta) != 1:
-                    print('ERROR: found {} matches in SQL statement ' +
-                          'for station object ID {}; expecting 1.'.
-                          format(len(wdb_station_meta), site_snwd_obj_id),
-                          file=sys.stderr)
+                    logger.error('Found {} matches in SQL statement ' +
+                                 'for station object ID {}; expecting 1.'.
+                                 format(len(wdb_station_meta),
+                                        site_snwd_obj_id))
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 wdb_station_meta = wdb_station_meta[0]
 
                 # For all station variables append or confirm/update data.
@@ -2583,12 +2762,11 @@ def main():
                     if isinstance(wdb_station_meta[ind], dt.datetime):
                         # Format as "YYYY-MM-DD HH:MM:SS"
                         if not qcdb_station_var.dtype is np.str:
-                            print('ERROR: NetCDF variable {}'.
-                                  format(qcdb_station_var.name) +
-                                  'must be of "str" type.',
-                                  file=sys.stderr)
+                            logger.error('NetCDF variable {}'.
+                                         format(qcdb_station_var.name) +
+                                         'must be of "str" type.')
                             qcdb.close()
-                            exit(1)
+                            sys.exit(1)
                         wdb_allstation_column_data = \
                             wdb_station_meta[ind].strftime('%Y-%m-%d %H:%M:%S')
                     else:
@@ -2667,12 +2845,11 @@ def main():
                 # The object ID for this station was found in the
                 # preceding snow depth data.
                 if len(wdb_prev_snwd_si) > 1:
-                    print('ERROR: multiple matches for station ' +
-                          'object ID {} '.format(site_snwd_obj_id) +
-                          'in preceding snow depth data.',
-                          file=sys.stderr)
+                    logger.error('Multiple matches for station ' +
+                                 'object ID {} '.format(site_snwd_obj_id) +
+                                 'in preceding snow depth data.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 wdb_prev_snwd_si = wdb_prev_snwd_si[0]
             else:
                 wdb_prev_snwd_si = None
@@ -2687,12 +2864,11 @@ def main():
                 # The object ID for this station was found in the
                 # previous + current air temperature data.
                 if len(wdb_prev_tair_si) > 1:
-                    print('ERROR: multiple matches for station ' +
-                          'object ID {} '.format(site_snwd_obj_id) +
-                          'in previous + current air temperature data.',
-                          file=sys.stderr)
+                    logger.error('Multiple matches for station ' +
+                                 'object ID {} '.format(site_snwd_obj_id) +
+                                 'in previous + current air temperature data.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 wdb_prev_tair_si = wdb_prev_tair_si[0]
             else:
                 wdb_prev_tair_si = None
@@ -2707,12 +2883,11 @@ def main():
                 # The object ID for this station was found in the snowfall
                 # data.
                 if len(wdb_snfl_si) > 1:
-                    print('ERROR: multiple matches for station ' +
-                          'object ID {} '.format(site_snwd_obj_id) +
-                          'in snowfall data.',
-                          file=sys.stderr)
+                    logger.error('Multiple matches for station ' +
+                                 'object ID {} '.format(site_snwd_obj_id) +
+                                 'in snowfall data.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 wdb_snfl_si = wdb_snfl_si[0]
             else:
                 wdb_snfl_si = None
@@ -2727,12 +2902,11 @@ def main():
                 # The object ID for this station was found in the
                 # precipitation data.
                 if len(wdb_snwd_prcp_si) > 1:
-                    print('ERROR: multiple matches for station ' +
-                          'object ID {} '.format(site_prcp_obj_id) +
-                          'in precipitation data.',
-                          file=sys.stderr)
+                    logger.error('Multiple matches for station ' +
+                                 'object ID {} '.format(site_prcp_obj_id) +
+                                 'in precipitation data.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 wdb_snwd_prcp_si = wdb_snwd_prcp_si[0]
             else:
                 wdb_snwd_prcp_si = None
@@ -2764,15 +2938,15 @@ def main():
                 logger.error('Inconsistent qc_test_names data in ' +
                              'QC database.')
                 qcdb.close()
-                exit(1)
+                sys.exit(1)
             if snwdc_qc_test_bits[ind] != snwd_qc_test_bits[ind]:
                 logger.error('Inconsistent qc_test_bits data in ' +
                              'QC database.')
                 qcdb.close()
-                exit(1)
+                sys.exit(1)
 
             # Perform the test.
-            before = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti]
+            before = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
             qcdb_snwd_qc_chkd, qcdb_snwd_qc_flag = \
                 qc_check_snwd_wre(site_snwd_val_cm,
                                   site_snwd_obj_id,
@@ -2783,7 +2957,8 @@ def main():
                                   qcdb_ti,
                                   qcdb_snwd_qc_chkd,
                                   qcdb_snwd_qc_flag)
-            if qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] and not before:
+            if (qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)) and \
+               not before:
                 num_flagged_snwd_wre_this_time += 1
                 num_flagged_snwd_wre += 1
 
@@ -2800,35 +2975,37 @@ def main():
                 logger.error('Inconsistent qc_test_names data in ' +
                              'QC database.')
                 qcdb.close()
-                exit(1)
+                sys.exit(1)
             if snwdc_qc_test_bits[ind] != snwd_qc_test_bits[ind]:
                 logger.error('Inconsistent qc_test_bits data in ' +
                              'QC database.')
                 qcdb.close()
-                exit(1)
+                sys.exit(1)
 
-            before = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti]
+            before = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
             qcdb_snwd_qc_chkd, qcdb_snwd_qc_flag = \
-                qc_check_snwd_change_wre(site_snwd_val_cm,
-                                         site_snwd_obj_id,
-                                         site_snwd_station_id,
-                                         qc_test_name,
-                                         qc_bit,
-                                         qcdb_si,
-                                         qcdb_ti,
-                                         qcdb_snwd_qc_chkd,
-                                         qcdb_snwd_qc_flag,
-                                         wdb_prev_snwd_val_cm,
-                                         wdb_prev_snwd_si,
-                                         num_hrs_prev_snwd,
-                                         num_hrs_wre,
-                                         qcdb_prev_snwd_qc_flag,
-                                         flag_sd_change_wre_low_value,
-                                         qcdb_var_time,
-                                         qcdb_var_time_units)
-            if qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] and not before:
-                num_flagged_snwd_change_wre_this_time += 1
-                num_flagged_snwd_change_wre += 1
+                qc_check_snwd_inc_wre(site_snwd_val_cm,
+                                      site_snwd_obj_id,
+                                      site_snwd_station_id,
+                                      qc_test_name,
+                                      qc_bit,
+                                      qcdb,
+                                      qcdb_si,
+                                      qcdb_ti,
+                                      qcdb_snwd_qc_chkd,
+                                      qcdb_snwd_qc_flag,
+                                      wdb_prev_snwd_val_cm,
+                                      wdb_prev_snwd_si,
+                                      num_hrs_prev_snwd,
+                                      num_hrs_wre,
+                                      qcdb_prev_snwd_qc_flag,
+                                      flag_snwd_inc_wre_low_val,
+                                      qcdb_var_time,
+                                      qcdb_var_time_units)
+            if (qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)) and \
+                not before:
+                num_flagged_snwd_inc_wre_this_time += 1
+                num_flagged_snwd_inc_wre += 1
 
             ########################################
             # Perform streak check for snow depth. #
@@ -2842,12 +3019,12 @@ def main():
                 logger.error('Inconsistent qc_test_names data in ' +
                              'QC database.')
                 qcdb.close()
-                exit(1)
+                sys.exit(1)
             if snwdc_qc_test_bits[ind] != snwd_qc_test_bits[ind]:
                 logger.error('Inconsistent qc_test_bits data in ' +
                              'QC database.')
                 qcdb.close()
-                exit(1)
+                sys.exit(1)
 
             before = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti]
             qcdb_snwd_qc_chkd, qcdb_snwd_qc_flag = \
@@ -2882,20 +3059,21 @@ def main():
                 logger.error('Inconsistent qc_test_names data in ' +
                              'QC database.')
                 qcdb.close()
-                exit(1)
+                sys.exit(1)
             if snwdc_qc_test_bits[ind] != snwd_qc_test_bits[ind]:
                 logger.error('Inconsistent qc_test_bits data in ' +
                              'QC database.')
                 qcdb.close()
-                exit(1)
+                sys.exit(1)
 
-            before = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti]
+            before = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
             qcdb_snwd_qc_chkd, qcdb_snwd_qc_flag = \
                 qc_check_snwd_gap(site_snwd_val_cm,
                                   site_snwd_obj_id,
                                   site_snwd_station_id,
                                   qc_test_name,
                                   qc_bit,
+                                  qcdb,
                                   qcdb_si,
                                   qcdb_ti,
                                   qcdb_snwd_qc_chkd,
@@ -2905,163 +3083,213 @@ def main():
                                   num_hrs_prev_snwd,
                                   num_hrs_gap,
                                   qcdb_prev_snwd_qc_flag,
+                                  flag_snwd_gap_sec_values,
+                                  qcdb_var_time,
+                                  qcdb_var_time_units,
                                   check_climatology=args.check_climatology,
                                   snwd_clim_med_cm=site_snwd_clim_med_cm,
                                   snwd_clim_max_cm=site_snwd_clim_max_cm,
                                   snwd_clim_iqr_cm=site_snwd_clim_iqr_cm)
-            if qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] and not before:
+            if (qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1<< qc_bit)) and \
+               not before:
                 num_flagged_snwd_gap_this_time += 1
                 num_flagged_snwd_gap += 1
 
-            # if wdb_prev_snwd_si is not None:
+            ###############################################
+            # Perform snow-temperature consistency check. #
+            ###############################################
 
-            #     # Preceding snow depth data is available, making this test
-            #     # possible.
+            # Identify the QC bit for the test.
+            qc_test_name = 'temperature_consistency'
+            ind = snwd_qc_test_names.index(qc_test_name)
+            qc_bit = snwd_qc_test_bits[ind]
+            if snwdc_qc_test_names[ind] != qc_test_name:
+                logger.error('Inconsistent qc_test_names data in ' +
+                             'QC database.')
+                qcdb.close()
+                sys.exit(1)
+            if snwdc_qc_test_bits[ind] != snwd_qc_test_bits[ind]:
+                logger.error('Inconsistent qc_test_bits data in ' +
+                             'QC database.')
+                qcdb.close()
+                sys.exit(1)
+
+            before = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1 << qc_bit)
+            qcdb_snwd_qc_chkd, qcdb_snwd_qc_flag = \
+                qc_check_snwd_inc_tair(site_snwd_val_cm,
+                                       site_snwd_obj_id,
+                                       site_snwd_station_id,
+                                       qc_test_name,
+                                       qc_bit,
+                                       qcdb,
+                                       qcdb_si,
+                                       qcdb_ti,
+                                       qcdb_snwd_qc_chkd,
+                                       qcdb_snwd_qc_flag,
+                                       qcdb_obj_id_var,
+                                       wdb_prev_snwd_si,
+                                       wdb_prev_snwd_val_cm,
+                                       wdb_prev_snwd_obj_id,
+                                       num_hrs_prev_snwd,
+                                       wdb_prev_tair_si,
+                                       wdb_prev_tair_val_deg_c,
+                                       num_hrs_tair,
+                                       qcdb_prev_snwd_qc_flag,
+                                       flag_snwd_inc_tair_low_val,
+                                       qcdb_var_time,
+                                       qcdb_var_time_units)
+            if (qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & (1<< qc_bit)) and \
+               not before:
+                num_flagged_snwd_inc_tair_this_time += 1
+                num_flagged_snwd_inc_tair += 1
+
+            # if (wdb_prev_snwd_si is not None) and \
+            #    (wdb_prev_tair_si is not None):
+
+            #     # Preceding snow depth data and air temperature data is
+            #     # available for this station, making this test possible.
 
 
             #     if not qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
             #         # Test has not been performed for this observation.
 
-            #         prev_snwd_ti = num_hrs_prev_snwd - num_hrs_gap
+            #         # Note that there are four indices for locating this
+            #         # station:
+            #         # 1. wdb_snwd_si    = the station index in
+            #         #                     wdb_snwd
+            #         # 2. qcdb_si        = the station index in the QC database
+            #         #                     which includes
+            #         #                     qcdb_snwd_qc_chkd *
+            #         #                     qcdb_snwd_qc_flag *
+            #         # 3. wdb_prev_snwd_si = the station index in
+            #         #                     prev_sd and wdb_prev_snwd_obj_id
+            #         # 4. wdb_prev_tair_si = the station index in
+            #         #                       wdb_prev_tair
+
+            #         prev_snwd_ti = num_hrs_prev_snwd - num_hrs_tair
 
             #         site_prev_snwd_val_cm = \
             #             wdb_prev_snwd_val_cm[wdb_prev_snwd_si, prev_snwd_ti:]
 
+            #         # Programming check.
+            #         if len(site_prev_snwd_val_cm) != num_hrs_tair:
+            #             print('ERROR: (programming) previous snow depth ' +
+            #                   'time index is incorrect.',
+            #                   file=sys.stderr)
+            #             qcdb.close()
+            #             exit(1)
+
+            #         # Programming check on station indices in different
+            #         # variables.
+            #         if (qcdb_obj_id_var[qcdb_si] != site_snwd_obj_id or
+            #             wdb_prev_snwd_obj_id[wdb_prev_snwd_si] != \
+            #             site_snwd_obj_id):
+            #             print('ERROR: (programming) object ID mismatch ' +
+            #                   'in "{}" check.'.format(qc_test_name),
+            #                   file=sys.stderr)
+            #             qcdb.close()
+            #             exit(1)
+
             #         site_prev_snwd_qc = \
             #             qcdb_prev_snwd_qc_flag[qcdb_si, prev_snwd_ti:]
 
-            #         station_time_series = \
-            #             np.ma.append(site_prev_snwd_val_cm, site_snwd_val_cm)
-
-            #         if args.check_climatology:
-
-            #             snwd_ref_ceiling_cm = (site_snwd_clim_max_mm + \
-            #                                    site_snwd_clim_iqr_mm) * 0.1
-
-            #             snwd_ref_default_cm = site_snwd_clim_med_mm * 0.1
-
-            #             ts_flag_ind, ref_obs = \
-            #                 qc_durre_snwd_gap(site_snwd_val_cm,
-            #                                   site_prev_snwd_val_cm,
-            #                                   site_prev_snwd_qc,
-            #                                   ref_ceiling_cm=
-            #                                   snwd_ref_ceiling_cm,
-            #                                   ref_default_cm=
-            #                                   snwd_ref_default_cm,
-            #                                   verbose=args.verbose)
-
-            #         else:
-
-            #             ts_flag_ind, ref_obs = \
-            #                 qc_durre_snwd_gap(site_snwd_val_cm,
-            #                                   site_prev_snwd_val_cm,
-            #                                   site_prev_snwd_qc,
-            #                                   verbose=args.verbose)
-
-            #         if ts_flag_ind is None:
-            #             logger.error('Snow depth gap check failed ' +
-            #                          'for station {} '.
-            #                          format(site_snwd_station_id) +
-            #                          '({}).'.format(site_snwd_obj_id))
+            #         # Programming check.
+            #         if len(site_prev_snwd_qc) != num_hrs_tair:
+            #             print('ERROR: (programming) previous snow depth ' +
+            #                   'QC time index is incorrect.',
+            #                   file=sys.stderr)
             #             qcdb.close()
-            #             sys.exit(1)
+            #             exit(1)
 
-            #         for ind, ts_ind in enumerate(ts_flag_ind):
+            #         site_prev_tair_val_deg_c = \
+            #             wdb_prev_tair_val_deg_c[wdb_prev_tair_si,:]
 
-            #             # Identify time index of observation in database.
-            #             ts_ind_db = qcdb_ti - num_hrs_gap + ts_ind
+            #         # Programming check.
+            #         if len(site_prev_tair_val_deg_c) != num_hrs_tair + 1:
+            #             print('ERROR: (programming) previous air ' +
+            #                   'temperature time index is incorrect.',
+            #                   file=sys.stderr)
+            #             print(len(site_prev_tair_val_deg_c))
+            #             print(num_hrs_tair + 1)
+            #             qcdb.close()
+            #             exit(1)
 
-            #             if debug_this_station:
-            #                 flagged_obs_datetime = \
-            #                     num2date(qcdb_var_time[0] + ts_ind_db,
-            #                              units=qcdb_var_time_units,
-            #                              only_use_cftime_datetimes=False)
-            #                 logger.debug('snow depth gap test flags {} '.
-            #                              format(station_time_series[ts_ind]) +
-            #                              'at {}, '.
-            #                              format(flagged_obs_datetime) +
-            #                              'reference {}'.format(ref_obs[ind]))
-            #                 if ts_ind_db < 0:
-            #                     logger.debug('(does not fit in QC database)')
-            #                 else:
-            #                     logger.debug('(fits in QC database)')
+            #         flag, ref_ind = \
+            #             qc_durre_snwd_tair(site_snwd_val_cm,
+            #                                site_prev_snwd_val_cm,
+            #                                site_prev_snwd_qc,
+            #                                site_prev_tair_val_deg_c)
 
-            #             if ts_ind_db >= 0:
+            #         if flag:
 
-            #                 # Observation fits in time frame of database.
-            #                 flagged_obs_datetime = \
-            #                     num2date(qcdb_var_time[0] + ts_ind_db,
-            #                              units=qcdb_var_time_units,
-            #                              only_use_cftime_datetimes=False)
+            #             logger.debug('Flagging snow depth change ' +
+            #                          '{} '.
+            #                          format(site_prev_snwd_val_cm[ref_ind]) +
+            #                          'to {} '.format(site_snwd_val_cm) +
+            #                          'at station {} '.
+            #                          format(site_snwd_station_id) +
+            #                          '({}) '.format(site_snwd_obj_id) +
+            #                          '("{}").'.format(qc_test_name))
 
-            #                 logger.debug('Flagging snow depth data ' +
-            #                              'for "gap" check ' +
-            #                              'at station {} '.
-            #                              format(site_snwd_station_id) +
-            #                              '({}), '.
-            #                              format(site_snwd_obj_id) +
-            #                              'value {}, '.
-            #                              format(station_time_series[ts_ind]) +
-            #                              'time {}.'.
-            #                              format(flagged_obs_datetime))
+            #             # Turn on the QC bit for this test.
+            #             qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] = \
+            #                 qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
 
-            #                 # Make sure the value is not already flagged.
-            #                 if qcdb_snwd_qc_flag[qcdb_si, ts_ind_db] & \
-            #                    (1 << qc_bit) != 0:
-            #                     logger.error('(PROGRAMMING) Value was ' +
-            #                                  'previously flagged and ' +
-            #                                  'should not have been used.')
-            #                     qcdb.close()
-            #                     sys.exit(1)
+            #             if flag_snwd_inc_tair_low_val:
 
-            #                 if debug_this_station and \
-            #                    ts_ind_db != qcdb_ti:
-            #                     print('***** this is a "previous" value:')
-            #                     print('***** qc_chkd = {}'.
-            #                           format(qcdb_snwd_qc_chkd[qcdb_si,
-            #                                                    ts_ind_db] &
-            #                                  (1 << qc_bit)))
-            #                     print('***** qc_flag = {}'.
-            #                           format(qcdb_snwd_qc_flag[qcdb_si,
-            #                                                    ts_ind_db] &
-            #                                  (1 << qc_bit)))
-
-            #                 if ts_ind_db == qcdb_ti or \
-            #                    flag_snwd_gap_sec_values is True:
-
-            #                     # Turn on the QC bit for this value.
-            #                     qcdb_snwd_qc_flag[qcdb_si, ts_ind_db] = \
-            #                         qcdb_snwd_qc_flag[qcdb_si,ts_ind_db] | \
+            #                 # Flag previous value as well if that time fits
+            #                 # into the database.
+            #                 ref_ind_db = qcdb_ti - num_hrs_tair + ref_ind
+            #                 if ref_ind_db >= 0:
+            #                     ref_datetime = \
+            #                         num2date(qcdb_var_time[0] + ref_ind_db,
+            #                                  units=qcdb_var_time_units,
+            #                                  only_use_cftime_datetimes=False)
+            #                     logger.debug('Also flagging ' +
+            #                                  'observation {} at {}.'.
+            #                                  format(site_prev_snwd_val_cm[ref_ind],
+            #                                         ref_datetime))
+            #                     # First make sure the previous value is not
+            #                     # flagged.
+            #                     if qcdb_snwd_qc_flag[qcdb_si, ref_ind_db] & \
+            #                        (1 << qc_bit) != 0:
+            #                         print('ERROR: (PROGRAMMING) ' +
+            #                               'reference value was ' +
+            #                               'previously flagged and should ' +
+            #                               'not have been used.',
+            #                               file=sys.stderr)
+            #                         qcdb.close()
+            #                         sys.exit(1)
+            #                     # Flag the previous value.
+            #                     qcdb_snwd_qc_flag[qcdb_si, ref_ind_db] = \
+            #                         qcdb_snwd_qc_flag[qcdb_si,ref_ind_db] | \
             #                         (1 << qc_bit)
-
-            #                     # Identify the value as having been
+            #                     # Identify the previous value as having been
             #                     # through this check, even though this is
-            #                     # only indirectly the case when
-            #                     # ts_ind_db != qcdb_ti and
-            #                     # flag_snwd_gap_sec_values is True.
-            #                     # In that situation, most likely the
-            #                     # observation has already been tested, and
-            #                     # passed, but in the current context it is
-            #                     # being flagged.
-            #                     qcdb_snwd_qc_chkd[qcdb_si, ts_ind_db] = \
-            #                         qcdb_snwd_qc_chkd[qcdb_si, ts_ind_db] \
+            #                     # only indirectly the case. Most likely it has
+            #                     # already been tested, and passed, but now is
+            #                     # associated with the later problematic report.
+            #                     qcdb_snwd_qc_chkd[qcdb_si, ref_ind_db] = \
+            #                         qcdb_snwd_qc_chkd[qcdb_si, ref_ind_db] \
             #                         | (1 << qc_bit)
 
-            #                     num_flagged_snwd_gap_this_time += 1
-            #                     num_flagged_snwd_gap += 1
+            #             # Increment flagged-value counters.
+            #             num_flagged_snwd_inc_tair_this_time += 1
+            #             num_flagged_snwd_inc_tair += 1
 
-            #         # Turn on the QC checked bit for this test, regardless of
-            #         # whether the observation was flagged.
-            #         qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] = \
-            #             qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] \
-            #             | (1 << qc_bit)
+            #         if flag is not None:
+
+            #             # Turn on the QC checked bit for this test, regardless
+            #             # of whether the observation was flagged.
+            #             qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] = \
+            #                 qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] | (1 << qc_bit)
 
             #     else:
 
             #         # Test has already been performed.
-            #         flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] \
-            #                  & (1 << qc_bit)
+            #         flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & \
+            #                      (1 << qc_bit)
             #         if flag_value == 0:
             #             flag_str = 'not flagged'
             #         else:
@@ -3073,185 +3301,6 @@ def main():
             #                                site_snwd_obj_id) +
             #                         'value {} ({})'.
             #                         format(site_snwd_val_cm, flag_str))
-
-            ###############################################
-            # Perform snow-temperature consistency check. #
-            ###############################################
-
-            qc_test_name = 'temperature_consistency'
-            if (wdb_prev_snwd_si is not None) and \
-               (wdb_prev_tair_si is not None):
-
-                # Preceding snow depth data and air temperature data is
-                # available for this station, making this test possible.
-
-                # Identify the QC bit for the test.
-                ind = snwd_qc_test_names.index(qc_test_name)
-                qc_bit = snwd_qc_test_bits[ind]
-                if snwdc_qc_test_names[ind] != qc_test_name:
-                    print('ERROR: inconsistent qc_test_names data in ' +
-                          'QC database.',
-                          file=sys.stderr)
-                    qcdb.close()
-                    exit(1)
-                if snwdc_qc_test_bits[ind] != snwd_qc_test_bits[ind]:
-                    print('ERROR: inconsistent qc_test_bits data in ' +
-                          'QC database.',
-                          file=sys.stderr)
-                    qcdb.close()
-                    exit(1)
-
-                if not qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
-
-                    # Test has not been performed for this observation.
-
-                    # Note that there are four indices for locating this
-                    # station:
-                    # 1. wdb_snwd_si    = the station index in
-                    #                     wdb_snwd
-                    # 2. qcdb_si        = the station index in the QC database
-                    #                     which includes
-                    #                     qcdb_snwd_qc_chkd *
-                    #                     qcdb_snwd_qc_flag *
-                    # 3. wdb_prev_snwd_si = the station index in
-                    #                     prev_sd and wdb_prev_snwd_obj_id
-                    # 4. wdb_prev_tair_si = the station index in
-                    #                       wdb_prev_tair
-
-                    prev_snwd_ti = num_hrs_prev_snwd - num_hrs_prev_tair
-
-                    site_prev_snwd_val_cm = \
-                        wdb_prev_snwd_val_cm[wdb_prev_snwd_si, prev_snwd_ti:]
-
-                    # Programming check.
-                    if len(site_prev_snwd_val_cm) != num_hrs_prev_tair:
-                        print('ERROR: (programming) previous snow depth ' +
-                              'time index is incorrect.',
-                              file=sys.stderr)
-                        qcdb.close()
-                        exit(1)
-
-                    # Programming check on station indices in different
-                    # variables.
-                    if (qcdb_obj_id_var[qcdb_si] != site_snwd_obj_id or
-                        wdb_prev_snwd_obj_id[wdb_prev_snwd_si] != \
-                        site_snwd_obj_id):
-                        print('ERROR: (programming) object ID mismatch ' +
-                              'in "{}" check.'.format(qc_test_name),
-                              file=sys.stderr)
-                        qcdb.close()
-                        exit(1)
-
-                    site_prev_snwd_qc = \
-                        qcdb_prev_snwd_qc_flag[qcdb_si, prev_snwd_ti:]
-
-                    # Programming check.
-                    if len(site_prev_snwd_qc) != num_hrs_prev_tair:
-                        print('ERROR: (programming) previous snow depth ' +
-                              'QC time index is incorrect.',
-                              file=sys.stderr)
-                        qcdb.close()
-                        exit(1)
-
-                    site_prev_tair_val_deg_c = \
-                        wdb_prev_tair_val[wdb_prev_tair_si,:]
-
-                    # Programming check.
-                    if len(site_prev_tair_val_deg_c) != num_hrs_prev_tair + 1:
-                        print('ERROR: (programming) previous air ' +
-                              'temperature time index is incorrect.',
-                              file=sys.stderr)
-                        print(len(site_prev_tair_val_deg_c))
-                        print(num_hrs_prev_tair + 1)
-                        qcdb.close()
-                        exit(1)
-
-                    flag, ref_ind = \
-                        qc_durre_snwd_tair(site_snwd_val_cm,
-                                           site_prev_snwd_val_cm,
-                                           site_prev_snwd_qc,
-                                           site_prev_tair_val_deg_c)
-
-                    if flag:
-
-                        logger.debug('Flagging snow depth change ' +
-                                     '{} '.
-                                     format(site_prev_snwd_val_cm[ref_ind]) +
-                                     'to {} '.format(site_snwd_val_cm) +
-                                     'at station {} '.
-                                     format(site_snwd_station_id) +
-                                     '({}) '.format(site_snwd_obj_id) +
-                                     '("{}").'.format(qc_test_name))
-
-                        # Turn on the QC bit for this test.
-                        qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] = \
-                            qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
-
-                        if flag_sd_change_tair_low_value:
-
-                            # Flag previous value as well if that time fits
-                            # into the database.
-                            ref_ind_db = qcdb_ti - num_hrs_prev_tair + ref_ind
-                            if ref_ind_db >= 0:
-                                ref_datetime = \
-                                    num2date(qcdb_var_time[0] + ref_ind_db,
-                                             units=qcdb_var_time_units,
-                                             only_use_cftime_datetimes=False)
-                                logger.debug('Also flagging ' +
-                                             'observation {} at {}.'.
-                                             format(site_prev_snwd_val_cm[ref_ind],
-                                                    ref_datetime))
-                                # First make sure the previous value is not
-                                # flagged.
-                                if qcdb_snwd_qc_flag[qcdb_si, ref_ind_db] & \
-                                   (1 << qc_bit) != 0:
-                                    print('ERROR: (PROGRAMMING) ' +
-                                          'reference value was ' +
-                                          'previously flagged and should ' +
-                                          'not have been used.',
-                                          file=sys.stderr)
-                                    qcdb.close()
-                                    sys.exit(1)
-                                # Flag the previous value.
-                                qcdb_snwd_qc_flag[qcdb_si, ref_ind_db] = \
-                                    qcdb_snwd_qc_flag[qcdb_si,ref_ind_db] | \
-                                    (1 << qc_bit)
-                                # Identify the previous value as having been
-                                # through this check, even though this is
-                                # only indirectly the case. Most likely it has
-                                # already been tested, and passed, but now is
-                                # associated with the later problematic report.
-                                qcdb_snwd_qc_chkd[qcdb_si, ref_ind_db] = \
-                                    qcdb_snwd_qc_chkd[qcdb_si, ref_ind_db] \
-                                    | (1 << qc_bit)
-
-                        # Increment flagged-value counters.
-                        num_flagged_sd_at_cons_this_time += 1
-                        num_flagged_sd_at_cons += 1
-
-                    if flag is not None:
-
-                        # Turn on the QC checked bit for this test, regardless
-                        # of whether the observation was flagged.
-                        qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] = \
-                            qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] | (1 << qc_bit)
-
-                else:
-
-                    # Test has already been performed.
-                    flag_value = qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] & \
-                                 (1 << qc_bit)
-                    if flag_value == 0:
-                        flag_str = 'not flagged'
-                    else:
-                        flag_str = 'flagged'
-                    if args.verbose:
-                        logger.info('Check "{}" '.format(qc_test_name) +
-                                    'already done for site {} ({}) '.
-                                    format(site_snwd_station_id,
-                                           site_snwd_obj_id) +
-                                    'value {} ({})'.
-                                    format(site_snwd_val_cm, flag_str))
 
             ##################################################
             # Perform snowfall-snow depth consistency check. #
@@ -3269,17 +3318,15 @@ def main():
                 ind = snwd_qc_test_names.index(qc_test_name)
                 qc_bit = snwd_qc_test_bits[ind]
                 if snwdc_qc_test_names[ind] != qc_test_name:
-                    print('ERROR: inconsistent qc_test_names data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_names data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 if snwdc_qc_test_bits[ind] != snwd_qc_test_bits[ind]:
-                    print('ERROR: inconsistent qc_test_bits data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_bits data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
 
                 if not qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
@@ -3316,19 +3363,6 @@ def main():
 
                     if flag:
  
-                        # print('***** station: {} ({})'.
-                        #       format(site_snwd_station_id, site_snwd_obj_id))
-                        # print('***** prev snwd: {}'.format(site_prev_snwd_val_cm))
-                        # print('***** snwd: {}'.format(site_snwd_val_cm))
-                        # print('***** snfl: {}'.format(site_snfl_val_cm))
-                        # print('***** diff: {}'.format(site_snwd_val_cm - site_prev_snwd_val_cm[ref_ind]))
-                        # print('***** inconsistency: {}'.
-                        #       format(site_snwd_val_cm -
-                        #              site_prev_snwd_val_cm[ref_ind] -
-                        #              site_snfl_val_cm))
-                        # print('***** flag: {} {}'.format(flag, ref_ind))
-                        # xxx = input()
-
                         logger.debug('Flagging snow depth change ' +
                                      '{} '.
                                      format(site_prev_snwd_val_cm[ref_ind]) +
@@ -3342,11 +3376,11 @@ def main():
                         qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] = \
                             qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
 
-                        if flag_sd_change_snfl_low_value:
+                        if flag_snwd_inc_snfl_low_val:
 
                             # Flag previous value as well if that time fits
                             # into the database.
-                            ref_ind_db = qcdb_ti - num_hrs_prev_tair + ref_ind
+                            ref_ind_db = qcdb_ti - num_hrs_tair + ref_ind
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
@@ -3427,17 +3461,15 @@ def main():
                 ind = snwd_qc_test_names.index(qc_test_name)
                 qc_bit = snwd_qc_test_bits[ind]
                 if snwdc_qc_test_names[ind] != qc_test_name:
-                    print('ERROR: inconsistent qc_test_names data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_names data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 if snwdc_qc_test_bits[ind] != snwd_qc_test_bits[ind]:
-                    print('ERROR: inconsistent qc_test_bits data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_bits data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
 
                 if not qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
@@ -3495,7 +3527,7 @@ def main():
                         qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] = \
                             qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
 
-                        if flag_sd_change_prcp_low_value:
+                        if flag_snwd_inc_prcp_low_val:
 
                             # Flag previous value as well if that time fits
                             # into the database.
@@ -3586,17 +3618,15 @@ def main():
 
                 qc_bit = snwd_qc_test_bits[ind]
                 if snwdc_qc_test_names[ind] != qc_test_name:
-                    print('ERROR: inconsistent qc_test_names data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_names data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 if snwdc_qc_test_bits[ind] != snwd_qc_test_bits[ind]:
-                    print('ERROR: inconsistent qc_test_bits data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_bits data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
 
                 if not qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
@@ -3645,7 +3675,7 @@ def main():
                         qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] = \
                             qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
 
-                        if flag_sd_change_prcp_low_value:
+                        if flag_snwd_inc_prcp_low_val:
 
                             # Flag previous value as well if that time fits
                             # into the database.
@@ -3727,17 +3757,15 @@ def main():
                 ind = snwd_qc_test_names.index(qc_test_name)
                 qc_bit = snwd_qc_test_bits[ind]
                 if snwdc_qc_test_names[ind] != qc_test_name:
-                    print('ERROR: inconsistent qc_test_names data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_names data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 if snwdc_qc_test_bits[ind] != snwd_qc_test_bits[ind]:
-                    print('ERROR: inconsistent qc_test_bits data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_bits data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
 
                 if not qcdb_snwd_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
@@ -3756,7 +3784,7 @@ def main():
                     # 4. wdb_prev_tair_si = the station index in
                     #                       wdb_prev_tair
    
-                    prev_snwd_ti = num_hrs_prev_snwd - num_hrs_prev_tair
+                    prev_snwd_ti = num_hrs_prev_snwd - num_hrs_tair
 
                     site_prev_snwd_val_cm = \
                         wdb_prev_snwd_val_cm[wdb_prev_snwd_si, prev_snwd_ti:]
@@ -3765,13 +3793,13 @@ def main():
                         qcdb_prev_snwd_qc_flag[qcdb_si, prev_snwd_ti:]
 
                     # Find the minimum neighborhood air temperature from the
-                    # current + preceding num_hrs_prev_tair hours.
+                    # current + preceding num_hrs_tair hours.
                     #nhood_tair_min = []
                     nhood_tair_deg_c = np.ma.empty([num_prev_tair_neighbors,
-                                                    num_hrs_prev_tair + 1])
+                                                    num_hrs_tair + 1])
                     for nc in range(0, num_prev_tair_neighbors):
                         ind2 = nhood_ind[wdb_snwd_si][nc]
-                        nhood_tair_deg_c[nc,:] = wdb_prev_tair_val[ind2,:]
+                        nhood_tair_deg_c[nc,:] = wdb_prev_tair_val_deg_c[ind2,:]
 
                     flag, ref_ind = \
                         qc_durre_snwd_tair_spatial(site_snwd_val_cm,
@@ -3794,11 +3822,11 @@ def main():
                         qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] = \
                             qcdb_snwd_qc_flag[qcdb_si, qcdb_ti] | (1 << qc_bit)
 
-                        if flag_sd_change_tair_low_value:
+                        if flag_snwd_inc_tair_low_val:
 
                             # Flag previous value as well if that time fits
                             # into the database.
-                            ref_ind_db = qcdb_ti - num_hrs_prev_tair + ref_ind
+                            ref_ind_db = qcdb_ti - num_hrs_tair + ref_ind
                             if ref_ind_db >= 0:
                                 ref_datetime = \
                                     num2date(qcdb_var_time[0] + ref_ind_db,
@@ -3894,7 +3922,7 @@ def main():
         num_hrs_prev_swe = max(num_hrs_wre,
                                num_hrs_streak,
                                num_hrs_gap,
-                               # num_hrs_prev_tair,
+                               # num_hrs_tair,
                                # num_hrs_snowfall,
                                num_hrs_prcp)
 
@@ -3972,8 +4000,7 @@ def main():
         # Programming check.
         if qcdb_prev_swe_qc_flag.shape[1] + num_pad_hours != \
            num_hrs_prev_swe:
-            print('ERROR: (programming) miscalculation of num_pad_hours.',
-                  file=sys.stderr)
+            logger.error('(PROGRAMMING) Miscalculation of num_pad_hours.')
             qcdb.close()
             sys.exit(1)
 
@@ -4072,12 +4099,12 @@ def main():
                 cursor.close()
                 conn.close()
                 if len(wdb_station_meta) != 1:
-                    print('ERROR: found {} matches in SQL statement ' +
-                          'for station object ID {}; expecting 1.'.
-                          format(len(wdb_station_meta), site_swe_obj_id),
-                          file=sys.stderr)
+                    logger.error('Found {} matches in SQL statement '.
+                                 format(len(wdb_station_meta)) +
+                                 'for station object ID {}; expecting 1.'.
+                                 format(site_swe_obj_id))
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 wdb_station_meta = wdb_station_meta[0]
 
                 # For all station variables append or confirm/update data.
@@ -4087,12 +4114,11 @@ def main():
                     if isinstance(wdb_station_meta[ind], dt.datetime):
                         # Format as "YYYY-MM-DD HH:MM:SS"
                         if not qcdb_station_var.dtype is np.str:
-                            print('ERROR: NetCDF variable {}'.
-                                  format(qcdb_station_var.name) +
-                                  'must be of "str" type.',
-                                  file=sys.stderr)
+                            logger.error('NetCDF variable {}'.
+                                         format(qcdb_station_var.name) +
+                                         'must be of "str" type.')
                             qcdb.close()
-                            exit(1)
+                            sys.exit(1)
                         wdb_allstation_column_data = \
                             wdb_station_meta[ind].strftime('%Y-%m-%d %H:%M:%S')
                     else:
@@ -4171,12 +4197,11 @@ def main():
                 # The object ID for this station was found in the
                 # preceding swe data.
                 if len(wdb_prev_swe_si) > 1:
-                    print('ERROR: multiple matches for station ' +
-                          'object ID {} '.format(site_swe_obj_id) +
-                          'in preceding swe data.',
-                          file=sys.stderr)
+                    logger.error('Multiple matches for station ' +
+                                 'object ID {} '.format(site_swe_obj_id) +
+                                 'in preceding swe data.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 wdb_prev_swe_si = wdb_prev_swe_si[0]
             else:
                 wdb_prev_swe_si = None
@@ -4192,12 +4217,11 @@ def main():
                 # The object ID for this station was found in the
                 # precipitation data.
                 if len(wdb_swe_prcp_si) > 1:
-                    print('ERROR: multiple matches for station ' +
-                          'object ID {} '.format(site_prcp_obj_id) +
-                          'in precipitation data.',
-                          file=sys.stderr)
+                    logger.error('Multiple matches for station ' +
+                                 'object ID {} '.format(site_prcp_obj_id) +
+                                 'in precipitation data.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 wdb_swe_prcp_si = wdb_swe_prcp_si[0]
             else:
                 wdb_swe_prcp_si = None
@@ -4228,19 +4252,16 @@ def main():
             ind = swe_qc_test_names.index(qc_test_name)
             qc_bit = swe_qc_test_bits[ind]
             if swe_qc_test_names[ind] != qc_test_name:
-                print('ERROR: inconsistent qc_test_names data in ' +
-                      'QC database.',
-                      file=sys.stderr)
+                logger.error('Inconsistent qc_test_names data in ' +
+                             'QC database.')
                 qcdb.close()
-                exit(1)
+                sys.exit(1)
             if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
-                print('ERROR: inconsistent qc_test_bits data in ' +
-                      'QC database.',
-                      file=sys.stderr)
+                logger.error('Inconsistent qc_test_bits data in ' +
+                             'QC database.')
                 qcdb.close()
-                exit(1)
+                sys.exit(1)
 
-            logger.debug(type(qcdb_swe_qc_chkd[qcdb_si, qcdb_ti]))
             if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
                 if qc_durre_swe_wre(site_swe_val_mm):
@@ -4286,17 +4307,15 @@ def main():
                 ind = swe_qc_test_names.index(qc_test_name)
                 qc_bit = swe_qc_test_bits[ind]
                 if swec_qc_test_names[ind] != qc_test_name:
-                    print('ERROR: inconsistent qc_test_names data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_names data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
-                    print('ERROR: inconsistent qc_test_bits data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_bits data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
 
                 if debug_this_station:
                     print('***** have previous data.')
@@ -4432,17 +4451,15 @@ def main():
                 ind = swe_qc_test_names.index(qc_test_name)
                 qc_bit = swe_qc_test_bits[ind]
                 if swec_qc_test_names[ind] != qc_test_name:
-                    print('ERROR: inconsistent qc_test_names data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_names data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
-                    print('ERROR: inconsistent qc_test_bits data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_bits data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
 
                 if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
@@ -4525,17 +4542,15 @@ def main():
                 ind = swe_qc_test_names.index(qc_test_name)
                 qc_bit = swe_qc_test_bits[ind]
                 if swec_qc_test_names[ind] != qc_test_name:
-                    print('ERROR: inconsistent qc_test_names data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_names data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
-                    print('ERROR: inconsistent qc_test_bits data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_bits data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
 
                 if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
@@ -4710,17 +4725,15 @@ def main():
                 ind = swe_qc_test_names.index(qc_test_name)
                 qc_bit = swe_qc_test_bits[ind]
                 if swec_qc_test_names[ind] != qc_test_name:
-                    print('ERROR: inconsistent qc_test_names data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_names data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
-                    print('ERROR: inconsistent qc_test_bits data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_bits data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
 
                 if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
@@ -4867,17 +4880,15 @@ def main():
 
                 qc_bit = swe_qc_test_bits[ind]
                 if swec_qc_test_names[ind] != qc_test_name:
-                    print('ERROR: inconsistent qc_test_names data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_names data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
                 if swec_qc_test_bits[ind] != swe_qc_test_bits[ind]:
-                    print('ERROR: inconsistent qc_test_bits data in ' +
-                          'QC database.',
-                          file=sys.stderr)
+                    logger.error('Inconsistent qc_test_bits data in ' +
+                                 'QC database.')
                     qcdb.close()
-                    exit(1)
+                    sys.exit(1)
 
                 if not qcdb_swe_qc_chkd[qcdb_si, qcdb_ti] & (1 << qc_bit):
 
@@ -5007,7 +5018,7 @@ def main():
                      'snow depth obs. at {} '.format(obs_datetime) +
                      'for world record exceedance.')
         logger.debug('Flagged {} '.
-                     format(num_flagged_snwd_change_wre_this_time) +
+                     format(num_flagged_snwd_inc_wre_this_time) +
                      'snow depth obs. at {} '.format(obs_datetime) +
                      'for world record change exceedance.')
         logger.debug('Flagged {} '.format(num_flagged_snwd_streak_this_time) +
@@ -5017,7 +5028,7 @@ def main():
                      'snow depth obs. at {} '.format(obs_datetime) +
                      'for gap.')
         logger.debug('Flagged {} '.
-                     format(num_flagged_sd_at_cons_this_time) +
+                     format(num_flagged_snwd_inc_tair_this_time) +
                      'snow depth obs. at {} '.format(obs_datetime) +
                      'for snow depth/air temperature consistency.')
         logger.debug('Flagged {} '.
@@ -5119,14 +5130,14 @@ def main():
     logger.debug('Flagged {} snow depth obs. for world record exceedance.'.
                  format(num_flagged_snwd_wre))
     logger.debug('Flagged {} snow depth changes '.
-                 format(num_flagged_snwd_change_wre) +
+                 format(num_flagged_snwd_inc_wre) +
                  'for world record exceedance.')
     logger.debug('Flagged {} snow depth obs. for streak.'.
                  format(num_flagged_snwd_streak))
     logger.debug('Flagged {} snow depth obs. for gap.'.
                  format(num_flagged_snwd_gap))
     logger.debug('Flagged {} snow depth obs.'.
-                 format(num_flagged_sd_at_cons) +
+                 format(num_flagged_snwd_inc_tair) +
                  'for snow depth/air\ temp. consistency.')
     logger.debug('Flagged {} snow depth obs.'.
                  format(num_flagged_sd_sf_cons) +
@@ -5176,10 +5187,9 @@ def main():
         try:
             shutil.move(temp_database_path, args.database_path)
         except:
-            print('ERROR: Failed to replace {} '.
-                  format(args.database_path) +
-                  'with temporary copy {}.'.format(temp_database_path),
-                  file=sys.stderr)
+            logger.error('Failed to replace {} '.
+                         format(args.database_path) +
+                         'with temporary copy {}.'.format(temp_database_path))
             sys.exit(1)
         logger.debug('Database copy {} moved to {}.'.
                      format(temp_database_path, args.database_path))
