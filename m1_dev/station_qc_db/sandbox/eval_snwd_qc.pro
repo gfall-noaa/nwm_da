@@ -696,7 +696,19 @@ end
 ; num_hrs_pad_post.
 ;  start_date_YYYYMMDDHH = '2019100200'
   start_date_YYYYMMDDHH = '2019112500'
-  start_date_YYYYMMDDHH = '2019122200'
+
+  ;; 10/02-04
+  ;; 10/11-13
+  ;; 10/20-22
+  ;; 10/29-10/31
+  ;; 11/07-09
+  ;; 11/16-18
+  ;; 11/25-27
+  ;; 12/04-06
+  ;; 12/13-15
+  ;; 12/22-24
+  
+  start_date_YYYYMMDDHH = '2019120400'
   finish_date_YYYYMMDDHH = '2020060100'
 
   finish_date_Julian = YYYYMMDDHH_TO_JULIAN(finish_date_YYYYMMDDHH)
@@ -781,6 +793,7 @@ end
   if (N_ELEMENTS(qc_test_names) ne N_ELEMENTS(qc_test_bits)) then STOP
 
 ; Produce false alarm debugging information for a specific test.
+  ;; eval_test_name = 'none'
   ;; eval_test_name = 'streak'
   ;; eval_test_name = 'world_record_increase_exceedance'
   ;; eval_test_name = 'temperature_consistency'
