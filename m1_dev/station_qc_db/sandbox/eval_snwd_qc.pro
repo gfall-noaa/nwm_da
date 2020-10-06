@@ -361,7 +361,7 @@ PRO SHOW_SNWD_WRIE_DATA, site_str, $
                         sample_num_hours, $
                         snwd_sample, $
                         snwd_sample_qc
-  
+
   PRINT, '  ' + $
          site_str + ' - ' + $
          time_str + ' - ' + $
@@ -707,8 +707,13 @@ end
   ;; 12/04-06
   ;; 12/13-15
   ;; 12/22-24
-  
-  start_date_YYYYMMDDHH = '2019120400'
+  ;; 12/31-01/02
+  ;; 01/09-11
+  ;; 01/18-20
+  ;; 01/27-29
+  ;; 02/05-07
+  ;; 02/14-16
+  start_date_YYYYMMDDHH = '2020010900'
   finish_date_YYYYMMDDHH = '2020060100'
 
   finish_date_Julian = YYYYMMDDHH_TO_JULIAN(finish_date_YYYYMMDDHH)
