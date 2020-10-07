@@ -366,7 +366,7 @@ PRO SHOW_SWE_WRIE_DATA, station_obj_id, $
          site_str + ' - ' + $
          time_str + ' - ' + $
          ' obs ' + obs_str + ' mm, ' + $
-         ' mdl ' + mdl_str + ' mm'
+         ' (mdl ' + mdl_str + ' mm)'
 
 ; Basic logic check - the last SWE obs we just fetched should be the
 ; one we are interested in.
@@ -411,7 +411,8 @@ PRO SHOW_SWE_WRIE_DATA, station_obj_id, $
          '(' + STRCRA(ref_swe) + ' to ' + $
          STRCRA(swe_sample.obs_value_mm[prev_hrs_wrie]) + ', ' + $
          ref_date_str + ' to ' + obs_date_str + ')'
-  ;if (sample_num_hours gt prev_hrs_wrie) then begin
+
+;if (sample_num_hours gt prev_hrs_wrie) then begin
   ;; PRINT, swe_sample_str
   ;; PRINT, obs_str, ' (', $
   ;;        swe_sample.station_type + ')'
@@ -744,7 +745,7 @@ end
 ; to accommodate padding set by num_hrs_pad_prev and
 ; num_hrs_pad_post.
   start_date_YYYYMMDDHH = '2019100200'
-  start_date_YYYYMMDDHH = '2020010100'
+  ;; start_date_YYYYMMDDHH = '2020010100'
   finish_date_YYYYMMDDHH = '2020060100'
 
   finish_date_Julian = YYYYMMDDHH_TO_JULIAN(finish_date_YYYYMMDDHH)
@@ -827,7 +828,7 @@ end
 
 ; Produce false alarm debugging information for a specific test.
   eval_test_name = 'streak'
-  ;; eval_test_name = 'world_record_increase_exceedance'
+  eval_test_name = 'world_record_increase_exceedance'
   ;; eval_test_name = 'temperature_consistency'
   ;; eval_test_name = 'snowfall_consistency'
 
@@ -1153,7 +1154,8 @@ end
                   (eval_test_name eq 'world_record_increase_exceedance')) $
               then begin
 
-                  PRINT, '  "' + eval_test_name + '" test flagged a report'
+                  PRINT, '  Test "' + eval_test_name + '" flagged a report:'
+                  PRINT, '    ----'
 
                   prev_hrs_wrie = 24
                   SHOW_SWE_WRIE_DATA, station_obj_id, $
@@ -1169,7 +1171,89 @@ end
                                       swe_sample, $
                                       swe_sample_qc
 
-                  PRINT, '  pressakey' & move = GET_KBRD(1)
+                  PRINT, '    ----'
+                  flag_obs_val = swe_sample.obs_value_mm[prev_hrs_wrie]
+                  PRINT, '    Reported SWE = ' + $
+                         STRCRA(flag_obs_val) + $
+                         ' mm at ' + $
+                         swe_sample.station_id + $
+                         ', ' + $
+                         time_str + $
+                         ' flagged by "' + eval_test_name + '" test.'
+                  ind = WHERE(eval_test_obj_id eq station_obj_id, count)
+                  if (count eq 0) then begin
+                      eval_test_obj_id = [eval_test_obj_id, station_obj_id]
+                      eval_test_date_Julian = [eval_test_date_Julian, $
+                                               obs_date_Julian]
+                      eval_test_val = [eval_test_val, flag_obs_val]
+                  endif else begin
+                      if (count gt 1) then STOP
+                      ind = ind[0]
+                      PRINT, '    (NOTE: station has been flagged before ' + $
+                             'in this evaluation:)'
+                      days_ago = obs_date_Julian - eval_test_date_Julian[ind]
+                      hrs_ago = ROUND(days_ago * 24.0D)
+                      date = JULIAN_TO_GISRS_DATE(eval_test_date_Julian[ind])
+                      PRINT, '    (SWE = ' + STRCRA(eval_test_val[ind]) + $
+                             ' mm, ' + $
+                             date + '; ' + STRCRA(hrs_ago) + ' hours earlier)'
+;                     If the same observed value at this site was
+;                     flagged less than 15 days ago, do not
+;                     re-evaluate it.
+                      if (hrs_ago lt 360) then begin
+                          PRINT, '    (SKIPPING)'
+                          CONTINUE ; do not update!
+                      endif
+                      eval_test_date_Julian[ind] = obs_date_Julian
+                      eval_test_val[ind] = flag_obs_val
+                  endelse
+                  PRINT, '    Is this a good observation (i.e., false ' + $
+                         'alarm) or a bad observation (i.e., hit)?'
+                  choice = '*'
+                  while ((choice ne 'g') and $
+                         (choice ne 'b') and $
+                         (choice ne 'n') and $
+                         (choice ne 's')) do begin
+                      PRINT, '    (g)ood obs, (b)ad obs, ' + $
+                             '(n)ot sure, (s)kip: '
+                      choice = STRLOWCASE(GET_KBRD(1))
+                  endwhile
+                  if (choice ne 's') then begin
+                      eval_test_num_flagged++
+                      case choice of
+                          'g': eval_test_false++
+                          'b': eval_test_hit++
+                          'n': eval_test_unsure++
+                      endcase
+                  endif
+                  if (eval_test_num_flagged gt 0) then begin
+                      eval_test_likely_far = $
+                          FLOAT(eval_test_false) / $
+                          FLOAT(eval_test_num_flagged)
+                      eval_test_possible_far = $
+                          FLOAT(eval_test_false + eval_test_unsure) / $
+                          FLOAT(eval_test_num_flagged)
+                                ; Show FAR result so far.
+                      ;; PRINT, '# evaluated = ' + $
+                      ;;        STRCRA(eval_test_num_flagged) + $
+                      ;;        ', # likely FA = ' + $
+                      ;;        STRCRA(eval_test_false) + $
+                      ;;        ', # possible FA = ' + $
+                      ;;        STRCRA(eval_test_unsure)
+                      PRINT, '  Likely FAR ' + $
+                             STRCRA(eval_test_false) + '/' + $
+                             STRCRA(eval_test_num_flagged) + $
+                             ' = ' + $
+                             STRCRA(eval_test_likely_far) + $
+                             ', possible FAR ' + $
+                             STRCRA(eval_test_false + eval_test_unsure) + $
+                             '/' + $
+                             STRCRA(eval_test_num_flagged) + $
+                             ' = ' + $
+                             STRCRA(eval_test_possible_far) + $
+                             ', # evaluated = ' + $
+                             STRCRA(eval_test_num_flagged)
+                  endif
 
               endif
 
