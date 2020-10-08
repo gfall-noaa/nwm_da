@@ -604,7 +604,7 @@ PRO SHOW_SNWD_PRCP_DATA, station_obj_id, $
   web_start_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_start_date_Julian)
   web_finish_date_Julian = obs_date_Julian + 1.5D
   web_finish_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_finish_date_Julian)
-  url = 'https://www.nohrsc.noaa.gov/interactive/html/graph.html' + $
+  url = 'https://www.nohrsc2.noaa.gov/interactive/html/graph.html' + $
         '?station=' + prcp_sample.station_id + $
         '&w=800&h=600&o=a&uc=0' + $
         '&by=' + STRMID(web_start_date_YYYYMMDDHH, 0, 4) + $
@@ -615,7 +615,7 @@ PRO SHOW_SNWD_PRCP_DATA, station_obj_id, $
         '&em=' + STRMID(web_finish_date_YYYYMMDDHH, 4, 2) + $
         '&ed=' + STRMID(web_finish_date_YYYYMMDDHH, 6, 2) + $
         '&eh=' + STRMID(web_finish_date_YYYYMMDDHH, 8, 2) + $
-        '&data=0&units=1&region=us'
+        '&data=0&units=1&region=us&font=2'
   PRINT, '    time series URL:'
   PRINT, '    ' + url
 
@@ -626,7 +626,7 @@ PRO SHOW_SNWD_PRCP_DATA, station_obj_id, $
   dy = 1.0D
   dx = dy * DOUBLE(width) / DOUBLE(height)
 
-  url = 'https://www.nohrsc.noaa.gov/interactive/html/map.html' + $
+  url = 'https://www.nohrsc2.noaa.gov/interactive/html/map.html' + $
         '?ql=station&zoom=&zoom7.x=16&zoom7.y=10' + $
         '&loc=Latitude%2CLongitude%3B+City%2CST%3B+or+Station+ID' + $
         '&var=precip_obs_5_h' + $
@@ -647,7 +647,7 @@ PRO SHOW_SNWD_PRCP_DATA, station_obj_id, $
         '&height=' + STRCRA(height) + $
         '&nw=' + STRCRA(width) + $
         '&nh=' + STRCRA(height) + $
-        '&h_o=0&font=0&js=1&uc=0'
+        '&h_o=0&font=2&js=1&uc=0'
   PRINT, '    observation map URL:'
   PRINT, '    ' + url
   PRINT, '    ' + snwd_sample_str
@@ -713,7 +713,7 @@ end
   ;; 01/27-29
   ;; 02/05-07
   ;; 02/14-16
-  start_date_YYYYMMDDHH = '2020010900'
+  start_date_YYYYMMDDHH = '2020020500'
   finish_date_YYYYMMDDHH = '2020060100'
 
   finish_date_Julian = YYYYMMDDHH_TO_JULIAN(finish_date_YYYYMMDDHH)
