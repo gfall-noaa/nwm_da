@@ -277,12 +277,12 @@ swe_data_ana_plot <- function(dev_dir,
     # val_size_max_lim <- max(max(acc_stats$obs_swe_diff_sum, na.rm=TRUE),
     #                         max(abl_stats$obs_swe_diff_sum, na.rm=TRUE),
     #                         max(abl_stats_pers$obs_swe_diff_sum, na.rm=TRUE))
-    #val_size_max_lim=NA #1000 #200
+    val_size_max_lim=1200 #NA #1000 #200
     min_thresh_colr <- 0
     max_thresh_colr <- NA #1000 #200
     histlim <- ceiling(max(nrow(all_stats[[1]]), nrow(all_stats[[2]]), nrow(all_stats[[3]]))/2)
     #histlim <- ceiling(max(nrow(acc_hit), nrow(abl_hit), nrow(abl_hit_pers))/2)
-    #histlim <- 1000  #500
+    histlim <- 500 #1000  #500
     alpha_val <- 0.8
     size_min_pt <- 0
     size_max_pt <- 10  #has been 10

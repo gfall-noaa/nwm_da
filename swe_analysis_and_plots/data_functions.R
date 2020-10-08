@@ -430,12 +430,15 @@ acc_abl_scores <- function(swe_acc_abl_com,
   # Calculate different scores based on 2020 Q4 document.
   # The acc_abl_option indicated whether it's for accumulation (>0)
   # or for ablation (<0)
-  # This function moves some content from accumulation_ablation_analysis
-  # function to here.
+  # This function moves some content from acc_abl_analysis() to here
+  # 
+  # Originally there are three dataframes for departure, hit and miss
+  # Now I combined them into one and added station_is and name to the 
+  # combined table (for acc, abl, and abl_pers)
   
-  if (acc_abl_option == 0) {
-    stop("acc_abl_option should be either >0 (acc) or <0 (alb)")
-  }
+  # if (acc_abl_option == 0) {
+  #   stop("acc_abl_option should be either >0 (acc) or <0 (alb)")
+  # }
   
   
   #Based on new ideas (see 2020Q4 doc)
@@ -443,7 +446,11 @@ acc_abl_scores <- function(swe_acc_abl_com,
   #Get the total number of events that have observed SWE
   num_events <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
       filter(!is.na(wdb_swe_diff)) %>% 
-      summarise(num_events=n())
+      summarise(total_num_events=n())
+  
+  num_events_having_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
+      filter(abs(wdb_swe_diff) > 0) %>%
+      summarise(num_events_diff=n())
   
   obs_ndays <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
       filter(!is.na(obs_swe_mm)) %>% 
@@ -472,8 +479,10 @@ acc_abl_scores <- function(swe_acc_abl_com,
               num_wdb_diff=n())
   
   #stats <- cbind(stats, swe_sum[, "obs_swe_diff_sum"])
-  stats <- merge(stats, num_events, by="obj_identifier", all = T) #Add this column
-  stats <- merge(stats, obs_ndays, by="obj_identifier", all = T) #Add this column
+  if (acc_abl_option != 0) {
+      stats <- merge(stats, num_events, by="obj_identifier", all = T) #Add this column
+      stats <- merge(stats, obs_ndays, by="obj_identifier", all = T) #Add this column 
+  }
   
   
   #for hit case:
@@ -500,15 +509,17 @@ acc_abl_scores <- function(swe_acc_abl_com,
       stats <- merge(stats, abl_hit, by="obj_identifier", all = T) #Add its columns
       stats <- mutate(stats, abl_hit_aggbias = abl_hit_diff_sum/obs_swe_diff_sum)
       #abl_hit <-  mutate(abl_hit, abl_hit_aggbias = abl_hit$abl_hit_diff_sum/stats$obs_swe_diff_sum)
-  } else {
-      stop("Incorrect acc_abl_option!")
   }
+  # } else {
+  #     #stop("Incorrect acc_abl_option!")
+  #     message("No obs_swe_diff case!")
+  # }
    
 
   if (acc_abl_option > 0) {
       #acc_hit$acc_hit_aggbias[is.na(acc_hit$acc_hit_aggbias)] <- 0.0001
       stats$acc_hit_aggbias[is.na(stats$acc_hit_aggbias)] <- 0.0001
-  } else {
+  } else if (acc_abl_option < 0){
       #abl_hit$abl_hit_aggbias[is.na(abl_hit$abl_hit_aggbias)] <- 0.0001
       stats$abl_hit_aggbias[is.na(stats$abl_hit_aggbias)] <- 0.0001
   }
@@ -535,17 +546,46 @@ acc_abl_scores <- function(swe_acc_abl_com,
       #abl_miss <-  mutate(abl_miss, abl_miss_aggerror = abl_miss_diff_sum/abl_miss_obs_swe_diff_sum)
       stats <- merge(stats, abl_miss, by="obj_identifier", all = T) #Add its columns
       stats <- mutate(stats, abl_miss_aggerror = abl_miss_diff_sum/obs_swe_diff_sum)
-     
-  } else {
-      stop("Incorrect acc_abl_option!")
-  }
+  }   
+  # } else {
+  #     stop("Incorrect acc_abl_option!")
+  # }
   
   
   if (acc_abl_option > 0) {
       stats$acc_miss_aggerror[is.na(stats$acc_miss_aggerror)] <- 0.0001
-  } else {
+  } else if (acc_abl_option < 0){
       stats$abl_miss_aggerror[is.na(stats$abl_miss_aggerror)] <- 0.0001
   }
+  
+  
+  
+  
+  # To count for the cells 4, 5, and 6 in the contingent table (3x3 table)
+  if (acc_abl_option == 0) {
+      stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+          filter(wdb_swe_diff == 0) %>%
+                 summarise(station_id = first(station_id),
+                           station_name = first(name),
+                           lon = first(lon),
+                           lat = first(lat),
+                           elevation = first(elevation),
+                           mean_obs_swe = mean(obs_swe_mm),
+                           mean_nwm_swe = mean(nwm_swe),
+                           obs_swe_sum = sum(obs_swe_mm),
+                           nwm_swe_sum = sum(nwm_swe),
+                           ndays_no_wdb_diff = n())
+      both_no_swe_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+          filter(wdb_swe_diff == 0 & nwm_swe_diff == 0.0) %>%  # no case for nwm_swe_diff == 0
+          summarise(ndays_no_swe_diff = n())
+      stats <- merge(stats, both_no_swe_diff, by="obj_identifier", all = T) #Add this column
+      stats <- merge(stats, num_events_having_diff, by="obj_identifier", all = T) #Add this column
+      stats <- merge(stats, num_events, by="obj_identifier", all = T) #Add this column
+      stats <- merge(stats, obs_ndays, by="obj_identifier", all = T) #Add this column
+      stats <- stats %>% subset(stats$obs_swe_sum > 0)
+      #stats <- stats %>% subset(!is.na(stats$obs_swe_sum))
+  }
+  
   
 
   return (stats)
@@ -615,7 +655,13 @@ acc_abl_analysis <- function(nwm_wdb_com_daily) {
   abl_per_stats <- acc_abl_scores(swe_acc_abl_com_pers,
                                   acc_abl_option)
   
-  return (list(acc_stats, abl_stats, abl_per_stats))
+  # Add another case when acc_abl_option = 0 for obs_swe_diff = 0
+  # This is to deal with the cells 4, 5, and 6 in the contingent table
+  acc_abl_option <- 0
+  no_diff_stats <- acc_abl_scores(swe_acc_abl_com,
+                              acc_abl_option)
+  
+  return (list(acc_stats, abl_stats, abl_per_stats, no_diff_stats))
 }
 
 # END OF FUNCTIONS--------------------------------------
