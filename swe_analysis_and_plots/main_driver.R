@@ -35,8 +35,8 @@ if (!dir.exists(plot_output_dir)) {
 
 
 #Manually give the analysis period.
-#fromDate <- "2019-12-01 12:00:00"
-# toDate <- "2019-11-30 12:00:00"
+fromDate <- "2019-12-01 12:00:00"
+#toDate <- "2019-11-30 12:00:00"
 fromDate <- "2020-04-01 12:00:00"
 toDate <- "2020-05-31 12:00:00"
 
@@ -46,7 +46,7 @@ minus_hours <- 3 # smaller than the target hour
 plus_hours <- 3  # number of hours greater than the target hour
 hr_range <- c(minus_hours, plus_hours)
 
-include_station_criteria <- 0.5
+include_station_criteria <- 0.
 #(must have 0.5*100 = 50% record during the analysis period)
 
 bounding_box <- c(min_lat = 20.0, max_lat = 58.0, 
@@ -82,5 +82,6 @@ all_stats <- swe_data_ana_plot(dev_dir,
 acc_stats <- all_stats[[1]]
 abl_stats <- all_stats[[2]]
 abl_pers_stats <- all_stats[[3]]
+no_obs_diff_stats <- all_stats[[4]]
 rm(all_stats)
 message("All Done")
