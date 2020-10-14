@@ -386,37 +386,45 @@ PRO SHOW_SWE_WRIE_DATA, station_obj_id, $
   ok_ind = WHERE((swe_sample.obs_value_mm[0:prev_hrs_wrie-1] ne ndv) and $
                  ((swe_sample_qc[0:prev_hrs_wrie-1] eq 0) or $
                   (swe_sample_qc[0:prev_hrs_wrie-1] eq 9999)), ok_count)
-  if (ok_count eq 0) then STOP
+  if (ok_count eq 0) then begin
+      PRINT, '    WARNING: QC test not reproducible. Possible case of ' +$
+             'retroactive flagging when QC was performed.'
+  endif else begin
 
-; Identify the reference observation that was used to set the flag.
-  ref_swe = MIN(swe_sample.obs_value_mm[ok_ind], ind)
-  ref_swe_ind = ok_ind[ind]
-  ref_date_Julian = obs_date_Julian - $
-                    DOUBLE(prev_hrs_wrie - ref_swe_ind) / 24.0D
-  obs_date_str = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
-  ref_date_str = JULIAN_TO_YYYYMMDDHH(ref_date_Julian)
+;     Identify the reference observation that was used to set the flag.
+      ref_swe = MIN(swe_sample.obs_value_mm[ok_ind], ind)
+      ref_swe_ind = ok_ind[ind]
+      ref_date_Julian = obs_date_Julian - $
+                        DOUBLE(prev_hrs_wrie - ref_swe_ind) / 24.0D
+      obs_date_str = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
+      ref_date_str = JULIAN_TO_YYYYMMDDHH(ref_date_Julian)
 
-  swe_sample_str = STRCRA(swe_sample.obs_value_mm)
-  ind = WHERE(swe_sample.obs_value_mm eq ndv, count)
-  if (count gt 0) then swe_sample_str[ind] = '-'
-  ind = WHERE((swe_sample_qc gt 0) and $
-              (swe_sample_qc ne 9999), count)
-  if (count gt 0) then $
-      swe_sample_str[ind] = swe_sample_str[ind] + $
-                            '(qc=' + STRCRA(swe_sample_qc[ind]) + ')'
+      swe_sample_str = STRCRA(swe_sample.obs_value_mm)
+      ind = WHERE(swe_sample.obs_value_mm eq ndv, count)
+      if (count gt 0) then swe_sample_str[ind] = '-'
+      ind = WHERE((swe_sample_qc gt 0) and $
+                  (swe_sample_qc ne 9999), count)
+      if (count gt 0) then $
+          swe_sample_str[ind] = swe_sample_str[ind] + $
+                                '(qc=' + STRCRA(swe_sample_qc[ind]) + ')'
 
-  PRINT, '    SWE change ' + $
-         STRCRA(swe_sample.obs_value_mm[prev_hrs_wrie] - ref_swe) + $
-         ' mm ' + $
-         '(' + STRCRA(ref_swe) + ' to ' + $
-         STRCRA(swe_sample.obs_value_mm[prev_hrs_wrie]) + ', ' + $
-         ref_date_str + ' to ' + obs_date_str + ')'
+      PRINT, '    SWE change ' + $
+             STRCRA(swe_sample.obs_value_mm[prev_hrs_wrie] - ref_swe) + $
+             ' mm ' + $
+             '(' + STRCRA(ref_swe) + ' to ' + $
+             STRCRA(swe_sample.obs_value_mm[prev_hrs_wrie]) + ', ' + $
+             ref_date_str + ' to ' + obs_date_str + ')'
 
 ;if (sample_num_hours gt prev_hrs_wrie) then begin
   ;; PRINT, swe_sample_str
   ;; PRINT, obs_str, ' (', $
   ;;        swe_sample.station_type + ')'
   ;endif
+
+      ;; print, swe_sample.obs_value_mm[0:prev_hrs_wrie-1]
+      ;; print, swe_sample_qc[0:prev_hrs_wrie-1]
+      
+  endelse
 
 ; Generate a URL for a NSA time series.
   web_start_date_Julian = obs_date_Julian - $
@@ -425,7 +433,7 @@ PRO SHOW_SWE_WRIE_DATA, station_obj_id, $
   web_start_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_start_date_Julian)
   web_finish_date_Julian = obs_date_Julian + 1.5D
   web_finish_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_finish_date_Julian)
-  url = 'https://www.nohrsc.noaa.gov/interactive/html/graph.html' + $
+  url = 'https://www.nohrsc2.noaa.gov/interactive/html/graph.html' + $
         '?station=' + swe_sample.station_id + $
         '&w=800&h=600&o=a&uc=0' + $
         '&by=' + STRMID(web_start_date_YYYYMMDDHH, 0, 4) + $
@@ -447,7 +455,7 @@ PRO SHOW_SWE_WRIE_DATA, station_obj_id, $
   dy = 1.0D
   dx = dy * DOUBLE(width) / DOUBLE(height)
 
-  url = 'https://www.nohrsc.noaa.gov/interactive/html/map.html' + $
+  url = 'https://www.nohrsc2.noaa.gov/interactive/html/map.html' + $
         '?ql=station&zoom=&zoom7.x=16&zoom7.y=10' + $
         '&loc=Latitude%2CLongitude%3B+City%2CST%3B+or+Station+ID' + $
         '&var=swe_obs_5_h' + $
@@ -468,7 +476,7 @@ PRO SHOW_SWE_WRIE_DATA, station_obj_id, $
         '&height=' + STRCRA(height) + $
         '&nw=' + STRCRA(width) + $
         '&nh=' + STRCRA(height) + $
-        '&h_o=0&font=0&js=1&uc=0'
+        '&h_o=0&font=2&js=1&uc=0'
   PRINT, '    observation map URL:'
   PRINT, '    ' + url
 
@@ -724,7 +732,6 @@ end
 
 
 
-
 ; MAIN PROGRAM
 
 
@@ -745,7 +752,6 @@ end
 ; to accommodate padding set by num_hrs_pad_prev and
 ; num_hrs_pad_post.
   start_date_YYYYMMDDHH = '2019100200'
-  ;; start_date_YYYYMMDDHH = '2020010100'
   finish_date_YYYYMMDDHH = '2020060100'
 
   finish_date_Julian = YYYYMMDDHH_TO_JULIAN(finish_date_YYYYMMDDHH)
