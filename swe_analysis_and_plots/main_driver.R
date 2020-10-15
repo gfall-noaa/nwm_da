@@ -35,8 +35,8 @@ if (!dir.exists(plot_output_dir)) {
 
 
 #Manually give the analysis period.
-fromDate <- "2019-12-01 12:00:00"
-#toDate <- "2019-11-30 12:00:00"
+fromDate <- "2019-10-01 12:00:00"
+toDate <- "2019-11-30 12:00:00"
 fromDate <- "2020-04-01 12:00:00"
 toDate <- "2020-05-31 12:00:00"
 
@@ -46,15 +46,15 @@ minus_hours <- 3 # smaller than the target hour
 plus_hours <- 3  # number of hours greater than the target hour
 hr_range <- c(minus_hours, plus_hours)
 
-include_station_criteria <- 0.
+include_station_criteria <- 0.75 # 0.0 for with_any_data
 #(must have 0.5*100 = 50% record during the analysis period)
 
 bounding_box <- c(min_lat = 20.0, max_lat = 58.0, 
                   min_lon = -134.0, max_lon = -60.0)  #CONUS
-domain_text <- "_conus_"
+domain_text <- "conus"
 bounding_box <- c(min_lat = 30.0, max_lat = 50.0, 
                   min_lon = -125.0, max_lon = -100.0)  #Western USA
-domain_text <- "_western_usa_"
+domain_text <- "western_usa"
 #bounding_box <- c(0.0, 50.0, -125.0, -100.0)
 
 

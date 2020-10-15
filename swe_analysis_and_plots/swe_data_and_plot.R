@@ -255,12 +255,12 @@ swe_data_ana_plot <- function(dev_dir,
     
     if (target_hour < 0) {
         
-        post <- paste0(gsub('.{1}$', '', domain_text), include_perc_str, ".png")
+        post <- paste0("_", gsub('.{1}$', '', domain_text), include_perc_str, ".png")
 
     } else {
         
         post <- paste0("_", target_hour, "zm",
-                       hr_range[1], "p", hr_range[2],
+                       hr_range[1], "p", hr_range[2], "_",
                        gsub('.{1}$', '', domain_text), include_perc_str, ".png")
         #Note: gsub('.{1}$', '', domain_text) -- get rid of the last character, here '_'
     }
@@ -283,8 +283,8 @@ swe_data_ana_plot <- function(dev_dir,
     histlim <- ceiling(max(nrow(all_stats[[1]]), nrow(all_stats[[2]]), nrow(all_stats[[3]]))/2)
     #histlim <- ceiling(max(nrow(acc_hit), nrow(abl_hit), nrow(abl_hit_pers))/2)
     histlim <- 500 #1000  #500
-    alpha_val <- 0.8
-    size_min_pt <- 0
+    alpha_val <- 1.0  #0.8  #when is 1.0, no transparency, shows real color
+    size_min_pt <- 1.0  #0.0, 0.6
     size_max_pt <- 10  #has been 10
     color_low <- "blue"
     color_mid <- "white"
@@ -298,33 +298,38 @@ swe_data_ana_plot <- function(dev_dir,
     
     if (exists("target_hour") && target_hour >= 0) {
         plot_subtitle <- paste0(toupper(gsub("_", " ", domain_text)),
-                                "[From ", fromDate, " To ", toDate, "] at hour ", target_hour, "z")
+                                ", ", fromDate %>% substring(1,10),
+                                " to ", toDate %>% substring(1,10),
+                                " (at hour ", target_hour, "Z)")
     } else {
         plot_subtitle <- paste0(toupper(gsub("_", " ", domain_text)),
-                                "[From ", fromDate, " To ", toDate, "]")
+                                ", ", fromDate %>% substring(1,10),
+                                " to ", toDate %>% substring(1,10))
         #Note: toupper(gsub("_", " ", domain_text)): replace _ with space and make them all upper case
     }
     ####### Some common info above #####################
     
-    size_label="Sum Obs\nSWE Diff\n(mm)"
+    size_label="Total\nObserved\nAccumulation\n(mm)"
     
     #=========================================================
     # ACCUMULATION RELATED PLOTS
     #=========================================================
     
     # Aggregate Accumulation Departure  --- based on new matrix
-    plot_title <- "Aggregate Accumulation Departure Map"
+    plot_title <- "Departure Map For Accumulation"
     
     data_sub <- all_stats[[1]]
     
-    ggplot(acc_stats, aes(x=mean_obs_swe, y=departure)) + geom_point()
-    ggplot(acc_stats, aes(x=mean_obs_swe, y=acc_hit_aggbias)) + geom_point()
-    ggplot(acc_stats, aes(x=mean_obs_swe, y=acc_miss_aggerror)) + geom_point()
+    ## scatter plots
+    # ggplot(acc_stats, aes(x=mean_obs_swe, y=departure)) + geom_point()
+    # ggplot(acc_stats, aes(x=mean_obs_swe, y=acc_hit_aggbias)) + geom_point()
+    # ggplot(acc_stats, aes(x=mean_obs_swe, y=acc_miss_aggerror)) + geom_point()
     
     # data_sub <- subset(acc_stats, subset = obs_sum >= min_swe_sum_val)
     
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
     if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
+    data_sub <- data_sub %>% arrange(desc(obs_swe_diff_sum))  #So plot smaller circles on top
     
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="departure",
@@ -333,7 +338,7 @@ swe_data_ana_plot <- function(dev_dir,
                                     size_label=size_label,
                                     #color_label="Acc\nDeparture",
                                     color_label="ARCD",
-                                    hist_title="Accumulation Departure",
+                                    hist_title="Departure for Accumulation ",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
@@ -359,15 +364,15 @@ swe_data_ana_plot <- function(dev_dir,
 
     #-----------------------------------------------------------
     # Aggregate Accumulation Bias  --- based on new matrix
-    plot_title <- "Aggregate Accumulation Bias Map"
-
+    plot_title <- "Bias Map For Accumulation"
+    
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="acc_hit_aggbias",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARCB",
-                                    hist_title="Agg Acc Bias",
+                                    hist_title="Bias For Accumulation ",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
@@ -395,7 +400,7 @@ swe_data_ana_plot <- function(dev_dir,
     #
     #-----------------------------------------------------------
     # Aggregate Accumulation Bias  --- based on new matrix
-    plot_title <- "Aggregate Accumulation Error Map"
+    plot_title <- "Error Map For Accumulation"
 
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="acc_miss_aggerror",
@@ -403,7 +408,7 @@ swe_data_ana_plot <- function(dev_dir,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARCE",
-                                    hist_title="Agg Acc Error",
+                                    hist_title="Error For Accumulation ",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
@@ -431,19 +436,20 @@ swe_data_ana_plot <- function(dev_dir,
     #=========================================================
     #-----------------------------------------------------------
     # Aggregate Ablation Departure  --- based on new matrix
-    
+    size_label="Total\nObserved\nAblation\n(mm)"
     #data_sub <- abl_stats
     data_sub <- all_stats[[2]]
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
     if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
-    plot_title <- "Aggregate Ablation Departure Map"
+    data_sub <- data_sub %>% arrange(desc(obs_swe_diff_sum))
+    plot_title <- "Departure Map For Ablation"
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="departure",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARBD",
-                                    hist_title="Ablation Departure",
+                                    hist_title="Departure for Ablation",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
@@ -469,7 +475,7 @@ swe_data_ana_plot <- function(dev_dir,
 
     #-----------------------------------------------------------
     # Aggregate Ablation Bias  --- based on new matrix
-    plot_title <- "Aggregate Ablation Bias Map"
+    plot_title <- "Bias Map For Ablation"
 
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="abl_hit_aggbias",
@@ -477,7 +483,7 @@ swe_data_ana_plot <- function(dev_dir,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARBB",
-                                    hist_title="Agg Abl Bias",
+                                    hist_title="Bias For Ablation",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
@@ -502,7 +508,7 @@ swe_data_ana_plot <- function(dev_dir,
     
     #-----------------------------------------------------------
     # Aggregate Ablation Bias  --- based on new matrix
-    plot_title <- "Aggregate Ablation Error Map"
+    plot_title <- "Error Map For Ablation"
 
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="abl_miss_aggerror",
@@ -510,7 +516,7 @@ swe_data_ana_plot <- function(dev_dir,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARBE",
-                                    hist_title="Agg Abl Error",
+                                    hist_title="Error For Ablation",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
@@ -540,17 +546,18 @@ swe_data_ana_plot <- function(dev_dir,
     
     #-----------------------------------------------------------
     # Aggregate Ablation Departure  --- under persistent condition
-    plot_title <- "Aggregate Ablation Departure Map Under Persistent Condition"
+    plot_title <- "Departure Map For Ablation (Persistent Snow)"
     data_sub <- all_stats[[3]]
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
     if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
+    data_sub <- data_sub %>% arrange(desc(obs_swe_diff_sum))
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="departure",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARBD",
-                                    hist_title="Ablation Departure (Persistent)",
+                                    hist_title="Departure For Ablation (Persistent Snow)",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
@@ -576,14 +583,14 @@ swe_data_ana_plot <- function(dev_dir,
     
     #-----------------------------------------------------------
     # Aggregate Ablation with persistent condition Bias  --- based on new matrix
-    plot_title <- "Aggregate Ablation Bias Map Under Persistent Condition"
+    plot_title <- "Bias Map For Ablation (Persistent Snow)"
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="abl_hit_aggbias",
                                     plot_title=plot_title, plot_subtitle=plot_subtitle,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARBB",
-                                    hist_title="Agg Abl Bias (Persistent)",
+                                    hist_title="Bias For Ablation (Persistent Snow)",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
@@ -609,7 +616,7 @@ swe_data_ana_plot <- function(dev_dir,
     
     #-----------------------------------------------------------
     # Aggregate Ablation Error with Persistent Condition  --- based on new matrix
-    plot_title <- "Aggregate Ablation Error Map Under Persistent Condition"
+    plot_title <- "Error Map For Ablation (Persistent Snow)"
 
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     size_var_coln="obs_swe_diff_sum", val_coln="abl_miss_aggerror",
@@ -617,7 +624,7 @@ swe_data_ana_plot <- function(dev_dir,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARBE",
-                                    hist_title="Agg Abl Error (Persistent)",
+                                    hist_title="Error For Ablatiob (Persistent Snow)",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,

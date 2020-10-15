@@ -79,25 +79,29 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
   #                         data=abl_miss) + coord_fixed()
 
   
-  
+  #my_data <- my_data %>% arrange(desc(size_var_coln))
   
   #Bias Map
   gg_err <- ggmap::ggmap(bg_map) +
     ggplot2::geom_point(aes_string(x=xcoln, y=ycoln, size=size_var_coln, fill=fill_val_coln),
-                        data=my_data, alpha=alpha_val, shape=21) +
-    ggplot2::scale_radius(size_label, range=c(size_min_pt, size_max_pt),
+                        data=my_data, alpha=alpha_val, shape=21, stroke=0.55) +
+                        #data=my_data, alpha=alpha_val, shape=21, stroke=0.6) +  
+                        ##use stroke to control the thickness of circles
+      scale_radius(size_label, range=c(size_min_pt, size_max_pt),
                         limits=c(val_size_min_lim, val_size_max_lim)) + 
-    ggplot2::scale_fill_manual(color_label, values=color_breaks, drop=FALSE) +
+      scale_fill_manual(color_label, values=color_breaks, drop=FALSE) +
+      ggtitle(bquote(atop(.(plot_title), atop(italic(.(plot_subtitle)), "")))) +
+      labs(x = x_label, y = y_label) +
+      theme(plot.title=element_text(size=16,face="bold", vjust=-1, hjust=0.5)) +
+      guides(fill=guide_legend(override.aes=list(size=3), order=1), size=
+                    guide_legend(order=2))
+
     #ggplot2::scale_fill_gradient2(color_label, low=color_low, mid=color_mid, 
     #                              high=color_high, midpoint=0,
     #                              limits=c(min_thresh_colr, max_thresh_colr)) +
     #ggplot2::scale_fill_gradientn(color_label, colours = color_reaks,
     #                              values = scales::rescale(val_breaks)) +
-    ggplot2::ggtitle(bquote(atop(.(plot_title), atop(italic(.(plot_subtitle)), "")))) +
-    ggplot2::labs(x = x_label, y = y_label) +
-    ggplot2::theme(plot.title=element_text(size=16,face="bold", vjust=-1, hjust=0.5)) +
-    ggplot2::guides(fill=guide_legend(override.aes=list(size=3), order=1), size=
-                    guide_legend(order=2))
+
     #NOTE: scale_size was replaced by scale_radius (area vs radius).   
     #      Tried scale_size_binned() and scale_size_area(). scale_radius is the best
   
@@ -106,16 +110,19 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
       #geom_bar(aes(y=(..count..)/sum(..count..))) +
       #labs(x=colorLab, y="Percent of Sites") +
     ggplot2::geom_bar() +
-    ggplot2::labs(x=hist_title, y="Site Count") +
-    ggplot2::ggtitle(bquote(atop(.(paste0("Distribution of ", hist_title)),
+      scale_fill_manual(color_label, values=color_breaks, drop=F) +
+      ggtitle(bquote(atop(.(paste0("Distribution of ", hist_title)),
                           atop(italic(.(plot_subtitle)),"")))) +
-    ggplot2::scale_fill_manual(color_label, values=color_breaks, drop=F) +
-    ggplot2::theme(plot.title=element_text(hjust = 0.5)) +
-    #ggplot2::theme(axis.title.x = element_text(margin = margin(t=10, r=0, b=0, l=0))) +
+      labs(x=hist_title, y="Site Count") +
+      theme_linedraw() +
+      theme(plot.title=element_text(vjust=-2, hjust=0.5)) +
+      theme(axis.text.x = element_text(angle = -20, vjust = 1, hjust = 0)) +
+      scale_x_discrete(drop=F)
+
+    #ggplot2::theme(axis.title.y = element_text(margin = margin(t=12, r=0, b=0, l=0))) +
       #theme(axis.text.x = element_text(size = 8)) + 
-      # theme(axis.text.x = element_text(angle = 30, vjust = 1, hjust = 0)) + 
-      scale_x_discrete(drop=F) +
-      theme_linedraw()  # Add this will not see grey background and white lines
+    #ggplot2::theme(axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0)) + 
+        # Add this will not see grey background and white lines
       #theme_minimal()
   if(!is.null(histlim)) gg_hist <- gg_hist + coord_cartesian(ylim=c(0, histlim))
     
