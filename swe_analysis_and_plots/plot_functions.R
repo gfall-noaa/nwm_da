@@ -95,12 +95,12 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
       ggtitle(bquote(atop(.(plot_title), atop(italic(.(plot_subtitle)), "")))) +
       labs(x = x_label, y = y_label) +
       theme(plot.title=element_text(size=16,face="bold", vjust=-1, hjust=0.5, family="Sans")) +
-    theme(axis.title.x = element_text(family="Sans")) +
-    theme(axis.title.y = element_text(family="Sans")) +
-    theme(legend.title = element_text(family="Sans")) +
-    theme(axis.text.x = element_text(family="Sans")) +
-    theme(axis.text.y = element_text(family="Sans")) +
-    theme(legend.text = element_text(family="Sans")) +
+      theme(axis.title.x = element_text(family="Sans")) +
+      theme(axis.title.y = element_text(family="Sans")) +
+      theme(legend.title = element_text(family="Sans")) +
+      theme(axis.text.x = element_text(family="Sans")) +
+      theme(axis.text.y = element_text(family="Sans")) +
+      theme(legend.text = element_text(family="Sans")) +
       guides(fill=guide_legend(override.aes=list(size=3), order=1), size=
                     guide_legend(order=2))
 

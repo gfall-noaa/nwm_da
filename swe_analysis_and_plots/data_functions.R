@@ -591,8 +591,13 @@ acc_abl_scores <- function(swe_acc_abl_com,
       #stats <- stats %>% subset(!is.na(stats$obs_swe_sum))
       
       #
+<<<<<<< HEAD
       #stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
       #    filter(wdb_swe_diff == 0 & nwm_swe_diff >=0.0) %>%
+=======
+      stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+          filter(wdb_swe_diff == 0 & nwm_swe_diff >=0.0) %>%
+>>>>>>> nwm_da_zzhang/develop
   }
   
   
