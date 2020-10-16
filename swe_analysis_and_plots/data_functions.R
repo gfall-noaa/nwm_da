@@ -112,6 +112,7 @@ date_string_to_date_ymdh <- function(date_string) {
 #----------------------------------------------------
 #---------------------------------------------------- 
 get_time_related_fname <- function(pre,
+                                   domain_text,
                                    fromDate,
                                    toDate,
                                    target_hour=NA,
@@ -122,12 +123,13 @@ get_time_related_fname <- function(pre,
                   gsub("-", "",toDate %>% substring(1,10)),
                   toDate %>% substring(12,13))
     
-    if (target_hour < 0 | is.na(target_hour)) {
+    if (target_hour < 0 || is.na(target_hour)) {
         post <- paste0(".csv")
     } else {
         post <- paste0("_", target_hour, 
                        "zm", hr_range[1],
-                       "p", hr_range[2], ".csv")
+                       "p", hr_range[2],
+                       "_", domain_text, ".csv")
     }
     
     fname <- paste0(pre, post)
@@ -162,10 +164,10 @@ two_hour_ends <- function(target_hour, hr_range) {
 formFileName <- function(pre, fromDate, toDate, post) {
     fname <- paste0(pre,
                     gsub("-", "",fromDate %>% substring(1,10)),
-                    fromDate %>% substring(12,13),
+                    #fromDate %>% substring(12,13),
                     "_",
                     gsub("-", "",toDate %>% substring(1,10)),
-                    toDate %>% substring(12,13),
+                    #toDate %>% substring(12,13),
                     post)
   
 }
@@ -275,7 +277,7 @@ sample_nwm_wdb_data <- function(nwm_in, wdb_in,
         nwm_group <- subset(nwm_in, subset = obj_identifier == g)
         wdb_group <- subset(wdb_in, subset = obj_identifier == g)
         
-        if (target_hour < 0 | is.na(target_hour)) {  #case 1
+        if (target_hour < 0 || is.na(target_hour)) {  #case 1
             #for the same station/group, find all the data for common datetimes
             nwm_com <- rbind(nwm_com, nwm_group[nwm_group$datetime %in%
                                                     wdb_group$datetime,])
@@ -456,8 +458,10 @@ acc_abl_scores <- function(swe_acc_abl_com,
       filter(!is.na(obs_swe_mm)) %>% 
       summarise(obs_ndays=n())  
   
+  # Basic stats for both accumulation and ablation
   stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
     filter(if (acc_abl_option > 0) wdb_swe_diff > 0 else wdb_swe_diff <0 ) %>%
+           #else if (acc_abl_option < 0) wdb_swe_diff <0 ) %>%
     summarise(station_id = first(station_id),
               station_name = first(name),
               lon = first(lon),
@@ -563,6 +567,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
   
   # To count for the cells 4, 5, and 6 in the contingent table (3x3 table)
   if (acc_abl_option == 0) {
+      # simple counting for cases when no acc and abl
       stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
           filter(wdb_swe_diff == 0) %>%
                  summarise(station_id = first(station_id),
@@ -584,6 +589,10 @@ acc_abl_scores <- function(swe_acc_abl_com,
       stats <- merge(stats, obs_ndays, by="obj_identifier", all = T) #Add this column
       stats <- stats %>% subset(stats$obs_swe_sum > 0)
       #stats <- stats %>% subset(!is.na(stats$obs_swe_sum))
+      
+      #
+      #stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+      #    filter(wdb_swe_diff == 0 & nwm_swe_diff >=0.0) %>%
   }
   
   

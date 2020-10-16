@@ -8,30 +8,15 @@
 #dev_dir <- "/net/home/zzhang/dev/nwm_da/swe_analysis_and_plots/"
 #dev_dir <- paste0("/net/home/", username, "/dev/nwm_da/swe_analysis_and_plots/")
 
-#ifelse (dir.exists(dev_dir), 
-#        source(paste0(dev_dir, "swe_data_and_plot.R")),
-#        message("Incorrect dev_dir path or file name"))
-
 #Give the directory where the m3 databases are located
 #db_dir <- "/net/scratch/zzhang/m3db/western_us/"  #for Western USA case
-#if (!dir.exists(db_dir)) {
-#    stop("Incorrect database directory:  ", db_dir)
-#    #Within rstudio: Code -> Source, it will stop at the first stop statement
-#    # Or just click the Source button above the soirce window
-#}
 #db_dir <- "/net/scratch/fall/m3db/yearly"
 #db_start_ymdh <- "2019100100"
 #db_finish_ymdh <- "2020053123"
 
 #give directory where output csv files will be written
 #csv_output_dir <- paste0("/disks/scratch/", username, "/m3db/csv_output")
-#if (!dir.exists(csv_output_dir)) {
-#    stop("CSV output directory does not exist:  ", csv_output_dir)
-#}
 #plot_output_dir <- paste0("/net/home/", username, "/dev/nwm_da/swe_analysis_and_plots/pngs")
-#if (!dir.exists(plot_output_dir)) {
-#    stop("Plots output directory does not exist:  ", plot_output_dir)
-#}
 
 
 #Manually give the analysis period.
@@ -63,6 +48,20 @@ source("config.R")
 
 hr_range <- c(minus_hours, plus_hours)
 
+ifelse (dir.exists(dev_dir), 
+       source(paste0(dev_dir, "swe_data_and_plot.R")),
+       message("Incorrect dev_dir path or file name"))
+if (!dir.exists(db_dir)) {
+   stop("Incorrect database directory:  ", db_dir)
+   #Within rstudio: Code -> Source, it will stop at the first stop statement
+   # Or just click the Source button above the soirce window
+}
+if (!dir.exists(csv_output_dir)) {
+   stop("CSV output directory does not exist:  ", csv_output_dir)
+}
+if (!dir.exists(plot_output_dir)) {
+   stop("Plots output directory does not exist:  ", plot_output_dir)
+}
                                         # 
 # #station_exclude_list_file <- paste0(csv_output_dir, "/station_exclude_list.csv")
 # if (!file.exists(station_exclude_list_path)) {
