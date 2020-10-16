@@ -484,10 +484,6 @@ PRO GET_SNWD_PRCP_DATA, obs_date_Julian, $
                         snwd_sample, $
                         snwd_sample_qc
 
-
-
-
-  
   sample_start_date_Julian = obs_date_Julian - DOUBLE(prev_hours_wrie) / 24.0D
   sample_start_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(sample_start_date_Julian)
   sample_finish_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
@@ -672,6 +668,179 @@ end
 
 
 
+PRO SHOW_SNWD_PRCP_RATIO_DATA, station_obj_id, $
+                               time_str, $
+                               obs_str, $
+                               mdl_str, $
+                               obs_date_Julian, $
+                               duration_hrs_prcp, $
+                               qcdb_nc_id, $
+                               qcdb_ti, $
+                               qcdb_si, $
+                               ndv
+
+  GET_SNWD_DATA_AND_QC, obs_date_Julian, $
+                        duration_hrs_prcp, $
+                        station_obj_id, $
+                        qcdb_nc_id, $
+                        qcdb_ti, $
+                        qcdb_si, $
+                        sample_qc_hrs, $
+                        snwd_sample, $
+                        snwd_sample_qc
+
+  site_str = snwd_sample.station_id + $
+             ' (' + STRCRA(station_obj_id) + ')' + $
+             ' (' + STRCRA(snwd_sample.station_type) + ')'
+
+  PRINT, '    ' + $
+         site_str + ' - ' + $
+         time_str + ' - ' + $
+         ' obs ' + obs_str + ', ' + $
+         ' mdl ' + mdl_str
+
+; Basic logic check - the last snow depth obs we just fetched should be the
+; one we are interested in.
+  if (snwd_sample.obs_value_cm[duration_hrs_prcp] eq ndv) then STOP
+
+; Pad QC data with 9999 for sample data falling outside the database.
+  if (sample_qc_hrs lt (duration_hrs_prcp + 1)) then begin
+      snwd_sample_qc = $
+          [REPLICATE(9999, duration_hrs_prcp + 1 - sample_qc_hrs), $
+           snwd_sample_qc]
+  endif
+  if (snwd_sample_qc[duration_hrs_prcp] eq 0) then STOP ; basic logic check
+
+  prcp_sample = GET_WDB_OBS_PRECIP(JULIAN_TO_YYYYMMDDHH(obs_date_Julian), $
+                                   duration_hrs_prcp, $
+                                   NDV = ndv, $
+                                   STATION_OBJ_ID = station_obj_id)
+
+  prcp_sample_str = STRCRA(prcp_sample.obs_value_mm)
+
+  snwd_sample_str = STRCRA(snwd_sample.obs_value_cm)
+  ind = WHERE(snwd_sample.obs_value_cm eq ndv, count)
+  if (count gt 0) then snwd_sample_str[ind] = '-'
+  ind = WHERE(snwd_sample_qc ne 0, count)
+  if (count gt 0) then $
+      snwd_sample_str[ind] = snwd_sample_str[ind] + $
+                             '(qc=' + STRCRA(snwd_sample_qc[ind]) + ')'
+
+; Get indices of snow depth obs that meet two conditions:
+;   - not a no data value
+;   - has no QC flag set, or is from a time outside the database
+  ok_ind = WHERE((snwd_sample.obs_value_cm[0:duration_hrs_prcp - 1] ne ndv) $
+                 and $
+                 ((snwd_sample_qc[0:duration_hrs_prcp - 1] eq 0) or $
+                  (snwd_sample_qc[0:duration_hrs_prcp - 1] eq 9999)), $
+                 ok_count)
+  if (ok_count eq 0) then begin
+      PRINT, '    WARNING: unable to evaluate this report, probably ' + $
+             'because reference observations were subsequently ' + $
+             'flagged, probably by the gap test.'
+      PRINT, '    Press a key to return and continue the evaluation.'
+      move = GET_KBRD(1)
+      RETURN
+  endif
+
+  ref_snwd_ind = MIN(ok_ind)
+  ref_snwd = snwd_sample.obs_value_cm[ref_snwd_ind]
+  ref_date_Julian = obs_date_Julian - $
+                    DOUBLE(duration_hrs_prcp - ref_snwd_ind) / 24.0D
+  obs_date_str = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
+  ref_date_str = JULIAN_TO_YYYYMMDDHH(ref_date_Julian)
+
+  PRINT, '    depth change ' + $
+         STRCRA(snwd_sample.obs_value_cm[duration_hrs_prcp] - ref_snwd) + $
+         ' cm ' + $
+         '(' + STRCRA(ref_snwd) + ' to ' + $
+         STRCRA(snwd_sample.obs_value_cm[duration_hrs_prcp]) + ', ', $
+         ref_date_str + ' to ' + obs_date_str + '), ' + $
+         'precip amount ' + prcp_sample_str + ' mm, ' + $
+         'ratio = ' + STRCRA((snwd_sample.obs_value_cm[duration_hrs_prcp] - $
+                             ref_snwd) * 10.0 / prcp_sample.obs_value_mm)
+
+; Generate a URL for a NSA time series.
+  web_start_date_Julian = obs_date_Julian - $
+                          DOUBLE(duration_hrs_prcp) / 24.0D - $
+                          1.5D
+  web_start_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_start_date_Julian)
+  web_finish_date_Julian = obs_date_Julian + 1.5D
+  web_finish_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_finish_date_Julian)
+  url = 'https://www.nohrsc2.noaa.gov/interactive/html/graph.html' + $
+        '?station=' + prcp_sample.station_id + $
+        '&w=800&h=600&o=a&uc=0' + $
+        '&by=' + STRMID(web_start_date_YYYYMMDDHH, 0, 4) + $
+        '&bm=' + STRMID(web_start_date_YYYYMMDDHH, 4, 2) + $
+        '&bd=' + STRMID(web_start_date_YYYYMMDDHH, 6, 2) + $
+        '&bh=' + STRMID(web_start_date_YYYYMMDDHH, 8, 2) + $
+        '&ey=' + STRMID(web_finish_date_YYYYMMDDHH, 0, 4) + $
+        '&em=' + STRMID(web_finish_date_YYYYMMDDHH, 4, 2) + $
+        '&ed=' + STRMID(web_finish_date_YYYYMMDDHH, 6, 2) + $
+        '&eh=' + STRMID(web_finish_date_YYYYMMDDHH, 8, 2) + $
+        '&data=0&units=1&region=us&font=2'
+  PRINT, '    time series URL:'
+  PRINT, '    ' + url
+
+; Generate a URL for a map of SWE observations.
+  obs_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
+  width = 1200
+  height = 675
+  dy = 1.0D
+  dx = dy * DOUBLE(width) / DOUBLE(height)
+
+  url = 'https://www.nohrsc2.noaa.gov/interactive/html/map.html' + $
+        '?ql=station&zoom=&zoom7.x=16&zoom7.y=10' + $
+        '&loc=Latitude%2CLongitude%3B+City%2CST%3B+or+Station+ID' + $
+        '&var=precip_obs_5_h' + $
+        '&dy=' + STRMID(obs_date_YYYYMMDDHH, 0, 4) + $
+        '&dm=' + STRMID(obs_date_YYYYMMDDHH, 4, 2) + $
+        '&dd=' + STRMID(obs_date_YYYYMMDDHH, 6, 2) + $
+        '&dh=' + STRMID(obs_date_YYYYMMDDHH, 8, 2) + $
+        '&snap=1&o6=1&o9=1&o12=1&lbl=l&o13=1&mode=pan&extents=us' + $
+        '&min_x=' + STRCRA(prcp_sample.longitude - 0.5D * dx) + $
+        '&min_y=' + STRCRA(prcp_sample.latitude - 0.5D * dy) + $
+        '&max_x=' + STRCRA(prcp_sample.longitude + 0.5D * dx) + $
+        '&max_y=' + STRCRA(prcp_sample.latitude + 0.5D * dy) + $
+        '&coord_x=' + STRCRA(prcp_sample.longitude) + $
+        '&coord_y=' + STRCRA(prcp_sample.latitude) + $
+        '&zbox_n=&zbox_s=&zbox_e=&zbox_w=&metric=1&bgvar=dem' + $
+        ;; '&shdvar=shading' + $
+        '&width=' + STRCRA(width) + $
+        '&height=' + STRCRA(height) + $
+        '&nw=' + STRCRA(width) + $
+        '&nh=' + STRCRA(height) + $
+        '&h_o=0&font=2&js=1&uc=0'
+  PRINT, '    observation map URL:'
+  PRINT, '    ' + url
+  PRINT, '    ' + snwd_sample_str
+
+  RETURN
+
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -713,7 +882,7 @@ end
   ;; 01/27-29
   ;; 02/05-07
   ;; 02/14-16
-  start_date_YYYYMMDDHH = '2020020500'
+  start_date_YYYYMMDDHH = '2019100200'
   finish_date_YYYYMMDDHH = '2020060100'
 
   finish_date_Julian = YYYYMMDDHH_TO_JULIAN(finish_date_YYYYMMDDHH)
@@ -754,7 +923,7 @@ end
 ; Odds and ends.
   ndv = -99999.0
   generate_psv_files = 0
-  abs_diff_thresh_cm = [16.0, 122.0]
+  abs_diff_thresh_cm = [-16.0, 122.0]
 
 ; Generate a name for an IDL save file.
 ;  savFile = 
@@ -804,6 +973,7 @@ end
   ;; eval_test_name = 'temperature_consistency'
   ;; eval_test_name = 'snowfall_consistency'
   eval_test_name = 'precip_consistency'
+  eval_test_name = 'precip_ratio'
 
   eval_test_ind = !NULL
   ti = 0
@@ -1365,6 +1535,31 @@ end
                                                qcdb_ti, $
                                                qcdb_si, $
                                                ndv
+
+                          PRINT, '  press a key' & move = GET_KBRD(1)
+                          if (STRLOWCASE(move) eq 's') then GOTO, NEXT_DATE
+
+                      endif
+
+                      if (ISA(eval_test_ind) and $
+                          (this_inventory[eval_test_ind] eq 1) and $
+                          (eval_test_name eq 'precip_ratio')) $
+                      then begin
+
+                          PRINT, '  "' + eval_test_name + $
+                                 '" test possible false alarm:'
+
+                          duration_hrs_prcp = 24
+                          SHOW_SNWD_PRCP_RATIO_DATA, station_obj_id, $
+                                                     time_str, $
+                                                     obs_str, $
+                                                     mdl_str, $
+                                                     obs_date_Julian, $
+                                                     duration_hrs_prcp, $
+                                                     qcdb_nc_id, $
+                                                     qcdb_ti, $
+                                                     qcdb_si, $
+                                                     ndv
 
                           PRINT, '  press a key' & move = GET_KBRD(1)
                           if (STRLOWCASE(move) eq 's') then GOTO, NEXT_DATE
