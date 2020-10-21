@@ -67,6 +67,7 @@ get_data_via_py <- function(nwm_base_db_path,
                             bounding_box=NA,
                             target_hour=NA,
                             hr_range=NA,
+                            scratch_dir,
                             verbose=NA) {
     
   library(gsubfn)  # In order to use list[a, b] <- functionReturningTwoValues()
@@ -80,6 +81,7 @@ get_data_via_py <- function(nwm_base_db_path,
   list[nwm_data_py, wdb_data_py] <- py_get_data_main(nwm_base_db_path,
                                                      fromDate,
                                                      toDate,
+                                                     scratch_dir,
                                                      no_data_value,
                                                      bounding_box,
                                                      target_hour,
@@ -458,7 +460,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
       filter(!is.na(obs_swe_mm)) %>% 
       summarise(obs_ndays=n())  
   
-  # Basic stats for both accumulation and ablation
+  # Basic stats for both accumulation and ablation (common ones)
   stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
     filter(if (acc_abl_option > 0) wdb_swe_diff > 0 else wdb_swe_diff <0 ) %>%
            #else if (acc_abl_option < 0) wdb_swe_diff <0 ) %>%
@@ -520,6 +522,9 @@ acc_abl_scores <- function(swe_acc_abl_com,
   # }
    
 
+  # To keep the same # of stations for departure, bias and error
+  # we need to manually set those NA cases (caused by numerator being NA) to
+  # either a very smaller number or zero in order to include them in the plots
   if (acc_abl_option > 0) {
       #acc_hit$acc_hit_aggbias[is.na(acc_hit$acc_hit_aggbias)] <- 0.0001
       stats$acc_hit_aggbias[is.na(stats$acc_hit_aggbias)] <- 0.0001
@@ -589,18 +594,42 @@ acc_abl_scores <- function(swe_acc_abl_com,
       stats <- merge(stats, obs_ndays, by="obj_identifier", all = T) #Add this column
       stats <- stats %>% subset(stats$obs_swe_sum > 0)
       #stats <- stats %>% subset(!is.na(stats$obs_swe_sum))
-      
-      #
-<<<<<<< HEAD
-      #stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
-      #    filter(wdb_swe_diff == 0 & nwm_swe_diff >=0.0) %>%
-=======
-      stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
-          filter(wdb_swe_diff == 0 & nwm_swe_diff >=0.0) %>%
->>>>>>> nwm_da_zzhang/develop
   }
   
+  if (acc_abl_option > 0) {    #account for cell #4 in contingency table as acc false positives
+      #cell #4: acc_fp_err = sum(nwm_swe_diff when wdb_swe_diff=0 and nwm_swe_diff >0)/
+      #                   sum(wdb_swe_diff when wdb_swe_diff >=0)
+      #         where sum(wdb_swe_diff when wdb_swe_diff >=0) = obs_swe_diff_sum
+      stats_no_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+          filter(wdb_swe_diff == 0 & nwm_swe_diff > 0.0) %>%
+          summarise(nwm_pos_diff_sum = sum(nwm_swe_diff))
+      stats <- merge(stats, stats_no_diff, by="obj_identifier", all = T)
+      stats <- mutate(stats, acc_fp_err =  nwm_pos_diff_sum/obs_swe_diff_sum)
+      stats <- mutate(stats, acc_total_err = case_when(
+          !is.na(acc_fp_err) & !is.na(acc_miss_aggerror) ~ acc_fp_err + acc_miss_aggerror,
+          #!is.na(acc_fp_err) & is.na(acc_miss_aggerror) ~ acc_fp_err,
+          is.na(acc_fp_err) & !is.na(acc_miss_aggerror) ~ acc_miss_aggerror,
+          TRUE ~ NA_real_))
+    
+ 
+  }
   
+      if (acc_abl_option < 0) {    #account for cell #6 in contingency table as abl false positives
+          #cell #4: abl_fp_err = sum(nwm_swe_diff when wdb_swe_diff=0 and nwm_swe_diff >0)/
+          #                   sum(wdb_swe_diff when wdb_swe_diff >=0)
+          #         where sum(wdb_swe_diff when wdb_swe_diff >=0) = obs_swe_diff_sum
+          stats_no_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+              filter(wdb_swe_diff == 0 & nwm_swe_diff < 0.0) %>%
+              summarise(nwm_abl_diff_sum = sum(nwm_swe_diff))
+          stats <- merge(stats, stats_no_diff, by="obj_identifier", all = T)
+          stats <- mutate(stats, abl_fp_err = nwm_abl_diff_sum/obs_swe_diff_sum)
+          stats <- mutate(stats, abl_total_err = case_when(
+              !is.na(abl_fp_err) & !is.na(abl_miss_aggerror) ~ abl_fp_err + abl_miss_aggerror,
+              #!is.na(acc_fp_err) & is.na(acc_miss_aggerror) ~ acc_fp_err,
+              is.na(abl_fp_err) & !is.na(abl_miss_aggerror) ~ abl_miss_aggerror,
+              TRUE ~ NA_real_))
+          
+      }
 
   return (stats)
 

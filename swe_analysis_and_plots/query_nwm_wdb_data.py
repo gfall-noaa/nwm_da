@@ -16,7 +16,6 @@ import calendar
 import re
 import sys
 import os
-import pwd
 import pathlib
 import time
 import errno
@@ -66,6 +65,7 @@ def progress(count, total, status=''):
 def get_swe_data(base_name_dir,
                  start_datetime_str,
                  finish_datetime_str,
+                 scratch_dir,
                  time_format,
                  no_data_value=-99999.0,
                  bounding_box=None,
@@ -85,8 +85,6 @@ def get_swe_data(base_name_dir,
 
     db_dir, db_file = os.path.split(base_name_dir)
     db_path = base_name_dir
-    print(db_path)
-    sys.stdout.flush()
 
     if base_name_dir is None:
         print('Need to provide a base database name')
@@ -101,12 +99,8 @@ def get_swe_data(base_name_dir,
     else:
         oper = False
 
-    print('01')
-    sys.stdout.flush()
     # Temporary file storage for observations read from the web database.
-    scratch_dir = os.path.join('/net/scratch', pwd.getpwuid(os.getuid())[0])
-    print(scratch_dir)
-    sys.stdout.flush()
+    #scratch_dir = os.path.join('/net/scratch', os.getlogin())
 
     #db_dir, db_file = os.path.split(db_path)
     db_start_datetime_from_name_ep, \
@@ -123,7 +117,7 @@ def get_swe_data(base_name_dir,
 
         #set temp store directory to avoid database or disk is full issue
         #sqldb_conn.execute("PRAGMA temp_store_directory='/tmp'")
-        sqldb_conn.execute("PRAGMA temp_store_directory='/net/scratch'")
+        sqldb_conn.execute("PRAGMA temp_store_directory='" + scratch_dir + "'")
     except sqlite3.OperationalError:
         print('ERROR: Failed to open database file "{}".'.format(db_path))
         #      file=sys.stderr)
@@ -508,6 +502,7 @@ def get_station_latlon_obj_ids_times(conn, db_file):
 def py_get_data_main(db_base_name,
                      start_datetime_str,
                      finish_datetime_str,
+                     scratch_dir,
                      no_data_value = -99999.0,
                      domain=None,
                      target_hour=None,
@@ -569,6 +564,7 @@ def py_get_data_main(db_base_name,
       get_swe_data(db_base_name,
                    start_datetime_str,
                    finish_datetime_str,
+                   scratch_dir,
                    time_format,
                    no_data_value,
                    domain,

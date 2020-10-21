@@ -42,8 +42,6 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
                             #excl_var="n_samples", excl_thresh=30,
                             val_breaks, alpha_val=0.8, histlim=NULL) {
 
-  #library(extrafont)
-    
   if (!is.data.frame(stats_df)) as.data.frame(stats_df)
   # if (!is.null(excl_var)) {
   #   my_data <- subset(stats_df, stats_df[,excl_var] <= excl_thresh)
@@ -94,13 +92,15 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
       scale_fill_manual(color_label, values=color_breaks, drop=FALSE) +
       ggtitle(bquote(atop(.(plot_title), atop(italic(.(plot_subtitle)), "")))) +
       labs(x = x_label, y = y_label) +
-      theme(plot.title=element_text(size=16,face="bold", vjust=-1, hjust=0.5, family="Sans")) +
+      theme(plot.title=element_text(size=16, face="bold", vjust=-1, hjust=0.5)) +
+      #below from GF
       theme(axis.title.x = element_text(family="Sans")) +
       theme(axis.title.y = element_text(family="Sans")) +
       theme(legend.title = element_text(family="Sans")) +
       theme(axis.text.x = element_text(family="Sans")) +
       theme(axis.text.y = element_text(family="Sans")) +
       theme(legend.text = element_text(family="Sans")) +
+      #above from GF
       guides(fill=guide_legend(override.aes=list(size=3), order=1), size=
                     guide_legend(order=2))
 
@@ -129,7 +129,7 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
       theme(axis.title.y = element_text(family="Sans")) +
       theme(legend.title = element_text(family="Sans")) +
       theme(axis.text.x = element_text(angle = -20, vjust = 1, hjust = 0, family="Sans")) +
-      theme(axis.text.y = element_text(family="Sans")) + 
+      theme(axis.text.y = element_text(family="Sans")) +
       theme(legend.text = element_text(family="Sans")) +
       scale_x_discrete(drop=F)
 
