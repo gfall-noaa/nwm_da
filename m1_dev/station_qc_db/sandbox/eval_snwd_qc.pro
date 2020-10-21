@@ -600,7 +600,7 @@ PRO SHOW_SNWD_PRCP_DATA, station_obj_id, $
   web_start_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_start_date_Julian)
   web_finish_date_Julian = obs_date_Julian + 1.5D
   web_finish_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_finish_date_Julian)
-  url = 'https://www.nohrsc2.noaa.gov/interactive/html/graph.html' + $
+  url = 'https://www.nohrsc.noaa.gov/interactive/html/graph.html' + $
         '?station=' + prcp_sample.station_id + $
         '&w=800&h=600&o=a&uc=0' + $
         '&by=' + STRMID(web_start_date_YYYYMMDDHH, 0, 4) + $
@@ -622,7 +622,7 @@ PRO SHOW_SNWD_PRCP_DATA, station_obj_id, $
   dy = 1.0D
   dx = dy * DOUBLE(width) / DOUBLE(height)
 
-  url = 'https://www.nohrsc2.noaa.gov/interactive/html/map.html' + $
+  url = 'https://www.nohrsc.noaa.gov/interactive/html/map.html' + $
         '?ql=station&zoom=&zoom7.x=16&zoom7.y=10' + $
         '&loc=Latitude%2CLongitude%3B+City%2CST%3B+or+Station+ID' + $
         '&var=precip_obs_5_h' + $
@@ -767,7 +767,7 @@ PRO SHOW_SNWD_PRCP_RATIO_DATA, station_obj_id, $
   web_start_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_start_date_Julian)
   web_finish_date_Julian = obs_date_Julian + 1.5D
   web_finish_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_finish_date_Julian)
-  url = 'https://www.nohrsc2.noaa.gov/interactive/html/graph.html' + $
+  url = 'https://www.nohrsc.noaa.gov/interactive/html/graph.html' + $
         '?station=' + prcp_sample.station_id + $
         '&w=800&h=600&o=a&uc=0' + $
         '&by=' + STRMID(web_start_date_YYYYMMDDHH, 0, 4) + $
@@ -789,7 +789,7 @@ PRO SHOW_SNWD_PRCP_RATIO_DATA, station_obj_id, $
   dy = 1.0D
   dx = dy * DOUBLE(width) / DOUBLE(height)
 
-  url = 'https://www.nohrsc2.noaa.gov/interactive/html/map.html' + $
+  url = 'https://www.nohrsc.noaa.gov/interactive/html/map.html' + $
         '?ql=station&zoom=&zoom7.x=16&zoom7.y=10' + $
         '&loc=Latitude%2CLongitude%3B+City%2CST%3B+or+Station+ID' + $
         '&var=precip_obs_5_h' + $
