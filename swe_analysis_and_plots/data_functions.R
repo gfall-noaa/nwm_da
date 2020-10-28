@@ -1,16 +1,16 @@
 # Functions to process swe data
-################################ Functions Below 
+################################ Functions Below
 connect_database <- function(base_db_path) {
   library(RSQLite)
-  
-  base <- DBI::dbConnect(RSQLite::SQLite(), base_db_path) 
+
+  base <- DBI::dbConnect(RSQLite::SQLite(), base_db_path)
   # call dbDisconnect(base) when it's done
   nwm_base_db_name <- basename(base_db_path)
   nwm_land_db_name <- gsub("base", "land_single", nwm_base_db_name)
   nwm_land_db_path <- file.path(db_dir, nwm_land_db_name)
   land <- DBI::dbConnect(RSQLite::SQLite(), nwm_land_db_path)
   # call dbDisconnect(land) when it's done
-  
+
   #Get database info
   src_dbi(base)
   as.data.frame(dbListTables(base))  # or this
@@ -20,12 +20,12 @@ connect_database <- function(base_db_path) {
   as.data.frame(dbListFields(base, "databases_info"))
   # or
   dbListFields(base, "databases_info") #where databases_info is one of table names in base
-  
-  dbDisconnect(base) 
-  dbDisconnect(land) 
+
+  dbDisconnect(base)
+  dbDisconnect(land)
 }
 #----------------------------------------------------
-#---------------------------------------------------- 
+#----------------------------------------------------
 get_nwm_wdb_stat_fnames <- function(data_path,
                                     fromDate,
                                     toDate,
@@ -35,7 +35,7 @@ get_nwm_wdb_stat_fnames <- function(data_path,
   hours_info <- two_hour_ends(target_hour, hr_range)
   minus_hour <- hours_info[1]
   plus_hour <- hours_info[2]
-  
+
   nwm_pre <- "nwm_"
 
   if (target_hour == minus_hour & target_hour == plus_hour) {
@@ -43,22 +43,22 @@ get_nwm_wdb_stat_fnames <- function(data_path,
   } else {
     post <- paste0("_at", target_hour, "z_",
                    "from", minus_hour, "to", plus_hour, ".csv")
-  } 
+  }
   nwm_processed_name <- formFileName(nwm_pre, fromDate, toDate, post)
   nwm_processed_path <- file.path(data_path, nwm_processed_name)
-  
+
   wdb_pre <- "wdb_"
   wdb_processed_name <- formFileName(wdb_pre, fromDate, toDate, post)
   wdb_processed_path <- file.path(data_path, wdb_processed_name)
-  
-  
+
+
   fpaths_list <- list(nwm_processed_path,
                       wdb_processed_path)
-                    
+
   return (fpaths_list)
 }
 #----------------------------------------------------
-#---------------------------------------------------- 
+#----------------------------------------------------
 
 get_data_via_py <- function(nwm_base_db_path,
                             fromDate,
@@ -69,7 +69,7 @@ get_data_via_py <- function(nwm_base_db_path,
                             hr_range=NA,
                             scratch_dir,
                             verbose=NA) {
-    
+
   library(gsubfn)  # In order to use list[a, b] <- functionReturningTwoValues()
   #library("reticulate", lib.loc="~/R/x86_64-redhat-linux-gnu-library/3.6") #for dw7
   library("reticulate")
@@ -87,7 +87,7 @@ get_data_via_py <- function(nwm_base_db_path,
                                                      target_hour,
                                                      hr_range,
                                                      verbose)
- 
+
   message("Successully returned data from Python function: py_get_data_main")
 
   # #Convert datetime back to original (UTC time) as below
@@ -95,15 +95,15 @@ get_data_via_py <- function(nwm_base_db_path,
      strptime(nwm_data_py$datetime,format="%Y-%m-%d %H:%M:%S"))))
    wdb_data_py$datetime <- py_to_r(r_to_py(as.POSIXct(
      strptime(wdb_data_py$datetime,format="%Y-%m-%d %H:%M:%S"))))
-  # 
+  #
   message("Returning NWM and WDB data to main script")
   return (list(nwm_data_py, wdb_data_py))
 }
 #----------------------------------------------------
-#---------------------------------------------------- 
+#----------------------------------------------------
 date_string_to_date_ymdh <- function(date_string) {
     # Convert date string in yyyy-mm-dd hh:00:00 to yyyymmddhh
-    
+
     data_ymdh <- paste0(date_string %>% substring(1,4),
                         date_string %>% substring(6,7),
                         date_string %>% substring(9,10),
@@ -112,34 +112,34 @@ date_string_to_date_ymdh <- function(date_string) {
 
 }
 #----------------------------------------------------
-#---------------------------------------------------- 
+#----------------------------------------------------
 get_time_related_fname <- function(pre,
                                    domain_text,
                                    fromDate,
                                    toDate,
                                    target_hour=NA,
                                    hr_range=NA) {
-    pre <- paste0(pre, 
+    pre <- paste0(pre,
                   gsub("-", "", fromDate %>% substring(1,10)),
-                  fromDate %>% substring(12,13), "_", 
+                  fromDate %>% substring(12,13), "_",
                   gsub("-", "",toDate %>% substring(1,10)),
                   toDate %>% substring(12,13))
-    
+
     if (target_hour < 0 || is.na(target_hour)) {
         post <- paste0(".csv")
     } else {
-        post <- paste0("_", target_hour, 
+        post <- paste0("_", target_hour,
                        "zm", hr_range[1],
                        "p", hr_range[2],
                        "_", domain_text, ".csv")
     }
-    
+
     fname <- paste0(pre, post)
     #bias_file_name <- formFileName(pre, fromDate, toDate, post)
     return (fname)
 }
 #----------------------------------------------------
-#---------------------------------------------------- 
+#----------------------------------------------------
 
 date_period <- function(date_num) {
     year <- date_num %>% substring(1 ,4)
@@ -147,22 +147,22 @@ date_period <- function(date_num) {
     day <- date_num %>% substring(7, 8)
     hour <- date_num %>% substring(9, 10)
     fromDate <- paste0(year, "-", month, "-", day, " ", hour, ":00:00")
-  
+
 }
 #---------------------------------
 #---------------------------------
 two_hour_ends <- function(target_hour, hr_range) {
     minus_hour <- target_hour - hr_range[1]
     plus_hour <- target_hour + hr_range[2]
-    
+
     if (minus_hour < 0) { minus_hour <- 24 - minus_hour }  # assume 0-23 hours
     if (plus_hour > 23) { plus_hour <- plus_hour - 24 }
-    
+
     return (list(minus_hour, plus_hour))
-  
+
 }
 #----------------------------------------------------
-#---------------------------------------------------- 
+#----------------------------------------------------
 formFileName <- function(pre, fromDate, toDate, post) {
     fname <- paste0(pre,
                     gsub("-", "",fromDate %>% substring(1,10)),
@@ -171,19 +171,19 @@ formFileName <- function(pre, fromDate, toDate, post) {
                     gsub("-", "",toDate %>% substring(1,10)),
                     #toDate %>% substring(12,13),
                     post)
-  
+
 }
 #------------------------------------
 #------------------------------------
 pick_near_h_datetime <- function(df_each_day, target_hour, h_range){
     #Find the nearest datetime in this day to be picked
-    
+
     #h_min <- min(abs(hour(df_each_day$datetime)-target_hour))
     h_min <- min(hour(df_each_day$datetime)-target_hour)
-    
+
     cell_loc <- which.min(abs(hour(df_each_day$datetime)-target_hour))
     datetime_cell <- df_each_day$datetime[cell_loc]
-    
+
     if (h_min < 0 & h_min > (h_range[1] - target_hour)) { return (datetime_cell)}
     else if (h_min > 0 & h_min < (h_range[2] - target_hour)) { return (datetime_cell)}
     else {return ("")}
@@ -193,7 +193,7 @@ pick_near_h_datetime <- function(df_each_day, target_hour, h_range){
     # } else {
     #     return ("")
     # }
-  
+
 }
 #--------------------------------------------------------------------------
 #--------------------------------------------------------------------------
@@ -202,17 +202,17 @@ subset_short_for_period <- function(db_fromDate, db_toDate,
                                     nwm_csv_ori_path, wdb_csv_ori_path,
                                     target_hour=NA,
                                     hr_range=c(NA, NA)) {
-    
+
     from_hour = target_hour - hr_range[1]
     to_hour = target_hour + hr_range[2]
     if (from_hour < 0) {from_hour = 24 - from_hour}
     if (to_hour > 23)  {to_hour = to_hour - 24}
-    
-    
+
+
     #Extract data from the queried for a shorther period
     nwm_swe_ori <- read.csv(nwm_csv_ori_path)
     wdb_swe_ori <- read.csv(wdb_csv_ori_path)
-    
+
     nwm_swe_ori$datetime <- strptime(as.character(nwm_swe_ori$datetime),
                                                   format="%Y-%m-%d %H:%M:%S")
     nwm_swe_ori$datetime <- as.character(nwm_swe_ori$datetime)
@@ -220,12 +220,12 @@ subset_short_for_period <- function(db_fromDate, db_toDate,
                                               datetime <= as.POSIXct(toDate) &
                                               hour(datetime)>=from_hour &
                                               hour(datetime)<=to_hour)
-    
+
     wdb_swe_ori$datetime <- strptime(as.character(wdb_swe_ori$datetime),
                                                   format="%Y-%m-%d %H:%M:%S")
     wdb_swe_ori$datetime <- as.character(wdb_swe_ori$datetime)
     wdb_swe_sub <- wdb_swe_ori %>% filter(datetime >= as.POSIXct(fromDate) &
-                                              datetime <= as.POSIXct(toDate) & 
+                                              datetime <= as.POSIXct(toDate) &
                                               hour(datetime)>=from_hour &
                                               hour(datetime)<=to_hour)
     return (list(nwm_swe_sub, wdb_swe_sub))
@@ -241,23 +241,23 @@ sample_nwm_wdb_data <- function(nwm_in, wdb_in,
     #values of target_hour, hr_range. nwm_in and wdb_in are having common stations now
     #before this function is called.
     #Default is including all hours of data
-    
+
     `%notin%` <- Negate(`%in%`)
-    
+
     #nwm_in <- nwm_in_wdb  #for local debug purpose
     #wdb_in <- wdb_in_nwm
-    
+
     #check number of unique stations
     num_stations_nwm <- n_distinct(nwm_in$obj_identifier)
     num_stations_wdb <- n_distinct(wdb_in$obj_identifier)
     if (num_stations_nwm == num_stations_wdb) {
-        print(paste0("Same number of stations for nwm and wdb --> ", 
+        print(paste0("Same number of stations for nwm and wdb --> ",
                      num_stations_wdb))
     } else {
         stop("The number of stations in two datasets does not match!")
         #warning("The number of stations in two datasets does not match!")
     }
-    
+
     #Initializing two dataframes to hold final data of all stations
     nwm_com <- data.frame(obj_identifier = integer(),
                           datetime = character(),
@@ -269,16 +269,16 @@ sample_nwm_wdb_data <- function(nwm_in, wdb_in,
                           elevation = numeric(),
                           datetime = character(),
                           obs_swe_mm = numeric())
-    
+
     station_count <- 0
     for(g in unique(nwm_in$obj_identifier)) {  #for each station
         station_count <- station_count + 1
-        message("Processing data for station ", g, " : ", station_count, 
+        message("Processing data for station ", g, " : ", station_count,
                 " of ", num_stations_wdb)
         #stop("the first station is ", g)
         nwm_group <- subset(nwm_in, subset = obj_identifier == g)
         wdb_group <- subset(wdb_in, subset = obj_identifier == g)
-        
+
         if (target_hour < 0 || is.na(target_hour)) {  #case 1
             #for the same station/group, find all the data for common datetimes
             nwm_com <- rbind(nwm_com, nwm_group[nwm_group$datetime %in%
@@ -289,35 +289,35 @@ sample_nwm_wdb_data <- function(nwm_in, wdb_in,
         #     #find common data at the target_hour for all every day that exisit in wdb
         #     #One value each day if wdb@target_hour exist
         #     nwm_com <- rbind(nwm_com, nwm_group %>%
-        #                          filter(hour(datetime) == target_hour)) 
+        #                          filter(hour(datetime) == target_hour))
         #     wdb_com <- rbind(wdb_com, wdb_group %>%
-        #                          filter(hour(datetime) == target_hour)) 
+        #                          filter(hour(datetime) == target_hour))
         } else { # case 3: target_hour >= 0 && hr_range > 0
 
-            #find common data at the target_hour plus at the nearest hour 
+            #find common data at the target_hour plus at the nearest hour
             #  if target_hour wdb data is missing
-            
-            #first find available target_hour data and will be temprorily 
+
+            #first find available target_hour data and will be temprorily
             #  excluded in finding near hour
             wdb_g_at_hour <- wdb_group %>%
                 filter(hour(datetime) == target_hour)
-            
+
             #Add new column as ymd - a string of yyyymmdd, to be used in notin later
             wdb_group <- wdb_group %>%
                 mutate(ymd=paste(format(as.Date(datetime,format="%Y-%m-%d"),
                                         format = "%Y%m%d")))
-            wdb_g_at_hour <- wdb_g_at_hour %>% 
+            wdb_g_at_hour <- wdb_g_at_hour %>%
                 mutate(ymd=paste(format(as.Date(datetime,format="%Y-%m-%d"),
                                         format = "%Y%m%d")))
-            
-            
+
+
             # create a tmp df to hold those that without target_hour data in these yyyymmdd
             wdb_g_near_h_tmp <- wdb_group[wdb_group$ymd %notin%
                                               wdb_g_at_hour$ymd, ]
-            
+
             wdb_g_near_h <- slice(wdb_com, 0) #initializing
             #wdb_g_near_h <- wdb_com #initializing
-            
+
             #loop through all days and find the data at the nearest hour for each day
             for(ymdv in unique(wdb_g_near_h_tmp$ymd)) {
                 wdb_g_near_h_each_day <- wdb_g_near_h_tmp %>% filter(ymd == ymdv)
@@ -325,53 +325,53 @@ sample_nwm_wdb_data <- function(nwm_in, wdb_in,
                                                         target_hour, hr_range)
                 if (nchar(near_h_datetime) == 19) {  #datetime length
                     wdb_g_near_h_d <- wdb_g_near_h_each_day %>%
-                        filter(datetime == near_h_datetime) %>% 
+                        filter(datetime == near_h_datetime) %>%
                         select(-ymd)
                     #wdb_g_at_and_near_h <- rbind(wdb_g_at_and_near_h, wdb_g_near_h_d)
-                    
+
                     wdb_g_near_h <- rbind(wdb_g_near_h, wdb_g_near_h_d)
                 }
             }
-            
+
             wdb_com_g <- rbind(wdb_g_at_hour %>% select(-ymd), wdb_g_near_h)
             wdb_com_g <- wdb_com_g %>% arrange(datetime)
             wdb_com_g <- wdb_com_g[wdb_com_g$datetime %in% nwm_group$datetime, ] #make
             # sure that values in wdb are also in nwm
             wdb_com <- rbind(wdb_com, wdb_com_g)
-            
+
             nwm_com_g <- nwm_group[nwm_group$datetime %in% wdb_com_g$datetime,]
             nwm_com <- rbind(nwm_com, nwm_com_g)
-            
+
             #Combine nwm_com and wdb_com into one datafraem
             #nwm_com <- nwm_com %>% rename(nwm_swe = swe) # change name from swe to nwm_swe
             nwm_wdb_com_daily <- merge(wdb_com, nwm_com, by=c("obj_identifier", "datetime"), all = T)
-            
-            
+
+
         }  #end of case 2 - else
-        #stop("First station has finished for ", g) 
+        #stop("First station has finished for ", g)
     } # end of station/g loop
     nwm_wdb_com_daily <- nwm_wdb_com_daily %>% rename(nwm_swe = swe) # change name from swe to nwm_swe
     rm(nwm_com, wdb_com)
     return (nwm_wdb_com_daily)
-  
+
 }
 #--------------------------------------------------------------------------
 #--------------------------------------------------------------------------
 calculate_bias_stations <- function(nwm_in_wdb, wdb_in_nwm, target_hour=-1) {
   #Calculate bias between two sets of data
-  
+
   #check number of unique stations
   num_stations_nwm <- n_distinct(nwm_in_wdb$obj_identifier)
   num_stations_wdb <- n_distinct(wdb_in_nwm$obj_identifier)
   if (num_stations_nwm == num_stations_wdb) {
-    print(paste0("Same number of stations for nwm and wdb --> ", 
+    print(paste0("Same number of stations for nwm and wdb --> ",
                  num_stations_wdb))
   } else {
     stop("The number of stations in two datasets does not match!")
     #warning("The number of stations in two datasets does not match!")
   }
-  
-  
+
+
   #Loop through each station and calculate statistics
   #col_names <- c("obj_identifier", "lat","lon","pbias","mean_swe","n_samples")
   result_df <- data.frame(obj_identifier = integer(),
@@ -381,24 +381,24 @@ calculate_bias_stations <- function(nwm_in_wdb, wdb_in_nwm, target_hour=-1) {
                           elevation = numeric(),
                           pbias = numeric(),
                           mean = numeric(),
-                          n_samples = integer())  #Defining the dataframe 
+                          n_samples = integer())  #Defining the dataframe
   #result_df <- setNames(data.frame(matrix(ncol = 6, nrow = 0)), col_names)
   #num_unique_station <- length(unique(nwm_in_wdb$obj_identifier))
-  
+
   station_count <- 0
   for(g in unique(nwm_in_wdb$obj_identifier)) {
     station_count <- station_count + 1
-    message("Calculating bias for ", g, " : ", 
+    message("Calculating bias for ", g, " : ",
             station_count, " of ", num_stations_wdb)
-    
+
     nwm_group <- subset(nwm_in_wdb, subset = obj_identifier == g)
     wdb_group <- subset(wdb_in_nwm, subset = obj_identifier == g)
     wdb_group <- wdb_group %>% select(obj_identifier, station_id,
                                         lon, lat, elevation, datetime, obs_swe_mm)
-    
+
     wdb_group$nwm_swe <- nwm_group$swe
     wdb_group$swe_diff <- wdb_group$nwm_swe - wdb_group$obs_swe_mm
-    
+
     if (sum(wdb_group$obs_swe_mm) != 0.0) {
       pbias <- 100*sum(wdb_group$swe_diff)/sum(wdb_group$obs_swe_mm)
       obj <- wdb_group$obj_identifier[1]
@@ -406,12 +406,12 @@ calculate_bias_stations <- function(nwm_in_wdb, wdb_in_nwm, target_hour=-1) {
       elev <- wdb_group$elevation[1]
       lat <- wdb_group$lat[1]
       lon <- wdb_group$lon[1]
-      
+
       mean_swe <- mean(wdb_group$obs_swe_mm, na.rm = T)
       n_samples <- nrow(wdb_group)
       #cat("obj=", obj, " pbias=", pbias, "\n")
-      
-      result_df <- rbind(result_df, 
+
+      result_df <- rbind(result_df,
                          data.frame(obj_identifier=obj,
                                     station_id=sta_id,
                                     lat=lat,
@@ -421,9 +421,9 @@ calculate_bias_stations <- function(nwm_in_wdb, wdb_in_nwm, target_hour=-1) {
                                     mean_swe=mean_swe,
                                     n_samples=n_samples))
     }
-    
+
   } # end of g loop
-  
+
   return(result_df)
 }
 #--------------------------------------------------------------------------
@@ -435,33 +435,33 @@ acc_abl_scores <- function(swe_acc_abl_com,
   # The acc_abl_option indicated whether it's for accumulation (>0)
   # or for ablation (<0)
   # This function moves some content from acc_abl_analysis() to here
-  # 
+  #
   # Originally there are three dataframes for departure, hit and miss
-  # Now I combined them into one and added station_is and name to the 
+  # Now I combined them into one and added station_is and name to the
   # combined table (for acc, abl, and abl_pers)
-  
+
   # if (acc_abl_option == 0) {
   #   stop("acc_abl_option should be either >0 (acc) or <0 (alb)")
   # }
-  
-  
+
+
   #Based on new ideas (see 2020Q4 doc)
-    
+
   #Get the total number of events that have observed SWE
   num_events <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
-      filter(!is.na(wdb_swe_diff)) %>% 
+      filter(!is.na(wdb_swe_diff)) %>%
       summarise(total_num_events=n())
-  
+
   num_events_having_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
       filter(abs(wdb_swe_diff) > 0) %>%
       summarise(num_events_diff=n())
-  
+
   obs_ndays <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
-      filter(!is.na(obs_swe_mm)) %>% 
-      summarise(obs_ndays=n())  
-  
+      filter(!is.na(obs_swe_mm)) %>%
+      summarise(obs_ndays=n())
+
   # Basic stats for both accumulation and ablation (common ones)
-  stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+  stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
     filter(if (acc_abl_option > 0) wdb_swe_diff > 0 else wdb_swe_diff <0 ) %>%
            #else if (acc_abl_option < 0) wdb_swe_diff <0 ) %>%
     summarise(station_id = first(station_id),
@@ -479,22 +479,22 @@ acc_abl_scores <- function(swe_acc_abl_com,
               nwm_swe_diff_sum = ifelse((acc_abl_option > 0),
                                         sum(nwm_swe_diff),
                                         -sum(nwm_swe_diff)),
-              departure = ifelse((acc_abl_option > 0), 
+              departure = ifelse((acc_abl_option > 0),
                                  sum(nwm_swe_diff - wdb_swe_diff)/sum(wdb_swe_diff),
                                  -sum(nwm_swe_diff - wdb_swe_diff)/sum(wdb_swe_diff)),
               num_wdb_diff=n())
-  
+
   #stats <- cbind(stats, swe_sum[, "obs_swe_diff_sum"])
   if (acc_abl_option != 0) {
       stats <- merge(stats, num_events, by="obj_identifier", all = T) #Add this column
-      stats <- merge(stats, obs_ndays, by="obj_identifier", all = T) #Add this column 
+      stats <- merge(stats, obs_ndays, by="obj_identifier", all = T) #Add this column
   }
-  
-  
+
+
   #for hit case:
   if (acc_abl_option > 0) {
       acc_hit <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
-          filter(wdb_swe_diff > 0 & nwm_swe_diff > 0) %>% 
+          filter(wdb_swe_diff > 0 & nwm_swe_diff > 0) %>%
           summarise(acc_hit_diff_sum = sum(nwm_swe_diff - wdb_swe_diff),
                     acc_hit_obs_swe_diff_sum = sum(wdb_swe_diff),
                     acc_hit_num_wdb_diff=n())
@@ -503,10 +503,10 @@ acc_abl_scores <- function(swe_acc_abl_com,
       stats <- merge(stats, acc_hit, by="obj_identifier", all = T) #Add this column
       stats <- mutate(stats, acc_hit_aggbias = acc_hit_diff_sum/obs_swe_diff_sum)
       #acc_hit <-  mutate(acc_hit, acc_hit_aggbias = acc_hit$acc_hit_diff_sum/stats$obs_swe_diff_sum)
-      
+
   } else if (acc_abl_option < 0) {
       abl_hit <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
-          filter(wdb_swe_diff < 0 & nwm_swe_diff < 0) %>% 
+          filter(wdb_swe_diff < 0 & nwm_swe_diff < 0) %>%
           summarise(abl_hit_diff_sum = sum(nwm_swe_diff - wdb_swe_diff),
                     abl_hit_obs_swe_diff_sum = sum(wdb_swe_diff),
                     abl_hit_num_wdb_diff=n())
@@ -520,7 +520,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
   #     #stop("Incorrect acc_abl_option!")
   #     message("No obs_swe_diff case!")
   # }
-   
+
 
   # To keep the same # of stations for departure, bias and error
   # we need to manually set those NA cases (caused by numerator being NA) to
@@ -533,47 +533,47 @@ acc_abl_scores <- function(swe_acc_abl_com,
       stats$abl_hit_aggbias[is.na(stats$abl_hit_aggbias)] <- 0.0001
   }
 
-  
+
   #For miss case:
   if (acc_abl_option > 0) {
       acc_miss <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
-          filter(wdb_swe_diff > 0 & nwm_swe_diff <= 0) %>% 
+          filter(wdb_swe_diff > 0 & nwm_swe_diff <= 0) %>%
           summarise(acc_miss_diff_sum = sum(nwm_swe_diff - wdb_swe_diff),
                     acc_miss_obs_swe_diff_sum = sum(wdb_swe_diff),
                     acc_miss_num_wdb_diff=n())
       #acc_miss <-  mutate(acc_miss, acc_miss_aggerror = acc_miss_diff_sum/acc_miss_obs_swe_diff_sum)
-      
+
       stats <- merge(stats, acc_miss, by="obj_identifier", all = T) #Add its columns
       stats <- mutate(stats, acc_miss_aggerror = acc_miss_diff_sum/obs_swe_diff_sum)
-      
+
   } else if (acc_abl_option < 0) {
       abl_miss <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
-          filter(wdb_swe_diff < 0 & nwm_swe_diff >= 0) %>% 
+          filter(wdb_swe_diff < 0 & nwm_swe_diff >= 0) %>%
           summarise(abl_miss_diff_sum = sum(nwm_swe_diff - wdb_swe_diff),
                     abl_miss_obs_swe_diff_sum = sum(wdb_swe_diff),
                     abl_miss_num_wdb_diff=n())
       #abl_miss <-  mutate(abl_miss, abl_miss_aggerror = abl_miss_diff_sum/abl_miss_obs_swe_diff_sum)
       stats <- merge(stats, abl_miss, by="obj_identifier", all = T) #Add its columns
       stats <- mutate(stats, abl_miss_aggerror = abl_miss_diff_sum/obs_swe_diff_sum)
-  }   
+  }
   # } else {
   #     stop("Incorrect acc_abl_option!")
   # }
-  
-  
+
+
   if (acc_abl_option > 0) {
       stats$acc_miss_aggerror[is.na(stats$acc_miss_aggerror)] <- 0.0001
   } else if (acc_abl_option < 0){
       stats$abl_miss_aggerror[is.na(stats$abl_miss_aggerror)] <- 0.0001
   }
-  
-  
-  
-  
+
+
+
+
   # To count for the cells 4, 5, and 6 in the contingent table (3x3 table)
   if (acc_abl_option == 0) {
       # simple counting for cases when no acc and abl
-      stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+      stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
           filter(wdb_swe_diff == 0) %>%
                  summarise(station_id = first(station_id),
                            station_name = first(name),
@@ -585,7 +585,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
                            obs_swe_sum = sum(obs_swe_mm),
                            nwm_swe_sum = sum(nwm_swe),
                            ndays_no_wdb_diff = n())
-      both_no_swe_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+      both_no_swe_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
           filter(wdb_swe_diff == 0 & nwm_swe_diff == 0.0) %>%  # no case for nwm_swe_diff == 0
           summarise(ndays_no_swe_diff = n())
       stats <- merge(stats, both_no_swe_diff, by="obj_identifier", all = T) #Add this column
@@ -595,12 +595,12 @@ acc_abl_scores <- function(swe_acc_abl_com,
       stats <- stats %>% subset(stats$obs_swe_sum > 0)
       #stats <- stats %>% subset(!is.na(stats$obs_swe_sum))
   }
-  
+
   if (acc_abl_option > 0) {    #account for cell #4 in contingency table as acc false positives
       #cell #4: acc_fp_err = sum(nwm_swe_diff when wdb_swe_diff=0 and nwm_swe_diff >0)/
       #                   sum(wdb_swe_diff when wdb_swe_diff >=0)
       #         where sum(wdb_swe_diff when wdb_swe_diff >=0) = obs_swe_diff_sum
-      stats_no_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+      stats_no_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
           filter(wdb_swe_diff == 0 & nwm_swe_diff > 0.0) %>%
           summarise(nwm_pos_diff_sum = sum(nwm_swe_diff))
       stats <- merge(stats, stats_no_diff, by="obj_identifier", all = T)
@@ -610,15 +610,15 @@ acc_abl_scores <- function(swe_acc_abl_com,
           #!is.na(acc_fp_err) & is.na(acc_miss_aggerror) ~ acc_fp_err,
           is.na(acc_fp_err) & !is.na(acc_miss_aggerror) ~ acc_miss_aggerror,
           TRUE ~ NA_real_))
-    
- 
+
+
   }
-  
+
       if (acc_abl_option < 0) {    #account for cell #6 in contingency table as abl false positives
           #cell #4: abl_fp_err = sum(nwm_swe_diff when wdb_swe_diff=0 and nwm_swe_diff >0)/
           #                   sum(wdb_swe_diff when wdb_swe_diff >=0)
           #         where sum(wdb_swe_diff when wdb_swe_diff >=0) = obs_swe_diff_sum
-          stats_no_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>% 
+          stats_no_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
               filter(wdb_swe_diff == 0 & nwm_swe_diff < 0.0) %>%
               summarise(nwm_abl_diff_sum = sum(nwm_swe_diff))
           stats <- merge(stats, stats_no_diff, by="obj_identifier", all = T)
@@ -628,18 +628,18 @@ acc_abl_scores <- function(swe_acc_abl_com,
               #!is.na(acc_fp_err) & is.na(acc_miss_aggerror) ~ acc_fp_err,
               is.na(abl_fp_err) & !is.na(abl_miss_aggerror) ~ abl_miss_aggerror,
               TRUE ~ NA_real_))
-          
+
       }
 
   return (stats)
 
 }
-#--------------------------------------------------------------------------          
+#--------------------------------------------------------------------------
 #--------------------------------------------------------------------------
 acc_abl_analysis <- function(nwm_wdb_com_daily) {
 
   library(lubridate)
-    
+
   # Exclude stations that don't have enough data (<min_obs_ndays)
   nwm_wdb_com_daily$datetime <- ymd_hms(nwm_wdb_com_daily$datetime)
   swe_acc_abl_com <- nwm_wdb_com_daily %>% group_by(obj_identifier) %>%
@@ -666,44 +666,44 @@ acc_abl_analysis <- function(nwm_wdb_com_daily) {
              swe_ratio=nwm_swe/obs_swe_mm,
              persist = case_when(month(datetime)==month(lag(datetime)) &
                                      (day(datetime)-day(lag(datetime)))==1 &
-                                     nwm_swe >0 & lag(nwm_swe) > 0 & 
+                                     nwm_swe >0 & lag(nwm_swe) > 0 &
                                      obs_swe_mm > 0 & lag(obs_swe_mm) > 0
                                  ~ 1,
                                  (month(datetime)-month(lag(datetime)))==1 &
                                      day(datetime) == 1 &
-                                     nwm_swe >0 & lag(nwm_swe) > 0 & 
+                                     nwm_swe >0 & lag(nwm_swe) > 0 &
                                      obs_swe_mm > 0 & lag(obs_swe_mm) > 0
                                  ~ 1,
                                  (month(datetime)-month(lag(datetime)))==-11 &
                                      day(datetime) == 1 &
-                                     nwm_swe >0 & lag(nwm_swe) > 0 & 
+                                     nwm_swe >0 & lag(nwm_swe) > 0 &
                                      obs_swe_mm > 0 & lag(obs_swe_mm) > 0
                                  ~ 1,
                                  TRUE ~ 0))
-  
-  # Accumulation case -- acc*  
+
+  # Accumulation case -- acc*
   acc_abl_option <- 1
   acc_stats <- acc_abl_scores(swe_acc_abl_com,
                               acc_abl_option)
   #Now combine used to be stats, hit, and miss into one dataframe/table
-  
+
   # Ablation case -- abl*
   acc_abl_option <- -1
   abl_stats <- acc_abl_scores(swe_acc_abl_com,
                               acc_abl_option)
-  
+
   # Ablation under persistent option  -- abl_pers*
   acc_abl_option <- -1
   swe_acc_abl_com_pers <-  swe_acc_abl_com %>% subset(persist == 1)
   abl_per_stats <- acc_abl_scores(swe_acc_abl_com_pers,
                                   acc_abl_option)
-  
+
   # Add another case when acc_abl_option = 0 for obs_swe_diff = 0
   # This is to deal with the cells 4, 5, and 6 in the contingent table
   acc_abl_option <- 0
   no_diff_stats <- acc_abl_scores(swe_acc_abl_com,
                               acc_abl_option)
-  
+
   return (list(acc_stats, abl_stats, abl_per_stats, no_diff_stats))
 }
 
