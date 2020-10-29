@@ -353,8 +353,8 @@ plot_swe_stats <- function(all_stats,
     ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
     #-----------------------------------------------------------
-    # Aggregate Ablation Absolute Error
-    plot_title <- "Aggregate Ablation Absolute Error"
+    # Aggregate Abs. Ablation Error
+    plot_title <- "Aggregate Absolute Ablation Error"
     data_sub <- mutate(data_sub, abl_abs_err = abl_miss_aggerror + abs(abl_fp_err))
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     #size_var_coln="obs_swe_diff_sum", val_coln="abl_miss_aggerror",
@@ -363,7 +363,7 @@ plot_swe_stats <- function(all_stats,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARBE",
-                                    hist_title="Ablation Abs Error",
+                                    hist_title="Abs. Ablation Error",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
@@ -520,8 +520,8 @@ plot_swe_stats <- function(all_stats,
 
 
     #-----------------------------------------------------------
-    # Aggregate Ablation Absolute Error with Persistent Condition
-    plot_title <- "Aggregate Ablation Absolute Error (Persistent Snow)"
+    # Aggregate Abs. Ablation Error with Persistent Condition
+    plot_title <- "Aggregate Absolute Ablation Error (Persistent Snow)"
     data_sub <- mutate(data_sub, abl_abs_err = abl_miss_aggerror + abs(abl_fp_err))
 
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
@@ -530,7 +530,7 @@ plot_swe_stats <- function(all_stats,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARBE",
-                                    hist_title="Ablation Abs Error (Persistent Snow)",
+                                    hist_title="Abs. Ablation Error (Persistent Snow)",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
