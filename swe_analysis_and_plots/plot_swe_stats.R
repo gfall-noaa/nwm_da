@@ -320,7 +320,7 @@ plot_swe_stats <- function(all_stats,
            width=6, height=4, dpi=plot_dpi)
 
     #-----------------------------------------------------------
-    # Aggregate Ablation Bias  --- based on new matrix
+    # Aggregate Ablation Error
     plot_title <- "Aggregate Ablation Error"
 
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
@@ -346,6 +346,39 @@ plot_swe_stats <- function(all_stats,
 
     mapPlotName <- formFileName("abl_miss_err_map_", fromDate, toDate, post)
     barPlotName <- formFileName("abl_miss_err_hist_", fromDate, toDate, post)
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
+           width=6, height=4, dpi=plot_dpi)
+    #-----------------------------------------------------------
+    # Aggregate Ablation Absolute Error
+    plot_title <- "Aggregate Ablation Absolute Error"
+    data_sub <- mutate(data_sub, abl_abs_err = abl_miss_aggerror + abs(abl_fp_err))
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    #size_var_coln="obs_swe_diff_sum", val_coln="abl_miss_aggerror",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="abl_abs_err",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="ARBE",
+                                    hist_title="Ablation Abs Error",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid,
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+
+    mapPlotName <- formFileName("abl_miss_abs_err_map_", fromDate, toDate, post)
+    barPlotName <- formFileName("abl_miss_abs_err_hist_", fromDate, toDate, post)
     mapOutput_path <- file.path(plot_output_dir, mapPlotName)
     barOutput_path <- file.path(plot_output_dir, barPlotName)
     ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
@@ -476,6 +509,43 @@ plot_swe_stats <- function(all_stats,
 
     mapPlotName <- formFileName("abl_miss_err_map_pers_", fromDate, toDate, post)
     barPlotName <- formFileName("abl_miss_err_hist_pers_", fromDate, toDate, post)
+
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
+           width=6, height=4, dpi=plot_dpi)
+    #-----------------------------------------------------------
+
+
+    #-----------------------------------------------------------
+    # Aggregate Ablation Absolute Error with Persistent Condition
+    plot_title <- "Aggregate Ablation Absolute Error (Persistent Snow)"
+    data_sub <- mutate(data_sub, abl_abs_err = abl_miss_aggerror + abs(abl_fp_err))
+
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    size_var_coln="obs_swe_diff_sum", val_coln="abl_abs_err",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="ARBE",
+                                    hist_title="Ablation Abs Error (Persistent Snow)",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    color_low=color_low,
+                                    color_mid=color_mid,
+                                    color_high=color_high,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    min_thresh_colr=min_thresh_colr,
+                                    max_thresh_colr=max_thresh_colr,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+
+    mapPlotName <- formFileName("abl_miss_abs_err_map_pers_", fromDate, toDate, post)
+    barPlotName <- formFileName("abl_miss_abs_err_hist_pers_", fromDate, toDate, post)
 
     mapOutput_path <- file.path(plot_output_dir, mapPlotName)
     barOutput_path <- file.path(plot_output_dir, barPlotName)
