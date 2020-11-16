@@ -15,6 +15,7 @@ import sys
 import logging
 import pandas as pd
 import numpy as np
+import csv
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
 import wdb0
@@ -135,14 +136,25 @@ def get_snow_obs_for_target(target_datetime,
     logger.debug('psql command: {}'.format(sql_cmd))
     cursor.execute(sql_cmd)
     obs = cursor.fetchall()
-    obs_column_list = ['obj_identifier',
+    # obs_column_list = ['obj_identifier',
+    #                    'station_id',
+    #                    'name',
+    #                    'type',
+    #                    'lon',
+    #                    'lat',
+    #                    'elevation',
+    #                    'recorded_elevation',
+    #                    'date',
+    #                    'obs_swe_mm',
+    #                    'obs_snwd_mm']
+    obs_column_list = ['station_obj_id',
                        'station_id',
-                       'name',
-                       'type',
-                       'lon',
-                       'lat',
-                       'elevation',
-                       'recorded_elevation',
+                       'station_name',
+                       'station_type',
+                       'station_lon',
+                       'station_lat',
+                       'station_dem_elevation',
+                       'station_rec_elevation',
                        'date',
                        'obs_swe_mm',
                        'obs_snwd_mm']
@@ -295,6 +307,21 @@ def main():
         logger.info('Found data for {} '.format(len(obs_snow)) +
                     'sites for {}.'.
                     format(target_datetime.strftime('%Y-%m-%d %HZ')))
+
+        
+        # Write to csv.
+        csv_file_name = 'wdb0_obs_swe_snwd_' + \
+            'target_{}_'.format(target_datetime.strftime('%Y%m%d%H')) + \
+            'p{}h_m{}h_'.format(window_hrs_prev, window_hrs_post) + \
+            'max_sep_{}h'.format(max_sep_hrs_for_concurrence) + \
+            '.csv'
+        with open(csv_file_name, 'w', newline='') as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=',',
+                                    quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            csv_writer.writerow(list(obs_snow[0].keys()))
+            for item in obs_snow:
+                csv_writer.writerow(list(item.values()))
+
         target_datetime = ndt.plus_one_month(target_datetime)
 
 if __name__ == '__main__':
