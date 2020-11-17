@@ -427,17 +427,35 @@ PRO SHOW_SNWD_TAIR_DATA, site_str, $
                         qcdb_nc_id, $
                         qcdb_ti, $
                         qcdb_si, $
-                        sample_num_hours, $
+                        sample_qc_hours, $
                         snwd_sample, $
                         snwd_sample_qc
+
+; New site_str.
+  new_site_str = snwd_sample.station_id + $
+                 ' (' + STRCRA(station_obj_id) + ')' + $
+                 ' (' + STRCRA(snwd_sample.station_type) + ')'
   
   PRINT, '  ' + $
-         site_str + ' - ' + $
+         new_site_str + ' - ' + $
          time_str + ' - ' + $
          ' obs ' + obs_str + ', ' + $
          ' mdl ' + mdl_str
-  PRINT, '  qcdb_si = ' + STRCRA(qcdb_si) + $
-         ', qcdb_ti = ' + STRCRA(qcdb_ti)
+  ;; PRINT, '  qcdb_si = ' + STRCRA(qcdb_si) + $
+  ;;        ', qcdb_ti = ' + STRCRA(qcdb_ti)
+
+; Basic logic check - the last snow depth obs we just fetched should be the
+; one we are interested in.
+  if (snwd_sample.obs_value_cm[prev_hours_tair] eq ndv) then STOP
+
+
+; Pad QC data with 9999 for sample data falling outside the database.
+  if (sample_qc_hours lt (prev_hours_tair + 1)) then begin
+      snwd_sample_qc = $
+          [REPLICATE(9999, prev_hours_tair + 1 - sample_qc_hrs), $
+           snwd_sample_qc]
+  endif
+  if (snwd_sample_qc[prev_hours_tair] eq 0) then STOP ; basic logic check
 
   sample_start_date_Julian = obs_date_Julian - DOUBLE(prev_hours_tair) / 24.0D
   sample_start_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(sample_start_date_Julian)
@@ -446,10 +464,14 @@ PRO SHOW_SNWD_TAIR_DATA, site_str, $
                                                sample_finish_YYYYMMDDHH, $
                                                STATION_OBJ_ID = station_obj_id)
 
-  tair_sample_str = STRCRA(tair_sample.obs_value_deg_c)
-  ind = WHERE(tair_sample.obs_value_deg_c eq ndv, count)
-  if (count gt 0) then tair_sample_str[ind] = '-'
-
+  if NOT(ISA(tair_sample)) then $
+      tair_sample_str = REPLICATE('-', prev_hours_tair + 1) $
+  else begin
+      tair_sample_str = STRCRA(tair_sample.obs_value_deg_c)
+      ind = WHERE(tair_sample.obs_value_deg_c eq ndv, count)
+      if (count gt 0) then tair_sample_str[ind] = '-'
+  endelse
+  
   snwd_sample_str = STRCRA(snwd_sample.obs_value_cm)
   ind = WHERE(snwd_sample.obs_value_cm eq ndv, count)
   if (count gt 0) then snwd_sample_str[ind] = '-'
@@ -457,16 +479,110 @@ PRO SHOW_SNWD_TAIR_DATA, site_str, $
   if (count gt 0) then $
       snwd_sample_str[ind] = snwd_sample_str[ind] + $
                              '(qc=' + STRCRA(snwd_sample_qc[ind]) + ')'
-  if (sample_num_hours gt prev_hours_tair) then begin
-      for ti = 0, sample_num_hours - 1 do $
-          PRINT, snwd_sample_str[ti] + '  ' + tair_sample_str[ti]
-      ;; PRINT, snwd_sample_str
-      ;; PRINT, tair_sample_str
-      PRINT, '---'
-      PRINT, obs_str, ' (', $
-             snwd_sample.station_type + ')'
+
+; Get indices of snow depth obs that meet two conditions:
+;   - not a no data value
+;   - has no QC flag set, or is from a time outside the database
+  ok_ind = WHERE((snwd_sample.obs_value_cm[0:prev_hours_tair - 1] ne ndv) $
+                 and $
+                 ((snwd_sample_qc[0:prev_hours_tair - 1] eq 0) or $
+                  (snwd_sample_qc[0:prev_hours_tair - 1] eq 9999)), $
+                 ok_count)
+  if (ok_count eq 0) then begin
+      PRINT, '    WARNING: unable to evaluate this report, probably ' + $
+             'because reference observations were subsequently ' + $
+             'flagged, probably by the gap test.'
+      PRINT, '    Press a key to return and continue the evaluation.'
       move = GET_KBRD(1)
+      RETURN
   endif
+
+; Identify the snow depth that was most likely used as a reference
+; observation for this test.
+  ref_snwd_ind = MAX(ok_ind)
+  ref_snwd = snwd_sample.obs_value_cm[ref_snwd_ind]
+  ref_date_Julian = obs_date_Julian - $
+                    DOUBLE(prev_hours_tair - ref_snwd_ind) / 24.0D
+  obs_date_str = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
+  ref_date_str = JULIAN_TO_YYYYMMDDHH(ref_date_Julian)
+
+  PRINT, '    depth change ' + $
+         STRCRA(snwd_sample.obs_value_cm[prev_hours_tair] - ref_snwd) + $
+         ' cm ' + $
+         '(' + STRCRA(ref_snwd) + ' to ' + $
+         STRCRA(snwd_sample.obs_value_cm[prev_hours_tair]) + ', ', $
+         ref_date_str + ' to ' + obs_date_str + ')'
+
+  ;; if (sample_qc_hours gt prev_hours_tair) then begin
+  ;;     for ti = 0, sample_qc_hours - 1 do $
+  ;;         PRINT, snwd_sample_str[ti] + '  ' + tair_sample_str[ti]
+  ;;     ;; PRINT, snwd_sample_str
+  ;;     ;; PRINT, tair_sample_str
+  ;;     PRINT, '---'
+  ;;     PRINT, obs_str, ' (', $
+  ;;            snwd_sample.station_type + ')'
+  ;;     move = GET_KBRD(1)
+  ;; endif
+
+; Generate a URL for a NSA time series.
+  web_start_date_Julian = obs_date_Julian - $
+                          DOUBLE(prev_hours_tair) / 24.0D - $
+                          1.5D
+  web_start_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_start_date_Julian)
+  web_finish_date_Julian = obs_date_Julian + 1.5D
+  web_finish_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(web_finish_date_Julian)
+  url = 'https://www.nohrsc2.noaa.gov/interactive/html/graph.html' + $
+        '?station=' + snwd_sample.station_id + $
+        '&w=800&h=600&o=a&uc=0' + $
+        '&by=' + STRMID(web_start_date_YYYYMMDDHH, 0, 4) + $
+        '&bm=' + STRMID(web_start_date_YYYYMMDDHH, 4, 2) + $
+        '&bd=' + STRMID(web_start_date_YYYYMMDDHH, 6, 2) + $
+        '&bh=' + STRMID(web_start_date_YYYYMMDDHH, 8, 2) + $
+        '&ey=' + STRMID(web_finish_date_YYYYMMDDHH, 0, 4) + $
+        '&em=' + STRMID(web_finish_date_YYYYMMDDHH, 4, 2) + $
+        '&ed=' + STRMID(web_finish_date_YYYYMMDDHH, 6, 2) + $
+        '&eh=' + STRMID(web_finish_date_YYYYMMDDHH, 8, 2) + $
+        '&data=0&units=1&region=us&font=2'
+  PRINT, '    time series URL:'
+  PRINT, '    ' + url
+
+; Generate a URL for a map of air temperature observations.
+  obs_date_YYYYMMDDHH = JULIAN_TO_YYYYMMDDHH(obs_date_Julian)
+  width = 1200
+  height = 675
+  dy = 1.0D
+  dx = dy * DOUBLE(width) / DOUBLE(height)
+
+  url = 'https://www.nohrsc2.noaa.gov/interactive/html/map.html' + $
+        '?ql=station&zoom=&zoom7.x=16&zoom7.y=10' + $
+        '&loc=Latitude%2CLongitude%3B+City%2CST%3B+or+Station+ID' + $
+        '&var=airtemp_obs' + $
+        '&dy=' + STRMID(obs_date_YYYYMMDDHH, 0, 4) + $
+        '&dm=' + STRMID(obs_date_YYYYMMDDHH, 4, 2) + $
+        '&dd=' + STRMID(obs_date_YYYYMMDDHH, 6, 2) + $
+        '&dh=' + STRMID(obs_date_YYYYMMDDHH, 8, 2) + $
+        '&snap=1&o6=1&o9=1&o12=1o13=1&lbl=m&o13=1&mode=pan&extents=us' + $
+        '&min_x=' + STRCRA(snwd_sample.longitude - 0.5D * dx) + $
+        '&min_y=' + STRCRA(snwd_sample.latitude - 0.5D * dy) + $
+        '&max_x=' + STRCRA(snwd_sample.longitude + 0.5D * dx) + $
+        '&max_y=' + STRCRA(snwd_sample.latitude + 0.5D * dy) + $
+        '&coord_x=' + STRCRA(snwd_sample.longitude) + $
+        '&coord_y=' + STRCRA(snwd_sample.latitude) + $
+        '&zbox_n=&zbox_s=&zbox_e=&zbox_w=&metric=1&bgvar=dem' + $
+        ;; '&shdvar=shading' + $
+        '&width=' + STRCRA(width) + $
+        '&height=' + STRCRA(height) + $
+        '&nw=' + STRCRA(width) + $
+        '&nh=' + STRCRA(height) + $
+        '&h_o=0&font=2&js=1&uc=0'
+  PRINT, '    observation map URL:'
+  PRINT, '    ' + url
+  PRINT, ' '
+  PRINT, 'snow depth:'
+  PRINT, snwd_sample_str
+  PRINT, 'air temp.:'
+  PRINT, tair_sample_str
+
 
   RETURN
 
@@ -972,8 +1088,9 @@ end
   ;; eval_test_name = 'world_record_increase_exceedance'
   ;; eval_test_name = 'temperature_consistency'
   ;; eval_test_name = 'snowfall_consistency'
-  eval_test_name = 'precip_consistency'
-  eval_test_name = 'precip_ratio'
+  ;; eval_test_name = 'precip_consistency'
+  ;; eval_test_name = 'precip_ratio'
+  eval_test_name = 'spatial_temperature_consistency'
 
   eval_test_ind = !NULL
   ti = 0
@@ -1289,9 +1406,11 @@ end
 ;             and modeld (SNODAS) snow depth.
 
               case 1 of
+
                   (abs_diff[wdb_si] ge 0.0) and $
                       (abs_diff[wdb_si] lt abs_diff_thresh_cm[0]): $
                       begin
+
                       ; likely false alarm
                       inventory_fa = inventory_fa + this_inventory
                       if (solo_ti ne -1) then $
@@ -1578,8 +1697,32 @@ end
                           solo_inventory_hit[solo_ti] + 1
                       count_hit++
                   end
+
               endcase
 
+              if (ISA(eval_test_ind) and $
+                  (this_inventory[eval_test_ind] eq 1) and $
+                  (eval_test_name eq 'spatial_temperature_consistency')) $
+              then begin
+
+                  prev_hours_tair = 24
+                  SHOW_SNWD_TAIR_DATA, site_str, $
+                                       time_str, $
+                                       obs_str, $
+                                       mdl_str, $
+                                       obs_date_Julian, $
+                                       prev_hours_tair, $
+                                       station_obj_id, $
+                                       qcdb_nc_id, $
+                                       qcdb_ti, $
+                                       qcdb_si, $
+                                       ndv, $
+                                       snwd_sample, $
+                                       snwd_sample_qc
+                  move = GET_KBRD(1)
+
+              endif
+              
           endfor
 
 NEXT_DATE:
