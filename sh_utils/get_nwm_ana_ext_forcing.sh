@@ -71,10 +71,12 @@ else
   fi
 fi
 
-REMOTE_HOST="nomads.ncep.noaa.gov"
-REMOTE_DIR="pub/data/nccf/com/nwm/prod"
-#REMOTE_HOST="www.ftp.ncep.noaa.gov"
-#REMOTE_DIR="data/nccf/com/nwm/prod"
+# REMOTE_HOST="nomads.ncep.noaa.gov"
+# REMOTE_DIR="pub/data/nccf/com/nwm/prod"
+# REMOTE_HOST="www.ftp.ncep.noaa.gov"
+# REMOTE_DIR="data/nccf/com/nwm/prod"
+REMOTE_HOST="ftpprd.ncep.noaa.gov"
+REMOTE_DIR="data/nccf/com/nwm/prod"
 
 HOURS_BACK=72
 
@@ -103,9 +105,12 @@ while [ $HOURS_BACK -ge 0 ] ; do
     curl --silent --fail --connect-timeout 60 --max-time 90 -o /dev/null "$URL"
     STATUS=$?
     if [ $STATUS -ne 0 ] ; then
-        if [ $STATUS -ne 22 ] ; then
+        if [ $STATUS -ne 22 ] && [ $STATUS -ne 28 ] ; then
             err_msg "Unknown curl error (${STATUS}) for $URL"
             err_out
+        fi
+        if [ $STATUS -eq 28 ] ; then
+            warning_msg "Timeout on URL ${URL}"
         fi
         # Source directory is not there.
         HOURS_BACK=$((HOURS_BACK-1))
