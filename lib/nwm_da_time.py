@@ -110,3 +110,24 @@ def hour_from_datetime(dtime):
     datetime_idx = pd.DatetimeIndex(dtime)
     hour = datetime_idx.hour[0]
     return hour
+
+def plus_one_month(datetime_dt):
+    '''
+    Return a date that is one month later than the argument.
+    https://code.activestate.com/recipes/577274-subtract-or-add-a-month-to-a-datetimedate-or-datet/
+    '''
+    one_day = dt.timedelta(days=1)
+    potential_month_later = datetime_dt + one_day
+    while potential_month_later.month == datetime_dt.month:
+        potential_month_later += one_day
+        # print(' + ' + potential_month_later.strftime('%Y-%m-%d %H:%M:%S'))
+    target_month = potential_month_later.month
+    while potential_month_later.day < datetime_dt.day:
+        potential_month_later += one_day
+        # print('++ ' + potential_month_later.strftime('%Y-%m-%d %H:%M:%S'))
+        if potential_month_later.month != target_month:
+            potential_month_later -= one_day
+            # print(' - ' + potential_month_later.strftime('%Y-%m-%d %H:%M:%S'))
+            break
+    # print('    ' + potential_month_later.strftime('%Y-%m-%d %H:%M:%S'))
+    return potential_month_later
