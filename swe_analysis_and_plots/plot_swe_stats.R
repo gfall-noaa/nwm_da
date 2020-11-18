@@ -49,14 +49,10 @@ plot_swe_stats <- function(all_stats,
     # bg_map <- map_setup(wdb_com, min_lat, max_lat, min_lon, max_lon,
     #                     minLatAdj=1, maxLatAdj=1, minLonAdj=0, maxLonAdj=1)
 
-
     if (target_hour < 0) {
-
         post <- paste0("_", domain_text, include_perc_str, ".png")
         #post <- paste0("_", gsub('.{1}$', '', domain_text), include_perc_str, ".png")
-
     } else {
-
         post <- paste0("_", target_hour, "zm",
                        hr_range[1], "p", hr_range[2], "_",
                        domain_text, include_perc_str, ".png")
@@ -86,21 +82,13 @@ plot_swe_stats <- function(all_stats,
     val_size_max_lim <- max(max(all_stats[[1]]$obs_swe_diff_sum, na.rm=TRUE),
                             max(all_stats[[2]]$obs_swe_diff_sum, na.rm=TRUE),
                             max(all_stats[[3]]$obs_swe_diff_sum, na.rm=TRUE))
-    # val_size_max_lim <- max(max(acc_stats$obs_swe_diff_sum, na.rm=TRUE),
-    #                         max(abl_stats$obs_swe_diff_sum, na.rm=TRUE),
-    #                         max(abl_stats_pers$obs_swe_diff_sum, na.rm=TRUE))
     val_size_max_lim=1200 #NA #1200 1000 #200
-    min_thresh_colr <- 0
-    max_thresh_colr <- NA #1000 #200
     histlim <- ceiling(max(nrow(all_stats[[1]]), nrow(all_stats[[2]]), nrow(all_stats[[3]]))/2)
     #histlim <- ceiling(max(nrow(acc_hit), nrow(abl_hit), nrow(abl_hit_pers))/2)
-    histlim <- 70 #1000  #500
+    histlim <- 500 #1000  #500
     alpha_val <- 1.0  #0.8  #when is 1.0, no transparency, shows real color
     size_min_pt <- 1.0  #0.0, 0.6
     size_max_pt <- 10  #has been 10
-    color_low <- "blue"
-    color_mid <- "white"
-    color_high <- "red"
     plot_dpi <- 300
     map_width <- 7
     map_height <- 7
@@ -132,13 +120,6 @@ plot_swe_stats <- function(all_stats,
 
     data_sub <- all_stats[[1]]
 
-    ## scatter plots
-    # ggplot(acc_stats, aes(x=mean_obs_swe, y=departure)) + geom_point()
-    # ggplot(acc_stats, aes(x=mean_obs_swe, y=acc_hit_aggbias)) + geom_point()
-    # ggplot(acc_stats, aes(x=mean_obs_swe, y=acc_miss_aggerror)) + geom_point()
-
-    # data_sub <- subset(acc_stats, subset = obs_sum >= min_swe_sum_val)
-
     if (min_sample_size_n > 0) data_sub <- data_sub %>% subset(num_events >= min_sample_size_n)
     if (min_obs_ndays > 0) data_sub <- data_sub %>% subset(obs_ndays >= min_obs_ndays)
     data_sub <- data_sub %>% arrange(desc(obs_swe_diff_sum))  #So plot smaller circles on top
@@ -154,13 +135,8 @@ plot_swe_stats <- function(all_stats,
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
@@ -188,13 +164,8 @@ plot_swe_stats <- function(all_stats,
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
@@ -225,18 +196,13 @@ plot_swe_stats <- function(all_stats,
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
-    mapPlotName <- formFileName("acc_miss_err_map_", fromDate, toDate, post)
-    barPlotName <- formFileName("acc_miss_err_hist_", fromDate, toDate, post)
+    mapPlotName <- formFileName("acc_all_err_map_", fromDate, toDate, post)
+    barPlotName <- formFileName("acc_all_err_hist_", fromDate, toDate, post)
     mapOutput_path <- file.path(plot_output_dir, mapPlotName)
     barOutput_path <- file.path(plot_output_dir, barPlotName)
     ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
@@ -244,6 +210,77 @@ plot_swe_stats <- function(all_stats,
     ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
 
+    #
+    #-----------------------------------------------------------
+    # SWE difference for the period  ---
+    plot_title <- "Relative SWE Difference At The End of Period"
+    #data_sub <- mutate(data_sub, last_swe_diff = (last_mod_swe - last_obs_swe)/obs_swe_diff_sum)
+    data_sub <- mutate(data_sub, last_swe_diff =
+                           (last_mod_swe - first_mod_swe -
+                                last_obs_swe + first_obs_swe)/(last_obs_swe-first_obs_swe))
+    map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
+                                    #size_var_coln="obs_swe_diff_sum", val_coln="last_swe_diff",
+                                    size_var_coln="last_obs_swe", val_coln="last_swe_diff",
+                                    plot_title=plot_title, plot_subtitle=plot_subtitle,
+                                    x_label="Longitude", y_label="Latitude",
+                                    size_label=size_label,
+                                    color_label="Rel SWE_D",
+                                    hist_title="Last Relative SWE Difference",
+                                    color_breaks,
+                                    size_min_pt=size_min_pt,
+                                    size_max_pt=size_max_pt,
+                                    val_size_min_lim=val_size_min_lim,
+                                    val_size_max_lim=val_size_max_lim,
+                                    val_breaks, alpha_val=alpha_val,
+                                    histlim=histlim)
+
+    mapPlotName <- formFileName("swe_diff_last_map_", fromDate, toDate, post)
+    barPlotName <- formFileName("swe_diff_last_hist_", fromDate, toDate, post)
+    mapOutput_path <- file.path(plot_output_dir, mapPlotName)
+    barOutput_path <- file.path(plot_output_dir, barPlotName)
+    ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
+           width=6, height=4, dpi=plot_dpi)
+
+    #----------------------------------------------------------
+    #Scatter plot for total E ~ lat  -- Acc case
+    #----------------------------------------------------------
+    plot_title <- "Total Error vs. Latitude - Accumulation"
+    #str(data_sub)
+    #stop("everythin OK?")
+    ele_lim <- c(35, 43)
+    err_lim <- c(-1.0, 1.0)
+    x_label <- "Latitude"
+    y_label <- "Total Error"
+    #message("calling scatter_plt function")
+    scatter_plt <- scatter_plot(data_sub,  "lat", "acc_total_err",
+                                ele_lim, err_lim,
+                                plot_title, plot_subtitle,
+                                x_label, y_label, FALSE)
+    scplotname <- formFileName("acc_scatter_err_vs_lat_", fromDate, toDate, post)
+    scoutput_path <- file.path(plot_output_dir, scplotname)
+    ggsave(filename=scoutput_path, plot=scatter_plt, units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    #----------------------------------------------------------
+    #Scatter plot for B ~ lat -- Acc. case
+    #----------------------------------------------------------
+    plot_title <- "Bias vs. Latitude - Accumulation"
+    #str(data_sub)
+    #stop("everythin OK?")
+    ele_lim <- c(35, 43)
+    bias_lim <- c(-1.0, 1.0)
+    x_label <- "Latitude"
+    y_label <- "Bias"
+    #message("calling scatter_plt function")
+    scatter_plt <- scatter_plot(data_sub,  "lat", "acc_hit_aggbias",
+                                ele_lim, bias_lim,
+                                plot_title, plot_subtitle,
+                                x_label, y_label, FALSE)
+    scplotname <- formFileName("acc_scatter_bias_vs_lat_", fromDate, toDate, post)
+    scoutput_path <- file.path(plot_output_dir, scplotname)
+    ggsave(filename=scoutput_path, plot=scatter_plt, units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
     #=========================================================
     # ABLATION RELATED PLOTS
     #=========================================================
@@ -266,13 +303,8 @@ plot_swe_stats <- function(all_stats,
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
@@ -300,13 +332,8 @@ plot_swe_stats <- function(all_stats,
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
@@ -334,18 +361,13 @@ plot_swe_stats <- function(all_stats,
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
-    mapPlotName <- formFileName("abl_miss_err_map_", fromDate, toDate, post)
-    barPlotName <- formFileName("abl_miss_err_hist_", fromDate, toDate, post)
+    mapPlotName <- formFileName("abl_all_err_map_", fromDate, toDate, post)
+    barPlotName <- formFileName("abl_all_err_hist_", fromDate, toDate, post)
     mapOutput_path <- file.path(plot_output_dir, mapPlotName)
     barOutput_path <- file.path(plot_output_dir, barPlotName)
     ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
@@ -353,9 +375,14 @@ plot_swe_stats <- function(all_stats,
     ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
     #-----------------------------------------------------------
-    # Aggregate Abs. Ablation Error
-    plot_title <- "Aggregate Absolute Ablation Error"
-    data_sub <- mutate(data_sub, abl_abs_err = abl_miss_aggerror + abs(abl_fp_err))
+    # Aggregate Ablation Absolute Error
+    plot_title <- "Aggregate Ablation Absolute Error"
+
+    data_sub <- mutate(data_sub, abl_abs_err = case_when(
+        !is.na(abl_fp_err) & !is.na(abl_miss_aggerror) ~ abs(abl_fp_err) + abl_miss_aggerror,
+        is.na(abl_fp_err) & !is.na(abl_miss_aggerror) ~ abl_miss_aggerror,
+        TRUE ~ NA_real_))
+
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
                                     #size_var_coln="obs_swe_diff_sum", val_coln="abl_miss_aggerror",
                                     size_var_coln="obs_swe_diff_sum", val_coln="abl_abs_err",
@@ -363,22 +390,17 @@ plot_swe_stats <- function(all_stats,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARBE",
-                                    hist_title="Abs. Ablation Error",
+                                    hist_title="Ablation Abs Error",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
-    mapPlotName <- formFileName("abl_miss_abs_err_map_", fromDate, toDate, post)
-    barPlotName <- formFileName("abl_miss_abs_err_hist_", fromDate, toDate, post)
+    mapPlotName <- formFileName("abl_all_abs_err_map_", fromDate, toDate, post)
+    barPlotName <- formFileName("abl_all_abs_err_hist_", fromDate, toDate, post)
     mapOutput_path <- file.path(plot_output_dir, mapPlotName)
     barOutput_path <- file.path(plot_output_dir, barPlotName)
     ggsave(filename=mapOutput_path, plot=map_bar_plot[[1]], units="in",
@@ -386,6 +408,150 @@ plot_swe_stats <- function(all_stats,
     ggsave(filename=barOutput_path, plot=map_bar_plot[[2]], units="in",
            width=6, height=4, dpi=plot_dpi)
 
+    #----------------------------------------------------------
+    #Scatter plot for B/E ~ elevation  -- Ablation case  (total error)
+    #----------------------------------------------------------
+    plot_title <- "Bias Total Error Ratio vs. Elevation - Ablation"
+    data_sub <- mutate(data_sub, b_e_ratio = abl_hit_aggbias/abl_total_err)
+    #str(data_sub)
+    #stop("everythin OK?")
+    ele_lim <- c(700, 4000)
+    b_e_ratio_lim <- c(-25.0, 25.0)
+    x_label <- "Elevation"
+    y_label <- "Bias and Total Error Ratio"
+    #message("calling scatter_plt function")
+    scatter_plt <- scatter_plot(data_sub,  "elevation", "b_e_ratio",
+                                ele_lim, b_e_ratio_lim,
+                                plot_title, plot_subtitle,
+                                x_label, y_label)
+    scplotname <- formFileName("abl_scatter_all_err_", fromDate, toDate, post)
+    scoutput_path <- file.path(plot_output_dir, scplotname)
+    ggsave(filename=scoutput_path, plot=scatter_plt, units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+           #width=6, height=4, dpi=300)
+
+
+    #----------------------------------------------------------
+    #Scatter plot for B/E ~ elevation  -- Ablation case (miss error)
+    #----------------------------------------------------------
+    plot_title <- "Bias Miss Error Ratio vs. Elevation - Ablation"
+    data_sub <- mutate(data_sub, b_e_ratio2 = abl_hit_aggbias/abl_miss_aggerror)
+    #str(data_sub)
+    #stop("everythin OK?")
+    ele_lim <- c(700, 4000)
+    b_e_ratio_lim <- c(-10.0, 25.0)
+    x_label <- "Elevation"
+    y_label <- "Bias and Miss Error Ratio"
+    #message("calling scatter_plt function")
+    scatter_plt <- scatter_plot(data_sub,  "elevation", "b_e_ratio2",
+                                ele_lim, b_e_ratio_lim,
+                                plot_title, plot_subtitle,
+                                x_label, y_label)
+    scplotname <- formFileName("abl_scatter_miss_err_", fromDate, toDate, post)
+    scoutput_path <- file.path(plot_output_dir, scplotname)
+    ggsave(filename=scoutput_path, plot=scatter_plt, units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+
+
+    #----------------------------------------------------------
+    #Scatter plot for B/E ~ elevation  -- Ablation case (total abs error)
+    #----------------------------------------------------------
+    plot_title <- "Abs Bias and Total Abs Error Ratio vs. Elevation - Ablation"
+    data_sub <- mutate(data_sub, b_e_ratio3 = abs(abl_hit_aggbias)/((abs(abl_miss_aggerror)+ abs(abl_fp_err))))
+    #str(data_sub)
+    #stop("everythin OK?")
+    ele_lim <- c(700, 4000)
+    b_e_ratio_lim <- c(-10.0, 25.0)
+    x_label <- "Elevation"
+    y_label <- "Abs Bias and Total Abs Error Ratio"
+    #message("calling scatter_plt function")
+    scatter_plt <- scatter_plot(data_sub,  "elevation", "b_e_ratio3",
+                                ele_lim, b_e_ratio_lim,
+                                plot_title, plot_subtitle,
+                                x_label, y_label, TRUE)
+    scplotname <- formFileName("abl_scatter_abs_all_err_", fromDate, toDate, post)
+    scoutput_path <- file.path(plot_output_dir, scplotname)
+    ggsave(filename=scoutput_path, plot=scatter_plt, units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+
+    #----------------------------------------------------------
+    #Scatter plot for B ~ elevation  -- Ablation case
+    #----------------------------------------------------------
+    plot_title <- "Bias vs. Elevation - Ablation"
+    #str(data_sub)
+    #stop("everythin OK?")
+    ele_lim <- c(700, 4000)
+    bias_lim <- c(-2.0, 2.0)
+    x_label <- "Elevation"
+    y_label <- "Bias"
+    #message("calling scatter_plt function")
+    scatter_plt <- scatter_plot(data_sub,  "elevation", "abl_hit_aggbias",
+                                ele_lim, bias_lim,
+                                plot_title, plot_subtitle,
+                                x_label, y_label, FALSE)
+    scplotname <- formFileName("abl_scatter_bias_vs_elev_", fromDate, toDate, post)
+    scoutput_path <- file.path(plot_output_dir, scplotname)
+    ggsave(filename=scoutput_path, plot=scatter_plt, units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+
+    #----------------------------------------------------------
+    #Scatter plot for total E ~ elevation  -- Ablation case
+    #----------------------------------------------------------
+    plot_title <- "Total Error vs. Elevation - Ablation"
+    #str(data_sub)
+    #stop("everythin OK?")
+    ele_lim <- c(700, 4000)
+    err_lim <- c(-2.0, 2.0)
+    x_label <- "Elevation"
+    y_label <- "Total Error"
+    #message("calling scatter_plt function")
+    scatter_plt <- scatter_plot(data_sub,  "elevation", "abl_total_err",
+                                ele_lim, bias_lim,
+                                plot_title, plot_subtitle,
+                                x_label, y_label, FALSE)
+    scplotname <- formFileName("abl_scatter_err_vs_elev_", fromDate, toDate, post)
+    scoutput_path <- file.path(plot_output_dir, scplotname)
+    ggsave(filename=scoutput_path, plot=scatter_plt, units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+
+    #----------------------------------------------------------
+    #Scatter plot for total E ~ lat  -- Ablation case
+    #----------------------------------------------------------
+    plot_title <- "Total Error vs. Latitude - Ablation"
+    #str(data_sub)
+    #stop("everythin OK?")
+    ele_lim <- c(35, 43)
+    err_lim <- c(-2.0, 2.0)
+    x_label <- "Elevation"
+    y_label <- "Total Error"
+    #message("calling scatter_plt function")
+    scatter_plt <- scatter_plot(data_sub,  "lat", "abl_total_err",
+                                ele_lim, bias_lim,
+                                plot_title, plot_subtitle,
+                                x_label, y_label, FALSE)
+    scplotname <- formFileName("abl_scatter_err_vs_lat_", fromDate, toDate, post)
+    scoutput_path <- file.path(plot_output_dir, scplotname)
+    ggsave(filename=scoutput_path, plot=scatter_plt, units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
+    #----------------------------------------------------------
+    #Scatter plot for B ~ lat -- Ablation case
+    #----------------------------------------------------------
+    plot_title <- "Bias vs. Latitude - Ablation"
+    #str(data_sub)
+    #stop("everythin OK?")
+    ele_lim <- c(35, 43)
+    bias_lim <- c(-2.0, 2.0)
+    x_label <- "Elevation"
+    y_label <- "Bias"
+    #message("calling scatter_plt function")
+    scatter_plt <- scatter_plot(data_sub,  "lat", "abl_hit_aggbias",
+                                ele_lim, bias_lim,
+                                plot_title, plot_subtitle,
+                                x_label, y_label, FALSE)
+    scplotname <- formFileName("abl_scatter_bias_vs_lat_", fromDate, toDate, post)
+    scoutput_path <- file.path(plot_output_dir, scplotname)
+    ggsave(filename=scoutput_path, plot=scatter_plt, units="in",
+           width=map_width, height=map_height, dpi=plot_dpi)
 
     #=========================================================
     # ABLAION WITH PERSISTENT CONDITION RELATED PLOTS
@@ -429,13 +595,8 @@ plot_swe_stats <- function(all_stats,
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
@@ -462,13 +623,8 @@ plot_swe_stats <- function(all_stats,
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
@@ -497,18 +653,13 @@ plot_swe_stats <- function(all_stats,
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
-    mapPlotName <- formFileName("abl_miss_err_map_pers_", fromDate, toDate, post)
-    barPlotName <- formFileName("abl_miss_err_hist_pers_", fromDate, toDate, post)
+    mapPlotName <- formFileName("abl_all_err_map_pers_", fromDate, toDate, post)
+    barPlotName <- formFileName("abl_all_err_hist_pers_", fromDate, toDate, post)
 
     mapOutput_path <- file.path(plot_output_dir, mapPlotName)
     barOutput_path <- file.path(plot_output_dir, barPlotName)
@@ -520,8 +671,8 @@ plot_swe_stats <- function(all_stats,
 
 
     #-----------------------------------------------------------
-    # Aggregate Abs. Ablation Error with Persistent Condition
-    plot_title <- "Aggregate Absolute Ablation Error (Persistent Snow)"
+    # Aggregate Ablation Absolute Error with Persistent Condition
+    plot_title <- "Aggregate Ablation Absolute Error (Persistent Snow)"
     data_sub <- mutate(data_sub, abl_abs_err = abl_miss_aggerror + abs(abl_fp_err))
 
     map_bar_plot <- plot_map_errors(bg_map, data_sub, xcoln="lon", ycoln="lat",
@@ -530,22 +681,17 @@ plot_swe_stats <- function(all_stats,
                                     x_label="Longitude", y_label="Latitude",
                                     size_label=size_label,
                                     color_label="ARBE",
-                                    hist_title="Abs. Ablation Error (Persistent Snow)",
+                                    hist_title="Ablation Abs Error (Persistent Snow)",
                                     color_breaks,
                                     size_min_pt=size_min_pt,
                                     size_max_pt=size_max_pt,
-                                    color_low=color_low,
-                                    color_mid=color_mid,
-                                    color_high=color_high,
                                     val_size_min_lim=val_size_min_lim,
                                     val_size_max_lim=val_size_max_lim,
-                                    min_thresh_colr=min_thresh_colr,
-                                    max_thresh_colr=max_thresh_colr,
                                     val_breaks, alpha_val=alpha_val,
                                     histlim=histlim)
 
-    mapPlotName <- formFileName("abl_miss_abs_err_map_pers_", fromDate, toDate, post)
-    barPlotName <- formFileName("abl_miss_abs_err_hist_pers_", fromDate, toDate, post)
+    mapPlotName <- formFileName("abl_all_abs_err_map_pers_", fromDate, toDate, post)
+    barPlotName <- formFileName("abl_all_abs_err_hist_pers_", fromDate, toDate, post)
 
     mapOutput_path <- file.path(plot_output_dir, mapPlotName)
     barOutput_path <- file.path(plot_output_dir, barPlotName)

@@ -1,6 +1,14 @@
 #!/usr/bin/env Rscript
 
-#The main driver to call other functions to conduct data analysis and ploting
+#The main driver to call other functions to conduct data analysis and plotting
+#
+#--------------------------------------------------------------------
+# TO Run:
+#        $ Rscript --vanilla main_driver.R <configuration_file_name>
+#
+#    Note: If configuration_file_name is not given, it uses config.R which
+#          defines actual configuration file to be used.
+#--------------------------------------------------------------------
 
 #Check where this code will be run and provide a configuration file needed
 

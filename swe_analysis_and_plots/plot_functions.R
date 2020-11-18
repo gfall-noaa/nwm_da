@@ -1,8 +1,8 @@
-# Functions related to plots
+# Functions related to plots (maps, histograms, scatter plots)
 #-----------------------------------------------------------
 map_setup <- function(df=NULL, min_lat=NULL, max_lat=NULL, min_lon=NULL, max_lon=NULL,
                      minLatAdj=0, maxLatAdj=0, minLonAdj=0, maxLonAdj=0) {
-  
+
   lats<-df$lat
   lons<-df$lon
   # clat <- mean(lats)
@@ -17,11 +17,11 @@ map_setup <- function(df=NULL, min_lat=NULL, max_lat=NULL, min_lon=NULL, max_lon
   #myLocation <- c(minLon+4, minLat+3, maxLon-3, maxLat-6)
   bg_map <- ggmap::get_map(location=myBox, source="stamen", maptype="terrain", crop=TRUE)
   #myMap <- ggmap::get_googlemap(center=c(lon=clon, lat=clat), zoom=4, maptype="terrain", format="png8", size=c(640,480), scale=2)
-  
+
   ##Or just use two lines before for the background map
   #data_bbox <- ggmap::make_bbox(lat = lat, lon = lon, data = df, f = 0.1)  #bounding box
   #bg_map <- get_stamenmap(data_bbox, maptype = "terrain", zoom=5)
-  
+
   return (bg_map)
 }
 
@@ -35,11 +35,7 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
                             hist_title="Mean Signed Bias",
                             color_breaks,
                             size_min_pt=1, size_max_pt=8,
-                            color_low="blue", color_mid="white", color_high="red",
                             val_size_min_lim=NULL, val_size_max_lim=NULL,
-                            min_thresh_colr=NULL, max_thresh_colr=NULL,
-                            #excl_var=NULL, excl_thresh=NULL,
-                            #excl_var="n_samples", excl_thresh=30,
                             val_breaks, alpha_val=0.8, histlim=NULL) {
 
   if (!is.data.frame(stats_df)) as.data.frame(stats_df)
@@ -60,35 +56,35 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
   } else if (val_size_max_lim < max(my_data[, size_var_coln], na.rm=TRUE)) {
       message('Warning: Maximum data value is greater than the limit.')
   }
+#
+#   if (is.null(min_thresh_colr)) min_thresh_colr <- min(my_data[, val_coln], na.rm=TRUE)
+#   if (is.null(max_thresh_colr)) max_thresh_colr <- max(my_data[, val_coln], na.rm=TRUE)
 
-  if (is.null(min_thresh_colr)) min_thresh_colr <- min(my_data[, val_coln], na.rm=TRUE)
-  if (is.null(max_thresh_colr)) min_thresh_colr <- max(my_data[, val_coln], na.rm=TRUE)
-  
   #check for the val_size_max_lim
   if (!is.null(val_size_min_lim)) {
-      
+
   }
-  
+
   # #Bias Map - test
-  # gg_err <- ggmap::ggmap(bg_map) + 
+  # gg_err <- ggmap::ggmap(bg_map) +
   #     ggforce::geom_circle(aes(x0=lon, y0=lat, r=obs_swe_diff_sum, fill=aggerror),
   #                          data=abl_miss) + coord_fixed()
-  # 
-  # gg_err <- ggmap::ggmap(bg_map) + 
+  #
+  # gg_err <- ggmap::ggmap(bg_map) +
   #     ggforce::geom_circle(aes(x0=xcoln, y=ycoln, r=size_var_coln, fill=fill_val_coln),
   #                         data=abl_miss) + coord_fixed()
 
-  
+
   #my_data <- my_data %>% arrange(desc(size_var_coln))
-  
+
   #Bias Map
   gg_err <- ggmap::ggmap(bg_map) +
     ggplot2::geom_point(aes_string(x=xcoln, y=ycoln, size=size_var_coln, fill=fill_val_coln),
                         data=my_data, alpha=alpha_val, shape=21, stroke=0.55) +
-                        #data=my_data, alpha=alpha_val, shape=21, stroke=0.6) +  
+                        #data=my_data, alpha=alpha_val, shape=21, stroke=0.6) +
                         ##use stroke to control the thickness of circles
       scale_radius(size_label, range=c(size_min_pt, size_max_pt),
-                        limits=c(val_size_min_lim, val_size_max_lim)) + 
+                        limits=c(val_size_min_lim, val_size_max_lim)) +
       scale_fill_manual(color_label, values=color_breaks, drop=FALSE) +
       ggtitle(bquote(atop(.(plot_title), atop(italic(.(plot_subtitle)), "")))) +
       labs(x = x_label, y = y_label) +
@@ -104,15 +100,15 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
       guides(fill=guide_legend(override.aes=list(size=3), order=1), size=
                     guide_legend(order=2))
 
-    #ggplot2::scale_fill_gradient2(color_label, low=color_low, mid=color_mid, 
+    #ggplot2::scale_fill_gradient2(color_label, low=color_low, mid=color_mid,
     #                              high=color_high, midpoint=0,
     #                              limits=c(min_thresh_colr, max_thresh_colr)) +
     #ggplot2::scale_fill_gradientn(color_label, colours = color_reaks,
     #                              values = scales::rescale(val_breaks)) +
 
-    #NOTE: scale_size was replaced by scale_radius (area vs radius).   
+    #NOTE: scale_size was replaced by scale_radius (area vs radius).
     #      Tried scale_size_binned() and scale_size_area(). scale_radius is the best
-  
+
   gg_hist <- ggplot(data=subset(my_data, !is.na(val_coln)),
                     aes(plot_cat, fill=plot_cat)) +
       #geom_bar(aes(y=(..count..)/sum(..count..))) +
@@ -134,11 +130,74 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
       scale_x_discrete(drop=F)
 
     #ggplot2::theme(axis.title.y = element_text(margin = margin(t=12, r=0, b=0, l=0))) +
-      #theme(axis.text.x = element_text(size = 8)) + 
-    #ggplot2::theme(axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0)) + 
+      #theme(axis.text.x = element_text(size = 8)) +
+    #ggplot2::theme(axis.text.x = element_text(angle = -30, vjust = 1, hjust = 0)) +
         # Add this will not see grey background and white lines
       #theme_minimal()
   if(!is.null(histlim)) gg_hist <- gg_hist + coord_cartesian(ylim=c(0, histlim))
-    
+
   return (list(gg_err, gg_hist))
+}
+
+#-------------------------------------------------------------------
+scatter_plot <- function(data_in, xcol_name, ycol_name,
+                         xlimit=NA, ylimit=NA,
+                         plot_title="Model Errors", plot_subtitle="",
+                         x_label="Elevation", y_label="Bias Error Ratio",
+                         log=FALSE) {
+  #library(ggpubr)
+  if (!is.na(xlimit)) {
+    xmin <- xlimit[1]
+    xmax <- xlimit[2]
+  } else {
+    xmin <- min(data_in[, xcol_name], na.rm=TRUE)
+    xmax <- max(data_in[, xcol_name], na.rm=TRUE)
+  }
+  if (!is.na(ylimit)) {
+    ymin <- ylimit[1]
+    ymax <- ylimit[2]
+  } else {
+    ymin <- min(data_in[, ycol_name], na.rm=TRUE)
+    ymax <- max(data_in[, ycol_name], na.rm=TRUE)
+  }
+
+  # print(xcol_name)
+  # print(xmin)
+  if (log == TRUE) {
+    scatter_plot <- ggplot(data=data_in, aes_string(x=xcol_name, y=ycol_name)) +
+      geom_point(shape=1, color="blue") +     # Use hollow circles
+      #scale_x_continuous(limits=c(xmin, xmax)) +
+      #scale_y_continuous(limits=c(ymin, ymax)) +
+
+      ylim(ymin, ymax) +
+      xlim(xmin, xmax) +
+      scale_y_continuous(trans='log2')
+  } else {
+    scatter_plot <- ggplot(data=data_in, aes_string(x=xcol_name, y=ycol_name)) +
+      geom_point(shape=1, color="blue") +     # Use hollow circles
+      #scale_x_continuous(limits=c(xmin, xmax)) +
+      #scale_y_continuous(limits=c(ymin, ymax)) +
+      ylim(ymin, ymax) +
+      xlim(xmin, xmax)
+  }
+  scatter_plot <-   scatter_plot +
+    stat_smooth(method = "lm",
+                col = "#C42126",
+                se = FALSE,
+                size = 1) +
+    # stat_cor(
+    #   aes(label = paste(..rr.label.., ..p.label.., sep = "~`,`~")),
+    #   label.x = 3) +
+    labs(
+      x = x_label,
+      y = y_label,
+      color = "Gear"
+      #title = plot_title,
+      #subtitle = plot_subtitle
+    ) +
+    ggtitle(bquote(atop(.(plot_title), atop(italic(.(plot_subtitle)), "")))) +
+    theme_linedraw() +
+    theme(plot.title=element_text(size=16, face="bold", vjust=-1, hjust=0.5, family="Sans"))
+
+  return (scatter_plot)
 }

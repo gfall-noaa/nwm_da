@@ -428,7 +428,7 @@ calculate_bias_stations <- function(nwm_in_wdb, wdb_in_nwm, target_hour=-1) {
 }
 #--------------------------------------------------------------------------
 #--------------------------------------------------------------------------
-acc_abl_scores <- function(swe_acc_abl_com,
+acc_abl_stats <- function(swe_acc_abl_com,
                            acc_abl_option) {
 
   # Calculate different scores based on 2020 Q4 document.
@@ -460,7 +460,16 @@ acc_abl_scores <- function(swe_acc_abl_com,
       filter(!is.na(obs_swe_mm)) %>%
       summarise(obs_ndays=n())
 
-  # Basic stats for both accumulation and ablation (common ones)
+  first_last_swe <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
+    filter(!is.na(obs_swe_mm)) %>%
+    summarise(first_obs_swe = first(obs_swe_mm[!is.na(obs_swe_mm)]),
+              first_mod_swe = first(nwm_swe[!is.na(nwm_swe)]),
+              last_obs_swe = last(obs_swe_mm[!is.na(obs_swe_mm)]),
+              last_mod_swe = last(nwm_swe[!is.na(nwm_swe)]))
+
+
+
+  # Basic stats for both accumulation and ablation (common ones) including departures
   stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
     filter(if (acc_abl_option > 0) (wdb_swe_diff > 0 | (wdb_swe_diff == 0 & nwm_swe_diff > 0))
            else (wdb_swe_diff < 0 | (wdb_swe_diff == 0 & nwm_swe_diff < 0))) %>%
@@ -487,8 +496,8 @@ acc_abl_scores <- function(swe_acc_abl_com,
 
   #stats <- cbind(stats, swe_sum[, "obs_swe_diff_sum"])
   if (acc_abl_option != 0) {
-      stats <- merge(stats, num_events, by="obj_identifier", all = T) #Add this column
-      stats <- merge(stats, obs_ndays, by="obj_identifier", all = T) #Add this column
+      stats <- merge(stats, num_events, by="obj_identifier", all = F) #Add this column
+      stats <- merge(stats, obs_ndays, by="obj_identifier", all = F) #Add this column
   }
 
 
@@ -501,7 +510,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
                     acc_hit_num_wdb_diff=n())
       #acc_hit <-  mutate(acc_hit, acc_hit_aggbias = acc_hit_diff_sum/acc_hit_obs_swe_diff_sum)
       stats <- stats %>% subset(!is.na(obs_swe_diff_sum))  # Get rid of NA cases
-      stats <- merge(stats, acc_hit, by="obj_identifier", all = T) #Add this column
+      stats <- merge(stats, acc_hit, by="obj_identifier", all = F) #Add this column
       stats <- mutate(stats, acc_hit_aggbias = acc_hit_diff_sum/obs_swe_diff_sum)
       #acc_hit <-  mutate(acc_hit, acc_hit_aggbias = acc_hit$acc_hit_diff_sum/stats$obs_swe_diff_sum)
 
@@ -513,7 +522,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
                     abl_hit_num_wdb_diff=n())
       #abl_hit <-  mutate(abl_hit, abl_hit_aggbias = abl_hit_diff_sum/abl_hit_obs_swe_diff_sum)
       stats <- stats %>% subset(!is.na(stats$obs_swe_diff_sum))  # Get rid of NA cases
-      stats <- merge(stats, abl_hit, by="obj_identifier", all = T) #Add its columns
+      stats <- merge(stats, abl_hit, by="obj_identifier", all = F) #Add its columns
       stats <- mutate(stats, abl_hit_aggbias = abl_hit_diff_sum/obs_swe_diff_sum)
       #abl_hit <-  mutate(abl_hit, abl_hit_aggbias = abl_hit$abl_hit_diff_sum/stats$obs_swe_diff_sum)
   }
@@ -521,6 +530,8 @@ acc_abl_scores <- function(swe_acc_abl_com,
   #     #stop("Incorrect acc_abl_option!")
   #     message("No obs_swe_diff case!")
   # }
+
+  stats <- merge(stats, first_last_swe, by="obj_identifier", all = F)
 
 
   # To keep the same # of stations for departure, bias and error
@@ -544,7 +555,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
                     acc_miss_num_wdb_diff=n())
       #acc_miss <-  mutate(acc_miss, acc_miss_aggerror = acc_miss_diff_sum/acc_miss_obs_swe_diff_sum)
 
-      stats <- merge(stats, acc_miss, by="obj_identifier", all = T) #Add its columns
+      stats <- merge(stats, acc_miss, by="obj_identifier", all = F) #Add its columns
       stats <- mutate(stats, acc_miss_aggerror = acc_miss_diff_sum/obs_swe_diff_sum)
 
   } else if (acc_abl_option < 0) {
@@ -554,7 +565,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
                     abl_miss_obs_swe_diff_sum = sum(wdb_swe_diff),
                     abl_miss_num_wdb_diff=n())
       #abl_miss <-  mutate(abl_miss, abl_miss_aggerror = abl_miss_diff_sum/abl_miss_obs_swe_diff_sum)
-      stats <- merge(stats, abl_miss, by="obj_identifier", all = T) #Add its columns
+      stats <- merge(stats, abl_miss, by="obj_identifier", all = F) #Add its columns
       stats <- mutate(stats, abl_miss_aggerror = abl_miss_diff_sum/obs_swe_diff_sum)
   }
   # } else {
@@ -589,10 +600,10 @@ acc_abl_scores <- function(swe_acc_abl_com,
       both_no_swe_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
           filter(wdb_swe_diff == 0 & nwm_swe_diff == 0.0) %>%  # no case for nwm_swe_diff == 0
           summarise(ndays_no_swe_diff = n())
-      stats <- merge(stats, both_no_swe_diff, by="obj_identifier", all = T) #Add this column
-      stats <- merge(stats, num_events_having_diff, by="obj_identifier", all = T) #Add this column
-      stats <- merge(stats, num_events, by="obj_identifier", all = T) #Add this column
-      stats <- merge(stats, obs_ndays, by="obj_identifier", all = T) #Add this column
+      stats <- merge(stats, both_no_swe_diff, by="obj_identifier", all = F) #Add this column
+      stats <- merge(stats, num_events_having_diff, by="obj_identifier", all = F) #Add this column
+      stats <- merge(stats, num_events, by="obj_identifier", all = F) #Add this column
+      stats <- merge(stats, obs_ndays, by="obj_identifier", all = F) #Add this column
       stats <- stats %>% subset(stats$obs_swe_sum > 0)
       #stats <- stats %>% subset(!is.na(stats$obs_swe_sum))
   }
@@ -604,7 +615,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
       stats_no_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
           filter(wdb_swe_diff == 0 & nwm_swe_diff > 0.0) %>%
           summarise(nwm_pos_diff_sum = sum(nwm_swe_diff))
-      stats <- merge(stats, stats_no_diff, by="obj_identifier", all = T)
+      stats <- merge(stats, stats_no_diff, by="obj_identifier", all = F)
       stats <- mutate(stats, acc_fp_err =  nwm_pos_diff_sum/obs_swe_diff_sum)
       stats <- mutate(stats, acc_total_err = case_when(
           !is.na(acc_fp_err) & !is.na(acc_miss_aggerror) ~ acc_fp_err + acc_miss_aggerror,
@@ -622,7 +633,7 @@ acc_abl_scores <- function(swe_acc_abl_com,
           stats_no_diff <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
               filter(wdb_swe_diff == 0 & nwm_swe_diff < 0.0) %>%
               summarise(nwm_abl_diff_sum = sum(nwm_swe_diff))
-          stats <- merge(stats, stats_no_diff, by="obj_identifier", all = T)
+          stats <- merge(stats, stats_no_diff, by="obj_identifier", all = F)
           stats <- mutate(stats, abl_fp_err = nwm_abl_diff_sum/obs_swe_diff_sum)
           stats <- mutate(stats, abl_total_err = case_when(
               !is.na(abl_fp_err) & !is.na(abl_miss_aggerror) ~ abl_fp_err + abl_miss_aggerror,
@@ -684,25 +695,25 @@ acc_abl_analysis <- function(nwm_wdb_com_daily) {
 
   # Accumulation case -- acc*
   acc_abl_option <- 1
-  acc_stats <- acc_abl_scores(swe_acc_abl_com,
+  acc_stats <- acc_abl_stats(swe_acc_abl_com,
                               acc_abl_option)
   #Now combine used to be stats, hit, and miss into one dataframe/table
 
   # Ablation case -- abl*
   acc_abl_option <- -1
-  abl_stats <- acc_abl_scores(swe_acc_abl_com,
+  abl_stats <- acc_abl_stats(swe_acc_abl_com,
                               acc_abl_option)
 
   # Ablation under persistent option  -- abl_pers*
   acc_abl_option <- -1
   swe_acc_abl_com_pers <-  swe_acc_abl_com %>% subset(persist == 1)
-  abl_per_stats <- acc_abl_scores(swe_acc_abl_com_pers,
+  abl_per_stats <- acc_abl_stats(swe_acc_abl_com_pers,
                                   acc_abl_option)
 
   # Add another case when acc_abl_option = 0 for obs_swe_diff = 0
   # This is to deal with the cells 4, 5, and 6 in the contingent table
   acc_abl_option <- 0
-  no_diff_stats <- acc_abl_scores(swe_acc_abl_com,
+  no_diff_stats <- acc_abl_stats(swe_acc_abl_com,
                               acc_abl_option)
 
   return (list(acc_stats, abl_stats, abl_per_stats, no_diff_stats))
