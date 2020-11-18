@@ -13,6 +13,7 @@ import os
 import pathlib
 import sqlite3
 import importlib
+import logging
 
 def parse_args():
 
@@ -67,6 +68,52 @@ def load_module(pyfilepath):
     b = module.myfunc(a)
     '''
 
+def check_config(cfg):
+    '''
+    Check and complete database configuration.
+    '''
+
+    logger = logging.getLogger()
+    
+    attr_name = 'RUN_OPTION'
+        if not hasattr(cfg, attr_name):
+            logger.error('Configuration is missing attribute "{}".'.
+                         format(att_name))
+            sys.exit(1)
+    if cfg.RUN_OPTION == 1:
+        attr_name = 'NUM_DAYS_TO_CURRENT_TIME'
+        if not hasattr(cfg, attr_name):
+            logger.error('Configuration is missing attribute "{}".'.
+                         format(att_name))
+            sys.exit(1)
+        finish_datetime = dt.datetime.utcnow()
+        start_datetime = finish_datetime - dt.timedelta(days=NUM_DAYS_TO_CURRENT_TIME)
+        cfg.START_DATE = start_datetime.strftime('%Y%m%d%H')
+        #start_datetime = None
+        cfg.FINISH_DATE = finish_datetime.strftime('%Y%m%d%H')
+        #finish_datetime = None
+    elif cfg.RUN_OPTION == 2:
+        attr_name = 'START_DATE'
+        if not hasattr(cfg, attr_name):
+            logger.error('Configuration is missing attribute "{}".'.
+                         format(att_name))
+            sys.exit(1)
+        attr_name = 'FINISH_DATE'
+        if not hasattr(cfg, attr_name):
+            logger.error('Configuration is missing attribute "{}".'.
+                         format(att_name))
+            sys.exit(1)
+        cfg.NUM_DAYS_TO_CURRENT_TIME = 0
+    else:
+        logger.error('Invalid {} = {} in configuration.'.
+                     format(attr_name, getattr(cfg, attr_name)))
+        sys.exit(1)
+    print('Need to specify a run option!')
+    sys.exit(1)
+
+    return cfg
+
+
 def check_database_table_info(conn, table_name):
 
     '''
@@ -112,6 +159,10 @@ def main():
     # Note the system time.
     #time_now = dt.datetime.now()
 
+    # Initialize logger.
+    logger = local_logger.init(logging.WARNING)
+    if sys.stdout.isatty():
+        logger.setLevel(logging.INFO)
 
     # Read command line arguments.
     cmd_opt = parse_args()
@@ -225,12 +276,12 @@ def main():
     #conn.commit()
 
     nwm_meta_columns = ('var_name text',
-                    'file_type text',
-                    'nwm_var_name text',
-                    'long_name text',
-                    'standard_name text',
-                    'units text',
-                    'dims text')
+                        'file_type text',
+                        'nwm_var_name text',
+                        'long_name text',
+                        'standard_name text',
+                        'units text',
+                        'dims text')
                     #'sampling text',
     try:
         sql_c.execute('CREATE TABLE IF NOT EXISTS nwm_meta(%s)' % ', '.join(nwm_meta_columns))
@@ -482,17 +533,17 @@ def main():
     #Create/Add a databases_info table to hold all database names
     conn.execute("DROP TABLE IF EXISTS databases_info")
     sql_c.execute('CREATE TABLE databases_info' + \
-             '( base_db_name text' + \
-             ', forcing_single_db_name text' + \
-             ', land_single_db_name text' + \
-             ', num_days_update integer' + \
-             ', start_date integer' + \
-             ', finish_date integer' + \
-             ', last_updated_date integer' + \
-             ', nwm_archive_dir text)')
-             #', last_updated text)')
-             #', land_soil_db_name text' + \
-             #', land_snow_db_name text)')
+                  '( base_db_name text' + \
+                  ', forcing_single_db_name text' + \
+                  ', land_single_db_name text' + \
+                  ', num_days_update integer' + \
+                  ', start_date integer' + \
+                  ', finish_date integer' + \
+                  ', last_updated_date integer' + \
+                  ', nwm_archive_dir text)')
+                  #', last_updated text)')
+                  #', land_soil_db_name text' + \
+                  #', land_snow_db_name text)')
     
     start_datetime_dt = dt.datetime.strptime(cfg.START_DATE,'%Y%m%d%H')
     start_datetime_ep = calendar.timegm(start_datetime_dt.timetuple())
