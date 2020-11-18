@@ -27,7 +27,8 @@ def get_snow_obs_for_target(target_datetime,
                             window_hrs_post,
                             max_sep_hrs_for_concurrence,
                             bounding_box=None,
-                            scratch_dir=None):
+                            scratch_dir=None,
+                            read_pkl=True):
 
     '''
     Get snow water equivalent (SWE) and snow depth observations from the
@@ -54,7 +55,7 @@ def get_snow_obs_for_target(target_datetime,
     
     # Only use .pkl files if there is no bounding box.
     pkl_file_path = None
-    if bounding_box is None:
+    if read_pkl and bounding_box is None:
         pkl_file_name = 'wdb0_obs_swe_snwd_' + \
             'target_{}_'.format(target_datetime.strftime('%Y%m%d%H')) + \
             'p{}h_m{}h_'.format(window_hrs_prev, window_hrs_post) + \
@@ -151,20 +152,20 @@ def get_snow_obs_for_target(target_datetime,
                        'station_id',
                        'station_name',
                        'station_type',
-                       'station_lon',
-                       'station_lat',
+                       'station_longitude',
+                       'station_latitude',
                        'station_dem_elevation',
                        'station_rec_elevation',
                        'date',
                        'obs_swe_mm',
                        'obs_snwd_mm']
     df = pd.DataFrame(obs, columns=obs_column_list)
-    snow_by_station = df.groupby('obj_identifier')
+    snow_by_station = df.groupby('station_obj_id')
     logger.debug('Found snow data for {} sites.'.format(len(snow_by_station)))
     obs_snow = []
     target_datetime_str = target_datetime.strftime('%Y-%m-%d %HZ')
     
-    for obj_identifier, group in snow_by_station:
+    for station_obj_id, group in snow_by_station:
 
         # print(group)
 
@@ -217,7 +218,7 @@ def get_snow_obs_for_target(target_datetime,
             if np.abs(swe_snwd_offset.total_seconds()) / 3600.0 > \
                max_sep_hrs_for_concurrence:
                 logger.debug('Snow depth and SWE ' +
-                             'at {} '.format(obj_identifier) +
+                             'at {} '.format(station_obj_id) +
                              'for target {} '.format(target_datetime_str) +
                              'are too lagged to treat as concurrent.')
             else:
@@ -228,7 +229,7 @@ def get_snow_obs_for_target(target_datetime,
 
             # Only have snow depth.
             logger.debug('No SWE data ' +
-                         'at {} '.format(obj_identifier) +
+                         'at {} '.format(station_obj_id) +
                          'for target {}.'.format(target_datetime_str))
             snow_row_dict = snwd_row_dict
             snow_row_dict.update({'date_swe': None,
@@ -241,7 +242,7 @@ def get_snow_obs_for_target(target_datetime,
 
             # Only have SWE.
             logger.debug('No snow depth data ' +
-                         'at {} '.format(obj_identifier) +
+                         'at {} '.format(station_obj_id) +
                          'for target {}.'.format(target_datetime_str))
             snow_row_dict = swe_row_dict
             snow_row_dict.update({'date_swe':
@@ -303,7 +304,8 @@ def main():
                                            window_hrs_prev,
                                            window_hrs_post,
                                            max_sep_hrs_for_concurrence,
-                                           scratch_dir=scratch_dir)
+                                           scratch_dir=scratch_dir,
+                                           read_pkl=False)
         logger.info('Found data for {} '.format(len(obs_snow)) +
                     'sites for {}.'.
                     format(target_datetime.strftime('%Y-%m-%d %HZ')))
@@ -314,14 +316,46 @@ def main():
             'target_{}_'.format(target_datetime.strftime('%Y%m%d%H')) + \
             'p{}h_m{}h_'.format(window_hrs_prev, window_hrs_post) + \
             'max_sep_{}h'.format(max_sep_hrs_for_concurrence) + \
-            '.csv'
+            '_test02.csv'
         with open(csv_file_name, 'w', newline='') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=',',
                                     quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            csv_writer.writerow(list(obs_snow[0].keys()))
+            # csv_writer.writerow(['ObsValue','ObsError','PreQC',
+            #                      'time','latitude','longitude',
+            #                      'datetime','variable_names'])
+            csv_writer.writerow(['ObsValue','ObsError','PreQC',
+                                 'latitude','longitude',
+                                 'datetime','variable_name'])
+            # csv_writer.writerow(list(obs_snow[0].keys()))
+            # for item in obs_snow:
+            #     csv_writer.writerow(list(item.values()))
+            date_format = '%Y-%m-%dT%H:%M:%SZ'
             for item in obs_snow:
-                csv_writer.writerow(list(item.values()))
-
+ 
+                if item['obs_swe_mm'] is not None:
+                    # offset = item['date_swe'] - target_datetime
+                    # offset_hours = offset.days * 24 + offset.seconds // 3600
+                    csv_writer.writerow([item['obs_swe_mm'],
+                                         0.1 * item['obs_swe_mm'],
+                                         0,
+                                         # offset_hours,
+                                         item['station_latitude'],
+                                         item['station_longitude'],
+                                         item['date_swe'].
+                                         strftime(date_format),
+                                         'snow_water_equivalent_mm'])
+                if item['obs_snwd_mm'] is not None:
+                    # offset = item['date_snwd'] - target_datetime
+                    # offset_hours = offset.days * 24 + offset.seconds // 3600
+                    csv_writer.writerow([item['obs_snwd_mm'],
+                                         0.1 * item['obs_snwd_mm'],
+                                         0,
+                                         # offset_hours,
+                                         item['station_latitude'],
+                                         item['station_longitude'],
+                                         item['date_snwd'].
+                                         strftime(date_format),
+                                         'snow_depth_mm'])
         target_datetime = ndt.plus_one_month(target_datetime)
 
 if __name__ == '__main__':
