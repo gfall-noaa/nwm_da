@@ -462,7 +462,8 @@ acc_abl_scores <- function(swe_acc_abl_com,
 
   # Basic stats for both accumulation and ablation (common ones)
   stats <- swe_acc_abl_com %>% group_by(obj_identifier) %>%
-    filter(if (acc_abl_option > 0) wdb_swe_diff > 0 else wdb_swe_diff <0 ) %>%
+    filter(if (acc_abl_option > 0) (wdb_swe_diff > 0 | (wdb_swe_diff == 0 & nwm_swe_diff > 0))
+           else (wdb_swe_diff < 0 | (wdb_swe_diff == 0 & nwm_swe_diff < 0))) %>%
            #else if (acc_abl_option < 0) wdb_swe_diff <0 ) %>%
     summarise(station_id = first(station_id),
               station_name = first(name),

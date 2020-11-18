@@ -1,18 +1,38 @@
+#!/usr/bin/env Rscript
+
 #The main driver to call other functions to conduct data analysis and ploting
 
+#Check where this code will be run and provide a configuration file needed
+
+args = commandArgs(trailingOnly=TRUE)
+#if (startup:::is_rstudio_console()) {
+if ("tools:rstudio" %in% search()) {
+   source("config.R")
+   message("sourced config.R for rstudio")
+} else if (length(args)==0) {
+   ifelse (file.exists("config.R"),
+           source("config.R"),
+           stop("Error: config.R does not exist."))
+
+   message("sourecd default config.R")
+} else {
+   fileName <- paste0(args[1])
+   ifelse (file.exists(fileName),
+           source(fileName),
+           stop("Error: config file ", fileName, " does not exist."))
+   message("sourced given config file: ", fileName)
+}
 
 #Get login info
 #username <- Sys.getenv("LOGNAME")
 
-
 no_data_value <- -99999.0
 verbose = NA
 
-source("config.R")
 
 hr_range <- c(minus_hours, plus_hours)
 
-ifelse (dir.exists(dev_dir), 
+ifelse (dir.exists(dev_dir),
        source(paste0(dev_dir, "get_swe_stats.R")),
        message("Incorrect dev_dir path or file name"))
 if (!dir.exists(db_dir)) {
@@ -26,10 +46,10 @@ if (!dir.exists(csv_output_dir)) {
 if (!dir.exists(plot_output_dir)) {
    stop("Plots output directory does not exist:  ", plot_output_dir)
 }
- 
+
 if (!dir.exists(scratch_dir)) {
     stop("scratch directory does not exist:  ", scratch_dir)
-}                                       # 
+}                                       #
 # #station_exclude_list_file <- paste0(csv_output_dir, "/station_exclude_list.csv")
 # if (!file.exists(station_exclude_list_path)) {
 #     stop("Station excluding list file does not exist:  ", station_exclude_list_path)

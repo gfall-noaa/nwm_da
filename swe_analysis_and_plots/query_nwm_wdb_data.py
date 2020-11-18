@@ -193,20 +193,20 @@ def get_swe_data(base_name_dir,
         lambda element: ndt.utc_epoch_to_datetime(element))
     wdb_swe_df = wdb_swe_df.rename(columns={'date':'datetime'})
                     
-    if target_hour == None:
-        wdb_swe_fname = 'wdb_swe_original_' + start_yyyymmddhh + '_' + \
-                        finish_yyyymmddhh + '.csv'
-    else:
-        wdb_swe_fname = 'wdb_swe_hourly_extracted_' + start_yyyymmddhh + '_' + \
-                        finish_yyyymmddhh + '_' + \
-                        str(target_hour) + 'm' + str(hr_range[0]) + \
-                        'p' + str(hr_range[1]) +  '.csv'
-                
-    fpath = pathlib.Path(wdb_swe_fname)
-    if fpath.exists():
-        print('Hourly originally queried/extracted files exist.')
-    else:
-        wdb_swe_df.to_csv(wdb_swe_fname, encoding='utf-8', index=False)
+    # if target_hour == None:
+    #     wdb_swe_fname = 'wdb_swe_original_' + start_yyyymmddhh + '_' + \
+    #                     finish_yyyymmddhh + '.csv'
+    # else:
+    #     wdb_swe_fname = 'wdb_swe_hourly_extracted_' + start_yyyymmddhh + '_' + \
+    #                     finish_yyyymmddhh + '_' + \
+    #                     str(target_hour) + 'm' + str(hr_range[0]) + \
+    #                     'p' + str(hr_range[1]) +  '.csv'
+    #             
+    # fpath = pathlib.Path(wdb_swe_fname)
+    # if fpath.exists():
+    #     print('Hourly originally queried/extracted files exist.')
+    # else:
+    #     wdb_swe_df.to_csv(wdb_swe_fname, encoding='utf-8', index=False)
     
     # write csv file in main R script
     #wdb_swe_df.to_csv('wdb_swe_original.csv', encoding='utf-8', index=False)
@@ -226,20 +226,20 @@ def get_swe_data(base_name_dir,
     # nwm_swe_fname = 'nwm_swe_original_' + start_yyyymmddhh + '_' + \
     #                 finish_yyyymmddhh + '.csv'
                     
-    if target_hour == None:
-        nwm_swe_fname = 'nwm_swe_original_' + start_yyyymmddhh + '_' + \
-                        finish_yyyymmddhh + '.csv'
-    else:
-        nwm_swe_fname = 'nwm_swe_hourly_extracted_' + start_yyyymmddhh + '_' + \
-                        finish_yyyymmddhh + '_' + \
-                        str(target_hour) + 'm' + str(hr_range[0]) + \
-                        'p' + str(hr_range[1]) +  '.csv'
-                
-    fpath = pathlib.Path(nwm_swe_fname)
-    if fpath.exists():
-        print('Hourly originally queried NWM file exists.')
-    else:
-        nwm_swe_df.to_csv(nwm_swe_fname, encoding='utf-8', index=False)
+    # if target_hour == None:
+    #     nwm_swe_fname = 'nwm_swe_original_' + start_yyyymmddhh + '_' + \
+    #                     finish_yyyymmddhh + '.csv'
+    # else:
+    #     nwm_swe_fname = 'nwm_swe_hourly_extracted_' + start_yyyymmddhh + '_' + \
+    #                     finish_yyyymmddhh + '_' + \
+    #                     str(target_hour) + 'm' + str(hr_range[0]) + \
+    #                     'p' + str(hr_range[1]) +  '.csv'
+    #             
+    # fpath = pathlib.Path(nwm_swe_fname)
+    # if fpath.exists():
+    #     print('Hourly originally queried NWM file exists.')
+    # else:
+    #     nwm_swe_df.to_csv(nwm_swe_fname, encoding='utf-8', index=False)
     # ##Write subsetted station data to a csv file
     # #sub_stations_df.to_csv('sub_stations_df.csv', encoding='utf-8', index=False)
 

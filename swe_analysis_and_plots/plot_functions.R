@@ -92,7 +92,7 @@ plot_map_errors <- function(bg_map, stats_df, xcoln="lon", ycoln="lat",
       scale_fill_manual(color_label, values=color_breaks, drop=FALSE) +
       ggtitle(bquote(atop(.(plot_title), atop(italic(.(plot_subtitle)), "")))) +
       labs(x = x_label, y = y_label) +
-      theme(plot.title=element_text(size=16, face="bold", vjust=-1, hjust=0.5)) +
+      theme(plot.title=element_text(size=16, face="bold", vjust=-1, hjust=0.5, family="Sans")) +
       #below from GF
       theme(axis.title.x = element_text(family="Sans")) +
       theme(axis.title.y = element_text(family="Sans")) +

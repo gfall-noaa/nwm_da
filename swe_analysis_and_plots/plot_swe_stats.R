@@ -94,7 +94,7 @@ plot_swe_stats <- function(all_stats,
     max_thresh_colr <- NA #1000 #200
     histlim <- ceiling(max(nrow(all_stats[[1]]), nrow(all_stats[[2]]), nrow(all_stats[[3]]))/2)
     #histlim <- ceiling(max(nrow(acc_hit), nrow(abl_hit), nrow(abl_hit_pers))/2)
-    histlim <- 500 #1000  #500
+    histlim <- 70 #1000  #500
     alpha_val <- 1.0  #0.8  #when is 1.0, no transparency, shows real color
     size_min_pt <- 1.0  #0.0, 0.6
     size_max_pt <- 10  #has been 10
