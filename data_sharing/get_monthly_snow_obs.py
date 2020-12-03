@@ -104,7 +104,7 @@ def get_snow_obs_for_target(target_datetime,
         't1.recorded_elevation, ' + \
         't2.date, ' + \
         't2.value * 1000.0 AS obs_swe_mm, ' + \
-        't3.value * 1000.0 AS obs_snwd_mm ' + \
+        't3.value AS obs_snwd_m ' + \
         'FROM ' + \
         'point.allstation AS t1, ' + \
         'point.obs_swe AS t2, ' + \
@@ -147,7 +147,7 @@ def get_snow_obs_for_target(target_datetime,
     #                    'recorded_elevation',
     #                    'date',
     #                    'obs_swe_mm',
-    #                    'obs_snwd_mm']
+    #                    'obs_snwd_m']
     obs_column_list = ['station_obj_id',
                        'station_id',
                        'station_name',
@@ -158,7 +158,7 @@ def get_snow_obs_for_target(target_datetime,
                        'station_rec_elevation',
                        'date',
                        'obs_swe_mm',
-                       'obs_snwd_mm']
+                       'obs_snwd_m']
     df = pd.DataFrame(obs, columns=obs_column_list)
     snow_by_station = df.groupby('station_obj_id')
     logger.debug('Found snow data for {} sites.'.format(len(snow_by_station)))
@@ -187,11 +187,11 @@ def get_snow_obs_for_target(target_datetime,
             swe_row_dict = swe_row.to_dict()
             swe_row_dict.pop('date')
             swe_row_dict.pop('obs_swe_mm')
-            swe_row_dict.pop('obs_snwd_mm')
+            swe_row_dict.pop('obs_snwd_m')
 
         # Index the valid snow depth value nearest to the target_datetime.
         snwd_idx = None
-        ok_snwd = group[pd.notna(group['obs_snwd_mm']) == True]
+        ok_snwd = group[pd.notna(group['obs_snwd_m']) == True]
         if not ok_snwd.empty:
             ok_snwd_date = ok_snwd['date']
             ok_snwd_offset = ok_snwd_date - target_datetime
@@ -201,7 +201,7 @@ def get_snow_obs_for_target(target_datetime,
             snwd_row_dict = snwd_row.to_dict()
             snwd_row_dict.pop('date')
             snwd_row_dict.pop('obs_swe_mm')
-            snwd_row_dict.pop('obs_snwd_mm')
+            snwd_row_dict.pop('obs_snwd_m')
 
         if swe_idx is not None and snwd_idx is not None:
 
@@ -212,7 +212,7 @@ def get_snow_obs_for_target(target_datetime,
                                   swe_row['date'].to_pydatetime(),
                                   'obs_swe_mm': swe_row['obs_swe_mm'],
                                   'date_snwd': None,
-                                  'obs_snwd_mm': None})
+                                  'obs_snwd_m': None})
             swe_snwd_offset = df.iloc[swe_idx]['date'] - \
                               df.iloc[snwd_idx]['date']
             if np.abs(swe_snwd_offset.total_seconds()) / 3600.0 > \
@@ -223,7 +223,7 @@ def get_snow_obs_for_target(target_datetime,
                              'are too lagged to treat as concurrent.')
             else:
                 snow_row_dict['date_snwd'] = snwd_row['date'].to_pydatetime()
-                snow_row_dict['obs_snwd_mm'] = snwd_row['obs_snwd_mm']
+                snow_row_dict['obs_snwd_m'] = snwd_row['obs_snwd_m']
 
         elif swe_idx is None:
 
@@ -236,7 +236,7 @@ def get_snow_obs_for_target(target_datetime,
                                   'obs_swe_mm': None,
                                   'date_snwd':
                                   snwd_row['date'].to_pydatetime(),
-                                  'obs_snwd_mm': snwd_row['obs_snwd_mm']})
+                                  'obs_snwd_m': snwd_row['obs_snwd_m']})
 
         elif snwd_idx is None:
 
@@ -249,7 +249,7 @@ def get_snow_obs_for_target(target_datetime,
                                   swe_row['date'].to_pydatetime(),
                                   'obs_swe_mm': swe_row['obs_swe_mm'],
                                   'date_snwd': None,
-                                  'obs_snwd_mm': None})
+                                  'obs_snwd_m': None})
         else:
 
             # No good data how does that happen this is a programming error.
@@ -304,19 +304,17 @@ def main():
                                            window_hrs_prev,
                                            window_hrs_post,
                                            max_sep_hrs_for_concurrence,
-                                           scratch_dir=scratch_dir,
-                                           read_pkl=False)
+                                           scratch_dir=scratch_dir)
         logger.info('Found data for {} '.format(len(obs_snow)) +
                     'sites for {}.'.
                     format(target_datetime.strftime('%Y-%m-%d %HZ')))
 
-        
         # Write to csv.
         csv_file_name = 'wdb0_obs_swe_snwd_' + \
             'target_{}_'.format(target_datetime.strftime('%Y%m%d%H')) + \
             'p{}h_m{}h_'.format(window_hrs_prev, window_hrs_post) + \
             'max_sep_{}h'.format(max_sep_hrs_for_concurrence) + \
-            '_test02.csv'
+            '_test03.csv'
         with open(csv_file_name, 'w', newline='') as csv_file:
             csv_writer = csv.writer(csv_file, delimiter=',',
                                     quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -344,18 +342,18 @@ def main():
                                          item['date_swe'].
                                          strftime(date_format),
                                          'snow_water_equivalent_mm'])
-                if item['obs_snwd_mm'] is not None:
+                if item['obs_snwd_m'] is not None:
                     # offset = item['date_snwd'] - target_datetime
                     # offset_hours = offset.days * 24 + offset.seconds // 3600
-                    csv_writer.writerow([item['obs_snwd_mm'],
-                                         0.1 * item['obs_snwd_mm'],
+                    csv_writer.writerow([item['obs_snwd_m'],
+                                         0.1 * item['obs_snwd_m'],
                                          0,
                                          # offset_hours,
                                          item['station_latitude'],
                                          item['station_longitude'],
                                          item['date_snwd'].
                                          strftime(date_format),
-                                         'snow_depth_mm'])
+                                         'snow_depth_m'])
         target_datetime = ndt.plus_one_month(target_datetime)
 
 if __name__ == '__main__':
