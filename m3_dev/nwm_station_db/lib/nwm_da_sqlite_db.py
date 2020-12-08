@@ -32,7 +32,7 @@ def verify_base_database(base_name, db_dir):
     '''
     Locate and verify the base database files to be updated.
     '''
-    if "_archive" in base_name:
+    if "_arch" in base_name or '_archive' in base_name:
         pattern = \
             os.path.join(db_dir, base_name +
                          '_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' +
