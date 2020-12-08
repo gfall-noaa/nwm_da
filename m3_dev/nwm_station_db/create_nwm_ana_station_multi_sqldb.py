@@ -14,6 +14,11 @@ import pathlib
 import sqlite3
 import importlib
 import logging
+import numpy as np
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'lib'))
+import nwm_da_geo as ndg
+import local_logger
 
 def parse_args():
 
@@ -68,48 +73,289 @@ def load_module(pyfilepath):
     b = module.myfunc(a)
     '''
 
+    
+def check_attr(cfg, attr_name):
+    logger = logging.getLogger()
+    if not hasattr(cfg, attr_name):
+        logger.error('Configuration is missing attribute "{}".'.
+                     format(att_name))
+        return False
+    return True
+
+    
 def check_config(cfg):
     '''
     Check and complete database configuration.
     '''
 
     logger = logging.getLogger()
-    
+
+    # Check configuration for RUN_OPTION (operational vs. archival).
     attr_name = 'RUN_OPTION'
-        if not hasattr(cfg, attr_name):
-            logger.error('Configuration is missing attribute "{}".'.
-                         format(att_name))
-            sys.exit(1)
+    if not check_attr(cfg, attr_name): return None
     if cfg.RUN_OPTION == 1:
-        attr_name = 'NUM_DAYS_TO_CURRENT_TIME'
-        if not hasattr(cfg, attr_name):
-            logger.error('Configuration is missing attribute "{}".'.
-                         format(att_name))
-            sys.exit(1)
+        # Operational databases need a NUM_DAYS_TO_CURRENT_TIME defined.
+        if not check_attr(cfg, 'NUM_DAYS_TO_CURRENT_TIME'): return None
         finish_datetime = dt.datetime.utcnow()
-        start_datetime = finish_datetime - dt.timedelta(days=NUM_DAYS_TO_CURRENT_TIME)
+        start_datetime = finish_datetime - \
+            dt.timedelta(days=cfg.NUM_DAYS_TO_CURRENT_TIME)
         cfg.START_DATE = start_datetime.strftime('%Y%m%d%H')
-        #start_datetime = None
         cfg.FINISH_DATE = finish_datetime.strftime('%Y%m%d%H')
-        #finish_datetime = None
     elif cfg.RUN_OPTION == 2:
-        attr_name = 'START_DATE'
-        if not hasattr(cfg, attr_name):
-            logger.error('Configuration is missing attribute "{}".'.
-                         format(att_name))
-            sys.exit(1)
-        attr_name = 'FINISH_DATE'
-        if not hasattr(cfg, attr_name):
-            logger.error('Configuration is missing attribute "{}".'.
-                         format(att_name))
-            sys.exit(1)
+        # Archival databases need a START_DATE and FINISH_DATE defined.
+        if not check_attr(cfg, 'START_DATE'): return None
+        if not check_attr(cfg, 'FINISH_DATE'): return None
         cfg.NUM_DAYS_TO_CURRENT_TIME = 0
     else:
         logger.error('Invalid {} = {} in configuration.'.
                      format(attr_name, getattr(cfg, attr_name)))
-        sys.exit(1)
-    print('Need to specify a run option!')
-    sys.exit(1)
+        return None
+
+    # Identify sampling method.
+    attr_name = 'SAMPLING_METHOD'
+    if not check_attr(cfg, attr_name): return None
+    if cfg.SAMPLING_METHOD == 1:
+        sampling = 'neighbor'
+    elif cfg.SAMPLING_METHOD == 2:
+        sampling = 'bilinear'
+    else:
+        logger.error('Invalid {} = {} in configuration.'.
+                     format(attr_name, getattr(cfg, attr_name)))
+        return None
+
+    # Generate filenames.
+    if not check_attr(cfg, 'DB_DIR'): return None
+    if not check_attr(cfg, 'DATABASE_NAME'): return None
+    if cfg.RUN_OPTION == 1:
+        db_name_general = cfg.DATABASE_NAME + '_' + \
+                          sampling + '_oper'
+    else: # RUN_OPTION == 2
+        db_name_general = cfg.DATABASE_NAME + '_' + \
+                          sampling + '_arch_' + \
+                          cfg.START_DATE + '_to_' + cfg.FINISH_DATE
+    cfg.DATABASES = dict(
+        path = cfg.DB_DIR,
+        base_file = db_name_general + '_base.db',
+        land_file = db_name_general + '_land_single.db',
+        forcing_file = db_name_general + '_forcing_single.db',
+    )
+
+    # Get the NWM projection.
+    cfg.PROJ_COORD = ndg.nwm_grid_proj()
+
+    # Specify bounding box.
+    attr_name = 'BOUNDING_BOX_OPTION'
+    if not check_attr(cfg, attr_name): return None
+    if cfg.BOUNDING_BOX_OPTION == 1:
+        cfg.MIN_LON, cfg.MAX_LON, cfg.MIN_LAT, cfg.MAX_LAT = \
+            ndg.get_lcc_grid_bounding_box(cfg.PROJ_COORD['lat_sec_1'],
+                                          cfg.PROJ_COORD['lat_sec_2'],
+                                          cfg.PROJ_COORD['lat_d'],
+                                          cfg.PROJ_COORD['lon_v'],
+                                          cfg.PROJ_COORD['x_resolution_meters'],
+                                          cfg.PROJ_COORD['y_resolution_meters'],
+                                          cfg.PROJ_COORD['x_left_center'],
+                                          cfg.PROJ_COORD['y_bottom_center'],
+                                          cfg.PROJ_COORD['number_of_columns'],
+                                          cfg.PROJ_COORD['number_of_rows'],
+                                          cfg.PROJ_COORD['earth_radius_m'],
+                                          cfg.PROJ_COORD['proj4_proj'])
+    elif cfg.BOUNDING_BOX_OPTION == 2:
+        if not check_attr(cfg, 'MIN_LON'): return None
+        if not check_attr(cfg, 'MAX_LON'): return None
+        if not check_attr(cfg, 'MIN_LAT'): return None
+        if not check_attr(cfg, 'MAX_LAT'): return None
+    else:
+        logger.error('Invalid {} = {} in configuration.'.
+                     format(attr_name, getattr(cfg, attr_name)))
+        return None
+
+    # NWM cycles to include in the database.
+    if not check_attr(cfg, 'EXT_ANA_OPT'): return None
+    if not check_attr(cfg, 'ANA_OPT'): return None
+    if not check_attr(cfg, 'SHORT_RANGE_OPT'): return None
+    if not check_attr(cfg, 'MEDIUM_RANGE_ENS_OPT'): return None
+    if not check_attr(cfg, 'LONG_RANGE_ENS_OPT'): return None
+
+    # Values for cycle types (# hours forward or backward).
+    cfg.EXT_ANA = -28
+    cfg.ANA = -3
+    cfg.SHORT_RANGE = 18
+    cfg.MEDIUM_RANGE_ENS = 240
+    cfg.LONG_RANGE_ENS = 720
+
+    # String contained in file names for each cycle type.
+    cfg.EXT_ANA_STR = 'analysis_assim_extend'
+    cfg.ANA_STR = 'analysis_assim'
+    cfg.SHORT_RANGE_STR = 'short_range_assim'
+    cfg.MEDIUM_RANGE_ENS_STR = 'medium_range_assim'
+    cfg.LONG_RANGE_ENS_STR = 'long_range_assim'
+
+    # Predefine dimensions for NWM variables
+    dims_land = 'station,time'
+    attr_name = 'LAYER_OPTION'
+    if not check_attr(cfg, attr_name): return None
+    if cfg.LAYER_OPTION == 1:
+        dims_snow = 'station,snow_layer,time'
+        dims_soil = 'station,soil_layer,time'
+    elif cfg.LAYER_OPTION != 0:
+        logger.error('Invalid {} = {} in configuration.'.
+                     format(attr_name, getattr(cfg, attr_name)))
+        return None
+
+    # Variables
+    # NOTE: Variable content should be given in the order as:
+    #       variable name, nwm file type, nwm variable name, long name,
+    #       standard name, units and dimensions
+
+    # Additional "VARS_FORCINGS" variables not supported in this configuration:
+    # - Var name  Long name                                  NWM 2.0?  2.1?
+    #   LWDOWN    Surface downward long-wave radiation flux       Y     Y
+    cfg.VARS_FORCINGS = [('nwm_precip_rate',
+                          'forcing', 'RAINRATE', 'surface precipitation rate',
+                          'lwe_precipitation_rate', 'mm s-1', dims_land),
+                         ('nwm_surface_pressure',
+                          'forcing', 'PSFC', 'surface pressure',
+                          'surface_air_pressure', 'Pa', dims_land),
+                         ('nwm_downward_shortwave',
+                          'forcing', 'SWDOWN',
+                          'surface downward shortwave radiation flux',
+                          'surface_downwelling_shortwave_flux_in_air',
+c                          'W m-2', dims_land),
+                         ('nwm_air_temperature',
+                          'forcing', 'T2D', '2 m air temperature',
+                          'air_temperature', 'K', dims_land),
+                         ('nwm_specific_humidity',
+                          'forcing', 'Q2D', '2 m specific humidity',
+                          'specific_humidity', 'kg kg-1', dims_land),
+                         ('nwm_u_wind',
+                          'forcing', 'U2D', '10 m u component of wind',
+                          'eastward_wind', 'm s-1', dims_land),
+                         ('nwm_v_wind',
+                          'forcing', 'V2D', '10 m v component of wind',
+                          'northward_wind', 'm s-1', dims_land)]
+
+    # Account for an idiosyncratic convention violation in the RAINRATE
+    # "units" attribute in NWM v2.1.
+    attr_name = 'NWM_VERSION'
+    if not check_attr(cfg, attr_name): return None
+    if cfg.NWM_VERSION == '2.1':
+        cfg.VARS_FORCINGS[0] = ('nwm_precip_rate',
+                                'forcing', 'RAINRATE',
+                                'surface precipitation rate',
+                                'lwe_precipitation_rate', 'mm s^-1',
+                                dims_land)
+    elif cfg.NWM_VERSION != '2.0':
+        logger.error('Invalid {} = {} in configuration.'.
+                     format(attr_name, getattr(cfg, attr_name)))
+        return None
+    
+    # Additional "VARS_LAND" variables not supported in this configuration:
+    # - Var name  Long name                                   NWM 2.0?  2.1?
+    # -  ISNOW     Number of snow layers                            Y     Y
+    # - EDIR      Direct from soil evaporation rate                N     Y
+    # - QSNOW     Snowfall rate on the ground                      N     Y
+    # - QRAIN     Rainfall rate on the ground                      N     Y
+    # - ACSNOM    Accumulated melting water out of snow bottom     N     Y
+
+    # Columns of nwm_meta corresponding to tuples in this list:
+    #   var_name
+    #   file_type
+    #   nwm_var_name (from NWM output files)
+    #   long_name (from NWM output files)
+    #   standard_name
+    #   units
+    #   dim
+    cfg.VARS_LAND = [('nwm_snow_water_equivalent',
+                      'land', 'SNEQV',
+                      'snow water equivalent',
+                      'surface_snow_amount', 'kg m-2', dims_land),
+                     ('nwm_snow_depth',
+                      'land', 'SNOWH',
+                      'snow depth',
+                      'surface_snow_thickness', 'm', dims_land),
+                     ('nwm_snow_average_temperature',
+                      'land', 'SNOWT_AVG',
+                      'average snow temperature',
+                      'temperature_in_surface_snow', 'K', dims_land),
+                     ('nwm_snow_cover_fraction',
+                      'land', 'FSNO',
+                      'snow cover fraction',
+                      '', '1', dims_land),
+                     ('nwm_soil_saturation',
+                      'land', 'SOILSAT_TOP',
+                      'fraction of soil saturation (top 2 layers)',
+                      '', '1', dims_land),
+                     ('nwm_soil_ice_fraction',
+                      'land', 'SOILICE',
+                      'soil moisture ice fraction',
+                      '', '1', dims_land),
+                     ('nwm_total_evapotranspiration',
+                      'land', 'ACCET',
+                      'total evapotranspiration',
+                      '', 'mm', dims_land)
+                     ]
+
+    attr_name = 'NWM_VERSION'
+    if not check_attr(cfg, attr_name): return None
+    if cfg.NWM_VERSION == '2.1':
+        cfg.VARS_LAND.extend([
+            ('nwm_evaporation_rate',
+             'land', 'EDIR',
+             'surface evaporation rate',
+             'lwe_water_evaporation_rate', 'kg m-2 s-1', dims_land),
+            ('nwm_frozen_precipitation_rate',
+             'land', 'QSNOW',
+             'frozen precipitation rate',
+             'lwe_snowfall_rate', 'mm s-1', dims_land),
+            ('nwm_liquid_precipitation_rate',
+             'land', 'QRAIN',
+             'liquid precipitation rate',
+             'rainfall_rate', 'mm s-1', dims_land),
+            ('nwm_snow_melt',
+             'land', 'ACSNOM',
+             'snow melt',
+             'surface_snow_melt_amount', 'mm', dims_land)
+             ])
+
+    cfg.NUM_SNOW_LAYERS = 3
+    cfg.NUM_SOIL_LAYERS = 4
+    attr_name = 'LAYER_OPTION'
+    if not check_attr(cfg, attr_name): return None
+    if cfg.LAYER_OPTION == 1:
+        cfg.VARS_LAND.append(
+            ('nwm_num_snow_layers',
+             'land', 'ISNOW',
+             'number of snow layers',
+             '', 'count', dims_land)
+            )
+        cfg.VARS_LAYER_SOIL = [('nwm_snow_liquid_water_by_layer',
+                                'land', 'SNLIQ', 'snow layer liquid water',
+                                '', 'mm', 'neighbor', dims_snow)]
+        cfg.VARS_LAYER_SNOW = [('nwm_soil_moisture_by_layer',
+                                'land', 'SOIL_M', 'volumetric soil moisture',
+                                'water_content_of_soil_layer',
+                                'm3 m-3', 'neighbor', dims_soil),
+                               ('nwm_soil_temperature_by_layer',
+                                'land', 'SOIL_T', 'soil temperature',
+                                'soil_temperature', 'K', 'neighbor', dims_soil)]
+        cfg.VARS_LAND = \
+            cfg.VARS_LAND + cfg.VARS_LAYER_SOIL + cfg.VARS_LAYER_SNOW
+    elif cfg.LAYER_OPTION != 0:
+        logger.error('Invalid {} = {} in configuration.'.
+                     format(attr_name, getattr(cfg, attr_name)))
+        return None
+
+    # dims_land = None
+    # dims2 = None
+    # dims_snow = None
+    # dims_soil = None
+
+    cfg.ENUM_NDV = {'float32 missing': np.finfo(np.float32).min,
+                    'float64 missing': np.finfo(np.float64).min,
+                    'int16 missing': np.iinfo(np.int16).min,
+                    'int32 missing': np.iinfo(np.int32).min,
+                    'byte missing': np.iinfo(np.byte).min}
 
     return cfg
 
@@ -167,6 +413,10 @@ def main():
     # Read command line arguments.
     cmd_opt = parse_args()
     cfg = load_module(cmd_opt)
+    cfg = check_config(cfg)
+    if cfg is None:
+        logger.error('Configuration failed.')
+        sys.exit(1)
     '''
     if cmd_opt is not None:
         config_path = cmd_opt
@@ -466,6 +716,7 @@ def main():
     #short_range = 18
     #medium_range_ens = 240
     #long_range_ens = 720
+
     ext_ana_val = cfg.EXT_ANA
     ana_val = cfg.ANA
     short_range_val = cfg.SHORT_RANGE
